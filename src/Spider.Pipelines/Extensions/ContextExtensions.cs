@@ -8,6 +8,39 @@
     public static class ContextExtensions
     {
         /// <summary>
+        /// Cancels the ongoing operation associated with the context.
+        /// </summary>
+        /// <param name="context">The read-only context instance.</param>
+        public static void CancelOperation(this IReadOnlyContext context)
+        {
+            var cancellable = context.AsCancellable();
+            cancellable.CancelOperation();
+        }
+
+        /// <summary>
+        /// Cancels the ongoing operation associated with the context.
+        /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
+        /// <param name="context">The read-only context instance.</param>
+        public static void CancelOperation<TRequest>(this IReadOnlyContext<TRequest> context)
+        {
+            var cancellable = context.AsCancellable();
+            cancellable.CancelOperation();
+        }
+
+        /// <summary>
+        /// Cancels the ongoing operation associated with the context.
+        /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
+        /// <typeparam name="TResponse">The type of the response object.</typeparam>
+        /// <param name="context">The read-only context instance.</param>
+        public static void CancelOperation<TRequest, TResponse>(this IReadOnlyContext<TRequest, TResponse> context)
+        {
+            var cancellable = context.AsCancellable();
+            cancellable.CancelOperation();
+        }
+
+        /// <summary>
         /// Sets the pipeline state to <see cref="PipelineState.OnPreProcess"/> for preprocessing.
         /// </summary>
         public static void OnPreProcess<TRequest>(this IReadOnlyContext<TRequest> context)
@@ -207,12 +240,12 @@
         /// Determines if the context has been cancelled.
         /// </summary>
         public static bool IsCancelled<TRequest>(this IReadOnlyContext<TRequest> context)
-            => context.Cancelled;
+            => context.Cancelled || context.CancellationToken.IsCancellationRequested;
 
         /// <summary>
         /// Determines if the context has been cancelled.
         /// </summary>
         public static bool IsCancelled<TRequest, TResponse>(this IReadOnlyContext<TRequest, TResponse> context)
-            => context.Cancelled;
+            => context.Cancelled || context.CancellationToken.IsCancellationRequested;
     }
 }

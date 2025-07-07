@@ -15,7 +15,7 @@
     /// <returns>
     /// A <see cref="Task"/> representing the asynchronous post-processing operation.
     /// </returns>
-    public delegate Task SucessPostProcessDelegate<TRequest>(
+    public delegate Task SuccessPostProcessDelegate<TRequest>(
         IReadOnlyContext<TRequest> context,
         PostProcessArguments arguments);
 
