@@ -9,13 +9,7 @@
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     internal class TargetExecution<TRequest> : ITargetExecution<TRequest>
     {
-        /// <summary>
-        /// The override handler to execute if the override condition is met.
-        /// </summary>
         private readonly TargetHandler<TRequest> _overridesHandler;
-        /// <summary>
-        /// The delegate that determines whether the override handler should be executed.
-        /// </summary>
         private readonly OverridesConditionDelegate<TRequest> _overridesCondition;
 
         /// <summary>
@@ -25,8 +19,8 @@
         /// <param name="overridesCondition">The delegate that determines whether the override handler should be executed.</param>
         public TargetExecution(TargetHandler<TRequest> overridesHandler, OverridesConditionDelegate<TRequest> overridesCondition)
         {
-            _overridesHandler = overridesHandler;
-            _overridesCondition = overridesCondition;
+            _overridesHandler = overridesHandler ?? throw new ArgumentNullException(nameof(overridesHandler));
+            _overridesCondition = overridesCondition ?? throw new ArgumentNullException(nameof(overridesCondition)); 
         }
 
         /// <inheritdoc/>
@@ -55,13 +49,7 @@
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
     internal class TargetExecution<TRequest, TResponse> : ITargetExecution<TRequest, TResponse>
     {
-        /// <summary>
-        /// The override handler to execute if the override condition is met.
-        /// </summary>
         private readonly TargetHandler<TRequest, TResponse> _overridesHandler;
-        /// <summary>
-        /// The delegate that determines whether the override handler should be executed.
-        /// </summary>
         private readonly OverridesConditionDelegate<TRequest> _overridesCondition;
 
         /// <summary>
@@ -71,15 +59,15 @@
         /// <param name="overridesCondition">The delegate that determines whether the override handler should be executed.</param>
         public TargetExecution(TargetHandler<TRequest, TResponse> overridesHandler, OverridesConditionDelegate<TRequest> overridesCondition)
         {
-            _overridesHandler = overridesHandler;
-            this._overridesCondition = overridesCondition;
+            _overridesHandler = overridesHandler ?? throw new ArgumentNullException(nameof(overridesHandler));
+            _overridesCondition = overridesCondition ?? throw new ArgumentNullException(nameof(overridesCondition));
         }
 
         /// <inheritdoc/>
-        public Task OnTargetExecution(IReadOnlyContext<TRequest, TResponse> context, TargetHandler<TRequest, TResponse> targetHandler)
+        public Task<TResponse> OnTargetExecution(IReadOnlyContext<TRequest, TResponse> context, TargetHandler<TRequest, TResponse> targetHandler)
         {
             if (context.IsCancelled())
-                return Task.CompletedTask;
+                return Task.FromResult(default(TResponse));
 
             if (_overridesHandler == null || _overridesCondition == null)
                 return targetHandler(context.Request, context.CancellationToken);

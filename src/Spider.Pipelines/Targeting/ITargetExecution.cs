@@ -25,11 +25,11 @@
     public interface ITargetExecution<TRequest, TResponse>
     {
         /// <summary>
-        /// Executes the specified target handler asynchronously for the given request and response context.
+        /// Executes the specified target handler asynchronously for the given request and response context and returns a response.
         /// </summary>
         /// <param name="context">The read-only context containing the request, response, and pipeline state.</param>
         /// <param name="targetHandler">The target handler delegate to execute.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        Task OnTargetExecution(IReadOnlyContext<TRequest, TResponse> context, TargetHandler<TRequest, TResponse> targetHandler);
+        /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
+        Task<TResponse> OnTargetExecution(IReadOnlyContext<TRequest, TResponse> context, TargetHandler<TRequest, TResponse> targetHandler);
     }
 }

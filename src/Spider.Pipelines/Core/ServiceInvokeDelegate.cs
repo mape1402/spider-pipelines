@@ -1,4 +1,6 @@
-﻿namespace Spider.Pipelines.Targeting
+﻿using Spider.Pipelines.Targeting;
+
+namespace Spider.Pipelines.Core
 {
     /// <summary>
     /// Represents a delegate that creates a target handler for a service operation 
