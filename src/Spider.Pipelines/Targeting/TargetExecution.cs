@@ -19,8 +19,8 @@
         /// <param name="overridesCondition">The delegate that determines whether the override handler should be executed.</param>
         public TargetExecution(TargetHandler<TRequest> overridesHandler, OverridesConditionDelegate<TRequest> overridesCondition)
         {
-            _overridesHandler = overridesHandler ?? throw new ArgumentNullException(nameof(overridesHandler));
-            _overridesCondition = overridesCondition ?? throw new ArgumentNullException(nameof(overridesCondition)); 
+            _overridesHandler = overridesHandler;
+            _overridesCondition = overridesCondition; 
         }
 
         /// <inheritdoc/>
@@ -59,8 +59,8 @@
         /// <param name="overridesCondition">The delegate that determines whether the override handler should be executed.</param>
         public TargetExecution(TargetHandler<TRequest, TResponse> overridesHandler, OverridesConditionDelegate<TRequest> overridesCondition)
         {
-            _overridesHandler = overridesHandler ?? throw new ArgumentNullException(nameof(overridesHandler));
-            _overridesCondition = overridesCondition ?? throw new ArgumentNullException(nameof(overridesCondition));
+            _overridesHandler = overridesHandler;
+            _overridesCondition = overridesCondition;
         }
 
         /// <inheritdoc/>
