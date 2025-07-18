@@ -34,7 +34,63 @@ dotnet add package Spider.Pipelines
 
 ## 🚀 Quick Start
 
+### 1. Register Spider in your DI container
+```c#
+services.AddSpider();
+```
+
+### 2. Define a service and pipeline
+```c#
+public class MyService
+{
+    public Task<string> Handle(string input, CancellationToken token)
+    {
+        // Your business logic here
+        return Task.FromResult($"Hello, {input}!");
+    }
+}
+```
+
+### 3. Attach pipeline steps
+```c#
+var spider = provider.GetRequiredService<ISpider>();
+
+var bridge = spider.InitBridge<MyService>();
+bridge.Attach<string, string>(builder =>
+{
+    builder.OnPreProcess(cfg =>
+    {
+        cfg.OnPreProcess((ctx, args) =>
+        {
+            Console.WriteLine($"Preprocessing: {ctx.Request}");
+            return Task.CompletedTask;
+        });
+    });
+    builder.OnTargeting(cfg =>
+    {
+        cfg.Overrides((req, token) => Task.FromResult($"Targeted: {req}"));
+    });
+    builder.OnPostProcess(cfg =>
+    {
+        cfg.OnSuccess((ctx, args) =>
+        {
+            Console.WriteLine($"Success: {ctx.Response}");
+            return Task.CompletedTask;
+        });
+    });
+});
+```
+
+### 4. Execute the pipeline
+```C#
+var result = await bridge.ExecuteAsync(
+    svc => (input, token) => svc.Handle(input, token),
+    "World"
+);
+Console.WriteLine(result); // Output: Hello, World!
+```
+
 ## 🛠️ Upcoming Features
 
-- **Some new features...**
-   Some new feature...
+- **Add middlewares**
+   Adding middleware execution.
