@@ -40,7 +40,7 @@
             => _preProcessExecution.OnPreProcessAsync(context);
 
         /// <inheritdoc/>
-        public Task OnTargetingAsync(IReadOnlyContext<TRequest> context, TargetHandler<TRequest> targetHandler)
+        public async Task OnTargetingAsync(IReadOnlyContext<TRequest> context, TargetHandler<TRequest> targetHandler)
         {
             var runTarget = async () =>
             {
@@ -67,29 +67,46 @@
                 }
             };
 
-            return _parallelExecution.Mode switch
+            var runParallel = async () =>
             {
-                ParallelExecutionMode.BeforeTarget => RunBeforeTargetAsync(context, runTarget),
-                ParallelExecutionMode.AfterTarget => RunAfterTargetAsync(context, runTarget),
-                _ => Task.WhenAll(runTarget(), _parallelExecution.OnParallelAsync(context))
+                try
+                {
+                    await _parallelExecution.OnParallelAsync(context);
+                }
+                catch (Exception ex)
+                {
+                    context.AsSettable().Failure(ex);
+                }
             };
+
+            switch (_parallelExecution.Mode)
+            {
+                case ParallelExecutionMode.BeforeTarget:
+                    await runParallel();
+
+                    if (!context.IsFailure())
+                        await runTarget();
+
+                    break;
+
+                case ParallelExecutionMode.AfterTarget:
+                    await runTarget();
+
+                    if (!context.IsFailure() && !context.IsCancelled())
+                        await runParallel();
+
+                    break;
+
+                default:
+                    await Task.WhenAll(runTarget(), runParallel());
+                    break;
+            }
         }
 
         /// <inheritdoc/>
         public Task OnPostProcessAsync(IReadOnlyContext<TRequest> context)
             => context.IsSuccess() ? _postProcessExecution.OnSuccessAsync(context) : _postProcessExecution.OnFailureAsync(context);
 
-        private async Task RunBeforeTargetAsync(IReadOnlyContext<TRequest> context, Func<Task> runTarget)
-        {
-            await _parallelExecution.OnParallelAsync(context);
-            await runTarget();
-        }
-
-        private async Task RunAfterTargetAsync(IReadOnlyContext<TRequest> context, Func<Task> runTarget)
-        {
-            await runTarget();
-            await _parallelExecution.OnParallelAsync(context);
-        }
     }
 
     /// <summary>
@@ -158,20 +175,35 @@
 
             };
 
+            var runParallel = async () =>
+            {
+                try
+                {
+                    await _parallelExecution.OnParallelAsync(context);
+                }
+                catch (Exception ex)
+                {
+                    context.AsSettable().Failure(ex);
+                }
+            };
+
             switch (_parallelExecution.Mode)
             {
                 case ParallelExecutionMode.BeforeTarget:
-                    await _parallelExecution.OnParallelAsync(context);
-                    return await runTarget();
+                    await runParallel();
+                    return context.IsFailure() ? default : await runTarget();
 
                 case ParallelExecutionMode.AfterTarget:
                     var response = await runTarget();
-                    await _parallelExecution.OnParallelAsync(context);
+
+                    if (!context.IsFailure() && !context.IsCancelled())
+                        await runParallel();
+
                     return response;
 
                 default:
                     var targetTask = runTarget();
-                    await Task.WhenAll(targetTask, _parallelExecution.OnParallelAsync(context));
+                    await Task.WhenAll(targetTask, runParallel());
                     return targetTask.Result;
             }
         }
