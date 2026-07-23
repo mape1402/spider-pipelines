@@ -25,6 +25,13 @@ namespace Spider.Pipelines.Tests.Extensions
             var context = new ReadOnlyContextStub();
             Assert.True(context.IsPending());
         }
+
+        [Fact]
+        public void IsCancelledResult_ShouldReturnTrueForCancelled()
+        {
+            var context = new CancelledContextStub();
+            Assert.True(context.IsCancelledResult());
+        }
     }
 
     // Stub for IReadOnlyContext<string>
@@ -36,6 +43,17 @@ namespace Spider.Pipelines.Tests.Extensions
         public PipelineState PipelineState => PipelineState.OnPreProcess;
         public CancellationToken CancellationToken => CancellationToken.None;
         public ResultState ResultState => ResultState.Pending;
+        public Exception Exception => null;
+    }
+
+    public class CancelledContextStub : IReadOnlyContext<string>
+    {
+        public string Request => "test";
+        public IServiceProvider Services => null;
+        public bool Cancelled => true;
+        public PipelineState PipelineState => PipelineState.OnPreProcess;
+        public CancellationToken CancellationToken => CancellationToken.None;
+        public ResultState ResultState => ResultState.Cancelled;
         public Exception Exception => null;
     }
 }

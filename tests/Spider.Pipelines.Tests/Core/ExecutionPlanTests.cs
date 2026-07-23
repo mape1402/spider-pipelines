@@ -21,6 +21,24 @@ namespace Spider.Pipelines.Tests.Core
             var plan = new ExecutionPlan<string>(pre, target, parallel, post);
             Assert.NotNull(plan);
         }
+
+        [Fact]
+        public async Task OnTargetingAsync_WhenContextIsCancelled_ShouldMarkCancelledAndSkipTarget()
+        {
+            var context = new Context<string>("request", new ServiceProviderStub());
+            context.CancelOperation();
+            var target = new RecordingTargetExecutionStub();
+            var plan = new ExecutionPlan<string>(
+                new PreProcessExecutionStub(),
+                target,
+                new ParallelExecutionStub(),
+                new PostProcessExecutionStub());
+
+            await plan.OnTargetingAsync(context, (req, token) => Task.CompletedTask);
+
+            Assert.False(target.Called);
+            Assert.Equal(ResultState.Cancelled, context.ResultState);
+        }
     }
 
     public class ExecutionPlanGenericTests
@@ -35,6 +53,25 @@ namespace Spider.Pipelines.Tests.Core
             var plan = new ExecutionPlan<string, int>(pre, target, parallel, post);
             Assert.NotNull(plan);
         }
+
+        [Fact]
+        public async Task OnTargetingAsync_WhenContextIsCancelled_ShouldMarkCancelledAndSkipTarget()
+        {
+            var context = new Context<string, int>("request", new ServiceProviderStub());
+            context.CancelOperation();
+            var target = new RecordingTargetExecutionGenericStub();
+            var plan = new ExecutionPlan<string, int>(
+                new PreProcessExecutionStub(),
+                target,
+                new ParallelExecutionGenericStub(),
+                new PostProcessExecutionGenericStub());
+
+            var response = await plan.OnTargetingAsync(context, (req, token) => Task.FromResult(42));
+
+            Assert.False(target.Called);
+            Assert.Equal(default, response);
+            Assert.Equal(ResultState.Cancelled, context.ResultState);
+        }
     }
 
     // Stubs for dependencies
@@ -45,6 +82,16 @@ namespace Spider.Pipelines.Tests.Core
     public class TargetExecutionStub : ITargetExecution<string>
     {
         public Task OnTargetExecution(IReadOnlyContext<string> context, TargetHandler<string> handler) => Task.CompletedTask;
+    }
+    public class RecordingTargetExecutionStub : ITargetExecution<string>
+    {
+        public bool Called { get; private set; }
+
+        public Task OnTargetExecution(IReadOnlyContext<string> context, TargetHandler<string> handler)
+        {
+            Called = true;
+            return Task.CompletedTask;
+        }
     }
     public class ParallelExecutionStub : IParallelExecution<string>
     {
@@ -58,6 +105,16 @@ namespace Spider.Pipelines.Tests.Core
     public class TargetExecutionGenericStub : ITargetExecution<string, int>
     {
         public Task<int> OnTargetExecution(IReadOnlyContext<string, int> context, TargetHandler<string, int> handler) => Task.FromResult(42);
+    }
+    public class RecordingTargetExecutionGenericStub : ITargetExecution<string, int>
+    {
+        public bool Called { get; private set; }
+
+        public Task<int> OnTargetExecution(IReadOnlyContext<string, int> context, TargetHandler<string, int> handler)
+        {
+            Called = true;
+            return Task.FromResult(42);
+        }
     }
     public class ParallelExecutionGenericStub : IParallelExecution<string, int>
     {

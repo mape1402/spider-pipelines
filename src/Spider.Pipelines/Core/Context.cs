@@ -78,7 +78,10 @@
         public void CancelOperation()
         {
             lock (_syncRoot)
+            {
                 _cancelled = true;
+                _resultState = ResultState.Cancelled;
+            }
         }
 
         /// <summary>
