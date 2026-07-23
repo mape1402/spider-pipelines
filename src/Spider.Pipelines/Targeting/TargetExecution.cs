@@ -29,8 +29,11 @@
             if (context.IsCancelled())
                 return Task.CompletedTask;
 
-            if (_overridesHandler == null || _overridesCondition == null)
+            if (_overridesHandler == null)
                 return targetHandler(context.Request, context.CancellationToken);
+
+            if (_overridesCondition == null)
+                return _overridesHandler(context.Request, context.CancellationToken);
 
             //TODO: Get standard configuration
             var arguments = new OverridesConditionArguments();
@@ -69,8 +72,11 @@
             if (context.IsCancelled())
                 return Task.FromResult(default(TResponse));
 
-            if (_overridesHandler == null || _overridesCondition == null)
+            if (_overridesHandler == null)
                 return targetHandler(context.Request, context.CancellationToken);
+
+            if (_overridesCondition == null)
+                return _overridesHandler(context.Request, context.CancellationToken);
 
             //TODO: Get standard configuration
             var arguments = new OverridesConditionArguments();
