@@ -5,6 +5,12 @@
     /// </summary>
     public abstract class Context : IReadOnlyContext, ICancellableContext
     {
+        private readonly object _syncRoot = new object();
+        private bool _cancelled;
+        private PipelineState _pipelineState;
+        private ResultState _resultState;
+        private Exception _exception;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Context"/> class.
         /// </summary>
@@ -12,17 +18,30 @@
         /// <param name="cancellationToken">The cancellation token for the pipeline execution.</param>
         protected Context(IServiceProvider services, CancellationToken cancellationToken = default)
         {
-            Cancelled = false;
-            PipelineState = PipelineState.OnPreProcess;
+            _pipelineState = PipelineState.OnPreProcess;
             Services = services;
             CancellationToken = cancellationToken;
         }
 
         /// <inheritdoc/>
-        public bool Cancelled { get; private set; }
+        public bool Cancelled
+        {
+            get
+            {
+                lock (_syncRoot)
+                    return _cancelled;
+            }
+        }
 
         /// <inheritdoc/>
-        public PipelineState PipelineState { get; protected set; }
+        public PipelineState PipelineState
+        {
+            get
+            {
+                lock (_syncRoot)
+                    return _pipelineState;
+            }
+        }
 
         /// <inheritdoc/>
         public CancellationToken CancellationToken { get; }
@@ -31,15 +50,65 @@
         public IServiceProvider Services { get; }
 
         /// <inheritdoc/>
-        public ResultState ResultState { get; protected set; }
+        public ResultState ResultState
+        {
+            get
+            {
+                lock (_syncRoot)
+                    return _resultState;
+            }
+        }
 
         /// <inheritdoc/>
-        public Exception Exception { get; protected set; }
+        public Exception Exception
+        {
+            get
+            {
+                lock (_syncRoot)
+                    return _exception;
+            }
+        }
+
+        /// <summary>
+        /// Synchronizes mutable context state shared between target and parallel steps.
+        /// </summary>
+        protected object SyncRoot => _syncRoot;
 
         /// <inheritdoc/>
         public void CancelOperation()
         {
-            Cancelled = true;
+            lock (_syncRoot)
+                _cancelled = true;
+        }
+
+        /// <summary>
+        /// Sets the pipeline state.
+        /// </summary>
+        /// <param name="state">The pipeline state to set.</param>
+        protected void SetPipelineStateCore(PipelineState state)
+        {
+            lock (_syncRoot)
+                _pipelineState = state;
+        }
+
+        /// <summary>
+        /// Sets the result state.
+        /// </summary>
+        /// <param name="state">The result state to set.</param>
+        protected void SetResultStateCore(ResultState state)
+        {
+            lock (_syncRoot)
+                _resultState = state;
+        }
+
+        /// <summary>
+        /// Sets the captured exception.
+        /// </summary>
+        /// <param name="exception">The exception to set.</param>
+        protected void SetExceptionCore(Exception exception)
+        {
+            lock (_syncRoot)
+                _exception = exception;
         }
     }
 
@@ -49,6 +118,8 @@
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     public class Context<TRequest> : Context, IReadOnlyContext<TRequest>, ISettableContext<TRequest>
     {
+        private TRequest _request;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Context{TRequest}"/> class.
         /// </summary>
@@ -57,34 +128,42 @@
         /// <param name="cancellationToken">The cancellation token for the pipeline execution.</param>
         public Context(TRequest request, IServiceProvider services, CancellationToken cancellationToken = default) : base(services, cancellationToken)
         {
-            Request = request;
+            _request = request;
         }
 
         /// <inheritdoc/>
-        public TRequest Request { get; private set; }
+        public TRequest Request
+        {
+            get
+            {
+                lock (SyncRoot)
+                    return _request;
+            }
+        }
 
         /// <inheritdoc/>
         public void SetException(Exception exception)
         {
-            Exception = exception;
+            SetExceptionCore(exception);
         }
 
         /// <inheritdoc/>
         public void SetPipelineState(PipelineState state)
         {
-            PipelineState = state;
+            SetPipelineStateCore(state);
         }
 
         /// <inheritdoc/>
         public void SetRequest(TRequest request)
         {
-            Request = request;
+            lock (SyncRoot)
+                _request = request;
         }
 
         /// <inheritdoc/>
         public void SetResultState(ResultState state)
         {
-            ResultState = state;
+            SetResultStateCore(state);
         }
     }
 
@@ -95,6 +174,8 @@
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
     public sealed class Context<TRequest, TResponse> : Context<TRequest>, IReadOnlyContext<TRequest, TResponse>, ISettableContext<TRequest, TResponse>
     {
+        private TResponse _response;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Context{TRequest, TResponse}"/> class.
         /// </summary>
@@ -104,12 +185,20 @@
         public Context(TRequest request, IServiceProvider services, CancellationToken cancellationToken = default) : base(request, services, cancellationToken) { }
 
         /// <inheritdoc/>
-        public TResponse Response { get; private set; }
+        public TResponse Response
+        {
+            get
+            {
+                lock (SyncRoot)
+                    return _response;
+            }
+        }
 
         /// <inheritdoc/>
         public void SetResponse(TResponse response)
         {
-            Response = response;
+            lock (SyncRoot)
+                _response = response;
         }
     }
 }
