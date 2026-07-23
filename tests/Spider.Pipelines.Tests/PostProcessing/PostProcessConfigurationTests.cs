@@ -20,11 +20,25 @@ namespace Spider.Pipelines.Tests.PostProcessing
         }
 
         [Fact]
+        public void OnFailure_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new PostProcessConfiguration<string>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnFailure(null));
+        }
+
+        [Fact]
         public void OnSuccess_ShouldReturnSelf()
         {
             var config = new PostProcessConfiguration<string>(new ServiceProviderStub());
             var result = config.OnSuccess((ctx, args) => Task.CompletedTask);
             Assert.Same(config, result);
+        }
+
+        [Fact]
+        public void OnSuccess_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new PostProcessConfiguration<string>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnSuccess(null));
         }
 
         [Fact]
@@ -54,11 +68,25 @@ namespace Spider.Pipelines.Tests.PostProcessing
         }
 
         [Fact]
+        public void OnFailure_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new PostProcessConfiguration<string, int>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnFailure(null));
+        }
+
+        [Fact]
         public void OnSuccess_ShouldReturnSelf()
         {
             var config = new PostProcessConfiguration<string, int>(new ServiceProviderStub());
             var result = config.OnSuccess((ctx, args) => Task.CompletedTask);
             Assert.Same(config, result);
+        }
+
+        [Fact]
+        public void OnSuccess_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new PostProcessConfiguration<string, int>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnSuccess(null));
         }
 
         [Fact]

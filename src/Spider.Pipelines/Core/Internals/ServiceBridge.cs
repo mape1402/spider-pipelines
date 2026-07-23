@@ -28,6 +28,9 @@
         /// <inheritdoc/>
         public IServiceBridge<TService, TRequest> Attach<TRequest>(Action<IPipelineBuilder<TRequest>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             var builder = new PipelineBuilder<TRequest>(_serviceProvider);
             config(builder);
 
@@ -39,6 +42,9 @@
         /// <inheritdoc/>
         public IServiceBridge<TService, TRequest, TResponse> Attach<TRequest, TResponse>(Action<IPipelineBuilder<TRequest, TResponse>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             var builder = new PipelineBuilder<TRequest, TResponse>(_serviceProvider);
             config(builder);
 
@@ -50,6 +56,9 @@
         /// <inheritdoc/>
         public Task ExecuteAsync<TRequest>(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default)
         {
+            if (targetHandler == null)
+                throw new ArgumentNullException(nameof(targetHandler));
+
             var serviceMethod = targetHandler.Compile();
             var targetMethod = serviceMethod.Invoke(Service);
 
@@ -60,6 +69,9 @@
         /// <inheritdoc/>
         public Task<TResponse> ExecuteAsync<TRequest, TResponse>(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default)
         {
+            if (targetHandler == null)
+                throw new ArgumentNullException(nameof(targetHandler));
+
             var serviceMethod = targetHandler.Compile();
             var targetMethod = serviceMethod.Invoke(Service);
 

@@ -26,6 +26,9 @@
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest> OnFailure(FailurePostProcessDelegate<TRequest> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _failureDelegates.Add(handler);
             return this;
         }
@@ -33,6 +36,9 @@
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest> OnSuccess(SuccessPostProcessDelegate<TRequest> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _successDelegates.Add(handler);
             return this;
         }
@@ -67,6 +73,9 @@
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest, TResponse> OnFailure(FailurePostProcessDelegate<TRequest> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _failureDelegates.Add(handler);
             return this;
         }
@@ -74,6 +83,9 @@
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest, TResponse> OnSuccess(SuccessPostProcessDelegate<TRequest, TResponse> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _successDelegates.Add(handler);
             return this;
         }

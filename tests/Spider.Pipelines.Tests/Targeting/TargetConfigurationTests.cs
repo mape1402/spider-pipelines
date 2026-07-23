@@ -20,6 +20,13 @@ namespace Spider.Pipelines.Tests.Targeting
         }
 
         [Fact]
+        public void Overrides_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new TargetConfiguration<string>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.Overrides(null));
+        }
+
+        [Fact]
         public void BuildExecution_ShouldReturnExecutionInstance()
         {
             var config = new TargetConfiguration<string>(new ServiceProviderStub());
@@ -43,6 +50,13 @@ namespace Spider.Pipelines.Tests.Targeting
             var config = new TargetConfiguration<string, int>(new ServiceProviderStub());
             var result = config.Overrides((req, token) => Task.FromResult(42));
             Assert.Same(config, result);
+        }
+
+        [Fact]
+        public void Overrides_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new TargetConfiguration<string, int>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.Overrides(null));
         }
 
         [Fact]

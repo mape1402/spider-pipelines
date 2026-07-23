@@ -57,6 +57,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest> OnPreProcess(Action<IPreProcessConfiguration<TRequest>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_preProcessConfiguration);
             return this;
         }
@@ -64,6 +67,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest> OnTargeting(Action<ITargetConfiguration<TRequest>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_targetConfiguration);
             return this;
         }
@@ -71,6 +77,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest> OnParallel(Action<IParallelConfiguration<TRequest>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_parallelConfiguration);
             return this;
         }
@@ -78,6 +87,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest> OnPostProcess(Action<IPostProcessConfiguration<TRequest>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_postProcessConfiguration);
             return this;
         }
@@ -85,6 +97,9 @@
         /// <inheritdoc/>
         public IPipeline<TRequest> Build(TargetHandler<TRequest> targetHandler)
         {
+            if (targetHandler == null)
+                throw new ArgumentNullException(nameof(targetHandler));
+
             var preProcessExecution = _preProcessConfiguration.BuildExecution();
             var targetExecution = _targetConfiguration.BuildExecution();
             var parallelExecution = _parallelConfiguration.BuildExecution();
@@ -125,6 +140,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> OnPreProcess(Action<IPreProcessConfiguration<TRequest>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_preProcessConfiguration);
             return this;
         }
@@ -132,6 +150,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> OnTargeting(Action<ITargetConfiguration<TRequest, TResponse>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_targetConfiguration);
             return this;
         }
@@ -139,6 +160,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> OnParallel(Action<IParallelConfiguration<TRequest, TResponse>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_parallelConfiguration);
             return this;
         }
@@ -146,6 +170,9 @@
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> OnPostProcess(Action<IPostProcessConfiguration<TRequest, TResponse>> config)
         {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
             config(_postProcessConfiguration);
             return this;
         }
@@ -153,6 +180,9 @@
         /// <inheritdoc/>
         public IPipeline<TRequest, TResponse> Build(TargetHandler<TRequest, TResponse> targetHandler)
         {
+            if (targetHandler == null)
+                throw new ArgumentNullException(nameof(targetHandler));
+
             var preProcessExecution = _preProcessConfiguration.BuildExecution();
             var targetExecution = _targetConfiguration.BuildExecution();
             var parallelExecution = _parallelConfiguration.BuildExecution();
