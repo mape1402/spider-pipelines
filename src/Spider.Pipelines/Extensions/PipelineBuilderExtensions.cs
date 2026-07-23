@@ -5,6 +5,7 @@ namespace Spider.Pipelines.Extensions
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
     using Spider.Pipelines.Targeting;
+    using Spider.Pipelines.Middleware;
 
     /// <summary>
     /// Provides concise configuration helpers for pipeline builders.
@@ -44,6 +45,22 @@ namespace Spider.Pipelines.Extensions
             TargetHandler<TRequest, TResponse> handler,
             OverridesConditionDelegate<TRequest> condition = null)
             => builder.OnTargeting(config => config.Overrides(handler, condition));
+
+        /// <summary>
+        /// Adds middleware that wraps the target handler.
+        /// </summary>
+        public static IPipelineBuilder<TRequest> UseMiddleware<TRequest>(
+            this IPipelineBuilder<TRequest> builder,
+            PipelineMiddlewareDelegate<TRequest> middleware)
+            => builder.OnMiddleware(config => config.Use(middleware));
+
+        /// <summary>
+        /// Adds middleware that wraps the target handler.
+        /// </summary>
+        public static IPipelineBuilder<TRequest, TResponse> UseMiddleware<TRequest, TResponse>(
+            this IPipelineBuilder<TRequest, TResponse> builder,
+            PipelineMiddlewareDelegate<TRequest, TResponse> middleware)
+            => builder.OnMiddleware(config => config.Use(middleware));
 
         /// <summary>
         /// Adds a parallel processing delegate.

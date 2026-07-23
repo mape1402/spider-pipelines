@@ -6,6 +6,7 @@ using Spider.Pipelines.Parallelization;
 using Spider.Pipelines.PostProcessing;
 using Spider.Pipelines.PreProcessing;
 using Spider.Pipelines.Targeting;
+using Spider.Pipelines.Middleware;
 using SpiderParallelExecutionMode = Spider.Pipelines.Parallelization.ParallelExecutionMode;
 
 namespace Spider.Pipelines.Tests.Core
@@ -18,8 +19,9 @@ namespace Spider.Pipelines.Tests.Core
             var pre = new PreProcessExecutionStub();
             var target = new TargetExecutionStub();
             var parallel = new ParallelExecutionStub();
+            var middleware = new MiddlewareExecutionStub();
             var post = new PostProcessExecutionStub();
-            var plan = new ExecutionPlan<string>(pre, target, parallel, post);
+            var plan = new ExecutionPlan<string>(pre, target, parallel, middleware, post);
             Assert.NotNull(plan);
         }
 
@@ -33,6 +35,7 @@ namespace Spider.Pipelines.Tests.Core
                 new PreProcessExecutionStub(),
                 target,
                 new ParallelExecutionStub(),
+                new MiddlewareExecutionStub(),
                 new PostProcessExecutionStub());
 
             await plan.OnTargetingAsync(context, (req, token) => Task.CompletedTask);
@@ -49,6 +52,7 @@ namespace Spider.Pipelines.Tests.Core
                 new PreProcessExecutionStub(),
                 new InvokingTargetExecutionStub(order),
                 new RecordingParallelExecutionStub(order, SpiderParallelExecutionMode.BeforeTarget),
+                new MiddlewareExecutionStub(),
                 new PostProcessExecutionStub());
 
             await plan.OnTargetingAsync(new Context<string>("request", new ServiceProviderStub()), (req, token) =>
@@ -68,6 +72,7 @@ namespace Spider.Pipelines.Tests.Core
                 new PreProcessExecutionStub(),
                 new InvokingTargetExecutionStub(order),
                 new RecordingParallelExecutionStub(order, SpiderParallelExecutionMode.AfterTarget),
+                new MiddlewareExecutionStub(),
                 new PostProcessExecutionStub());
 
             await plan.OnTargetingAsync(new Context<string>("request", new ServiceProviderStub()), (req, token) =>
@@ -87,6 +92,7 @@ namespace Spider.Pipelines.Tests.Core
                 new PreProcessExecutionStub(),
                 new TargetExecutionStub(),
                 new ThrowingParallelExecutionStub(),
+                new MiddlewareExecutionStub(),
                 new PostProcessExecutionStub());
 
             await plan.OnTargetingAsync(context, (req, token) => Task.CompletedTask);
@@ -104,8 +110,9 @@ namespace Spider.Pipelines.Tests.Core
             var pre = new PreProcessExecutionStub();
             var target = new TargetExecutionGenericStub();
             var parallel = new ParallelExecutionGenericStub();
+            var middleware = new MiddlewareExecutionGenericStub();
             var post = new PostProcessExecutionGenericStub();
-            var plan = new ExecutionPlan<string, int>(pre, target, parallel, post);
+            var plan = new ExecutionPlan<string, int>(pre, target, parallel, middleware, post);
             Assert.NotNull(plan);
         }
 
@@ -119,6 +126,7 @@ namespace Spider.Pipelines.Tests.Core
                 new PreProcessExecutionStub(),
                 target,
                 new ParallelExecutionGenericStub(),
+                new MiddlewareExecutionGenericStub(),
                 new PostProcessExecutionGenericStub());
 
             var response = await plan.OnTargetingAsync(context, (req, token) => Task.FromResult(42));
@@ -136,6 +144,7 @@ namespace Spider.Pipelines.Tests.Core
                 new PreProcessExecutionStub(),
                 new TargetExecutionGenericStub(),
                 new ThrowingParallelExecutionGenericStub(),
+                new MiddlewareExecutionGenericStub(),
                 new PostProcessExecutionGenericStub());
 
             await plan.OnTargetingAsync(context, (req, token) => Task.FromResult(42));
@@ -168,6 +177,11 @@ namespace Spider.Pipelines.Tests.Core
     {
         public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
         public Task OnParallelAsync(IReadOnlyContext<string> context) => Task.CompletedTask;
+    }
+    public class MiddlewareExecutionStub : IMiddlewareExecution<string>
+    {
+        public Task OnMiddlewareAsync(IReadOnlyContext<string> context, Func<Task> target)
+            => target();
     }
     public class RecordingParallelExecutionStub : IParallelExecution<string>
     {
@@ -217,6 +231,11 @@ namespace Spider.Pipelines.Tests.Core
     {
         public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
         public Task OnParallelAsync(IReadOnlyContext<string, int> context) => Task.CompletedTask;
+    }
+    public class MiddlewareExecutionGenericStub : IMiddlewareExecution<string, int>
+    {
+        public Task<int> OnMiddlewareAsync(IReadOnlyContext<string, int> context, Func<Task<int>> target)
+            => target();
     }
     public class ThrowingParallelExecutionGenericStub : IParallelExecution<string, int>
     {

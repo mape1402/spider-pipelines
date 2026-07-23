@@ -19,6 +19,12 @@ namespace Spider.Pipelines.Tests.Extensions
                     events.Add("pre");
                     return Task.CompletedTask;
                 })
+                .UseMiddleware(async (ctx, next) =>
+                {
+                    events.Add("middleware-before");
+                    await next();
+                    events.Add("middleware-after");
+                })
                 .ParallelMode(SpiderParallelExecutionMode.AfterTarget)
                 .Parallel((ctx, args) =>
                 {
@@ -39,7 +45,7 @@ namespace Spider.Pipelines.Tests.Extensions
 
             await pipeline.RunAsync("request");
 
-            Assert.Equal(new[] { "pre", "target", "parallel", "success" }, events);
+            Assert.Equal(new[] { "pre", "middleware-before", "target", "middleware-after", "parallel", "success" }, events);
         }
 
         [Fact]
@@ -59,6 +65,7 @@ namespace Spider.Pipelines.Tests.Extensions
                     events.Add("override");
                     return Task.FromResult(7);
                 })
+                .UseMiddleware<string, int>(async (ctx, next) => await next() + 1)
                 .OnSuccess<string, int>((ctx, args) =>
                 {
                     events.Add($"success:{ctx.Response}");
@@ -73,8 +80,8 @@ namespace Spider.Pipelines.Tests.Extensions
 
             var response = await pipeline.RunAsync("request");
 
-            Assert.Equal(7, response);
-            Assert.Equal(new[] { "pre", "override", "success:7" }, events);
+            Assert.Equal(8, response);
+            Assert.Equal(new[] { "pre", "override", "success:8" }, events);
         }
 
         private sealed class ServiceProviderStub : IServiceProvider

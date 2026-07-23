@@ -4,6 +4,7 @@
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
     using Spider.Pipelines.Targeting;
+    using Spider.Pipelines.Middleware;
 
     /// <summary>
     /// Defines a contract for building pipelines with various configurations.
@@ -61,6 +62,13 @@
         IPipelineBuilder<TRequest> OnPostProcess(Action<IPostProcessConfiguration<TRequest>> after);
 
         /// <summary>
+        /// Configures middleware steps for the pipeline.
+        /// </summary>
+        /// <param name="middleware">An action to configure middleware.</param>
+        /// <returns>The current pipeline builder instance.</returns>
+        IPipelineBuilder<TRequest> OnMiddleware(Action<IMiddlewareConfiguration<TRequest>> middleware);
+
+        /// <summary>
         /// Builds the pipeline with the specified target handler.
         /// </summary>
         /// <param name="targetHandler">The target handler delegate.</param>
@@ -102,6 +110,13 @@
         /// <param name="after">An action to configure post-processing.</param>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest, TResponse> OnPostProcess(Action<IPostProcessConfiguration<TRequest, TResponse>> after);
+
+        /// <summary>
+        /// Configures middleware steps for the pipeline.
+        /// </summary>
+        /// <param name="middleware">An action to configure middleware.</param>
+        /// <returns>The current pipeline builder instance.</returns>
+        IPipelineBuilder<TRequest, TResponse> OnMiddleware(Action<IMiddlewareConfiguration<TRequest, TResponse>> middleware);
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.
