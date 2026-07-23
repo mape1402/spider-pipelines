@@ -48,8 +48,18 @@
 
                 try
                 {
+                    if (context.IsCancelled())
+                    {
+                        settableContext.Cancelled();
+                        return;
+                    }
+
                     await _targetExecution.OnTargetExecution(context, targetHandler);
-                    settableContext.Success();
+
+                    if (context.IsCancelled())
+                        settableContext.Cancelled();
+                    else
+                        settableContext.Success();
                 }
                 catch (Exception ex)
                 {
@@ -108,8 +118,18 @@
 
                 try
                 {
+                    if (context.IsCancelled())
+                    {
+                        settableContext.Cancelled();
+                        return default;
+                    }
+
                     var response = await _targetExecution.OnTargetExecution(context, targetHandler);
-                    settableContext.Success(response);
+
+                    if (context.IsCancelled())
+                        settableContext.Cancelled();
+                    else
+                        settableContext.Success(response);
 
                     return response;
                 }

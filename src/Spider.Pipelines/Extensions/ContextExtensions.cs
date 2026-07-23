@@ -201,6 +201,18 @@
             => context.SetResultState(ResultState.Failure);
 
         /// <summary>
+        /// Sets the result state to <see cref="ResultState.Cancelled"/>.
+        /// </summary>
+        public static void Cancelled<TRequest>(this ISettableContext<TRequest> context)
+            => context.SetResultState(ResultState.Cancelled);
+
+        /// <summary>
+        /// Sets the result state to <see cref="ResultState.Cancelled"/>.
+        /// </summary>
+        public static void Cancelled<TRequest, TResponse>(this ISettableContext<TRequest, TResponse> context)
+            => context.SetResultState(ResultState.Cancelled);
+
+        /// <summary>
         /// Determines if the context result state is <see cref="ResultState.Success"/>.
         /// </summary>
         public static bool IsSuccess<TRequest>(this IReadOnlyContext<TRequest> context)
@@ -235,6 +247,18 @@
         /// </summary>
         public static bool IsPending<TRequest, TResponse>(this IReadOnlyContext<TRequest, TResponse> context)
             => context.ResultState == ResultState.Pending;
+
+        /// <summary>
+        /// Determines if the context result state is <see cref="ResultState.Cancelled"/>.
+        /// </summary>
+        public static bool IsCancelledResult<TRequest>(this IReadOnlyContext<TRequest> context)
+            => context.ResultState == ResultState.Cancelled;
+
+        /// <summary>
+        /// Determines if the context result state is <see cref="ResultState.Cancelled"/>.
+        /// </summary>
+        public static bool IsCancelledResult<TRequest, TResponse>(this IReadOnlyContext<TRequest, TResponse> context)
+            => context.ResultState == ResultState.Cancelled;
 
         /// <summary>
         /// Determines if the context has been cancelled.

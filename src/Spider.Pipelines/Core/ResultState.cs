@@ -18,6 +18,11 @@
         /// <summary>
         /// The operation failed to complete successfully.
         /// </summary>
-        Failure
+        Failure,
+
+        /// <summary>
+        /// The operation was cancelled before completion.
+        /// </summary>
+        Cancelled
     }
 }
