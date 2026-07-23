@@ -6,15 +6,16 @@
 [![NuGet](https://img.shields.io/nuget/v/Spider.Pipelines.svg)](https://www.nuget.org/packages/Spider.Pipelines/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Spider.Pipelines is a lightweight .NET library for composing service execution pipelines. It lets you attach preprocessors, override handlers, parallel steps, and postprocessors around existing logic with a clean, dependency-injection-friendly API.
+Spider.Pipelines is a lightweight .NET library for composing service execution pipelines. It lets you attach preprocessors, middleware, override handlers, parallel steps, and postprocessors around existing logic with a clean, dependency-injection-friendly API.
 
 ## Features
 
-- Modular pipeline stages for preprocessing, targeting, parallel work, and postprocessing.
+- Modular pipeline stages for preprocessing, middleware, targeting, parallel work, and postprocessing.
 - Delegate-based execution with minimal runtime overhead.
 - Dependency-injection friendly registration through `IServiceCollection`.
 - Immutable pipeline step snapshots at execution build time.
 - Thread-safe context state for concurrent target and parallel stages.
+- Explicit parallel execution modes: before, with, or after the target handler.
 - Tested with xUnit and NSubstitute.
 
 ## Installation
@@ -51,28 +52,31 @@ var spider = provider.GetRequiredService<ISpider>();
 var bridge = spider.InitBridge<MyService>();
 var typedBridge = bridge.Attach<string, string>(builder =>
 {
-    builder.OnPreProcess(cfg =>
-    {
-        cfg.OnPreProcess((ctx, args) =>
+    builder
+        .PreProcess((ctx, args) =>
         {
             Console.WriteLine($"Preprocessing: {ctx.Request}");
             return Task.CompletedTask;
-        });
-    });
-
-    builder.OnTargeting(cfg =>
-    {
-        cfg.Overrides((req, token) => Task.FromResult($"Targeted: {req}"));
-    });
-
-    builder.OnPostProcess(cfg =>
-    {
-        cfg.OnSuccess((ctx, args) =>
+        })
+        .UseMiddleware(async (ctx, next) =>
+        {
+            Console.WriteLine("Before target");
+            var response = await next();
+            Console.WriteLine("After target");
+            return response;
+        })
+        .UseOverride((req, token) => Task.FromResult($"Targeted: {req}"))
+        .ParallelMode(ParallelExecutionMode.AfterTarget)
+        .Parallel((ctx, args) =>
+        {
+            Console.WriteLine($"Parallel work for: {ctx.Request}");
+            return Task.CompletedTask;
+        })
+        .OnSuccess((ctx, args) =>
         {
             Console.WriteLine($"Success: {ctx.Response}");
             return Task.CompletedTask;
         });
-    });
 });
 ```
 
@@ -87,6 +91,24 @@ var result = await typedBridge.ExecuteAsync(
 Console.WriteLine(result);
 ```
 
-## Upcoming Features
+## Execution Contract
 
-- Middleware execution.
+The default order is:
+
+1. Preprocessors run in registration order.
+2. Middleware wraps the target handler.
+3. Targeting runs the override handler when configured, otherwise the service handler.
+4. Parallel steps run according to `ParallelExecutionMode`. The default is `WithTarget` for backwards compatibility.
+5. Success or failure postprocessors run after targeting and parallel work complete.
+
+`ParallelExecutionMode.BeforeTarget` runs parallel steps before middleware and target. If a parallel step fails, the target is skipped and failure postprocessors run.
+
+`ParallelExecutionMode.WithTarget` runs parallel steps concurrently with middleware and target. Context state is synchronized, but user-provided request/response objects should still be treated with normal .NET thread-safety rules.
+
+`ParallelExecutionMode.AfterTarget` runs parallel steps after a successful target. If the target fails or the operation is cancelled, after-target parallel steps are skipped.
+
+## Error and Cancellation Behavior
+
+Target, middleware, and parallel exceptions are captured in the context as `ResultState.Failure`. Failure postprocessors run before the original exception is rethrown by the pipeline.
+
+Calling `ctx.CancelOperation()` sets `ResultState.Cancelled`. Cancellation skips target execution when observed before targeting and prevents success/failure postprocessors from running.
