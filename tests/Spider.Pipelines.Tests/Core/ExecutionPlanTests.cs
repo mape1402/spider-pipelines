@@ -78,6 +78,22 @@ namespace Spider.Pipelines.Tests.Core
 
             Assert.Equal(new[] { "target", "handler", "parallel" }, order);
         }
+
+        [Fact]
+        public async Task OnTargetingAsync_WhenParallelFails_ShouldMarkContextFailure()
+        {
+            var context = new Context<string>("request", new ServiceProviderStub());
+            var plan = new ExecutionPlan<string>(
+                new PreProcessExecutionStub(),
+                new TargetExecutionStub(),
+                new ThrowingParallelExecutionStub(),
+                new PostProcessExecutionStub());
+
+            await plan.OnTargetingAsync(context, (req, token) => Task.CompletedTask);
+
+            Assert.Equal(ResultState.Failure, context.ResultState);
+            Assert.IsType<InvalidOperationException>(context.Exception);
+        }
     }
 
     public class ExecutionPlanGenericTests
@@ -110,6 +126,22 @@ namespace Spider.Pipelines.Tests.Core
             Assert.False(target.Called);
             Assert.Equal(default, response);
             Assert.Equal(ResultState.Cancelled, context.ResultState);
+        }
+
+        [Fact]
+        public async Task OnTargetingAsync_WhenParallelFails_ShouldMarkContextFailure()
+        {
+            var context = new Context<string, int>("request", new ServiceProviderStub());
+            var plan = new ExecutionPlan<string, int>(
+                new PreProcessExecutionStub(),
+                new TargetExecutionGenericStub(),
+                new ThrowingParallelExecutionGenericStub(),
+                new PostProcessExecutionGenericStub());
+
+            await plan.OnTargetingAsync(context, (req, token) => Task.FromResult(42));
+
+            Assert.Equal(ResultState.Failure, context.ResultState);
+            Assert.IsType<InvalidOperationException>(context.Exception);
         }
     }
 
@@ -155,6 +187,13 @@ namespace Spider.Pipelines.Tests.Core
             return Task.CompletedTask;
         }
     }
+    public class ThrowingParallelExecutionStub : IParallelExecution<string>
+    {
+        public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
+
+        public Task OnParallelAsync(IReadOnlyContext<string> context)
+            => throw new InvalidOperationException("Parallel failed.");
+    }
     public class PostProcessExecutionStub : IPostProcessExecution<string>
     {
         public Task OnSuccessAsync(IReadOnlyContext<string> context) => Task.CompletedTask;
@@ -178,6 +217,13 @@ namespace Spider.Pipelines.Tests.Core
     {
         public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
         public Task OnParallelAsync(IReadOnlyContext<string, int> context) => Task.CompletedTask;
+    }
+    public class ThrowingParallelExecutionGenericStub : IParallelExecution<string, int>
+    {
+        public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
+
+        public Task OnParallelAsync(IReadOnlyContext<string, int> context)
+            => throw new InvalidOperationException("Parallel failed.");
     }
     public class PostProcessExecutionGenericStub : IPostProcessExecution<string, int>
     {
