@@ -1,6 +1,6 @@
 ﻿<Project>
   <PropertyGroup>
-    <TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>false</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,15 +9,22 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <IncludeSymbols>true</IncludeSymbols>
     <IncludeSource>true</IncludeSource>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
 
-    <Authors>Mario Perez</Authors>
+    <Authors>Elysium Coding</Authors>
     <Company>Elysium Coding</Company>
-    <RepositoryUrl></RepositoryUrl>
+    <RepositoryUrl>https://github.com/mape1402/spider-pipelines</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl></PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/mape1402/spider-pipelines</PackageProjectUrl>
     <PackageIcon>image.png</PackageIcon>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageReleaseNotes>https://github.com/mape1402/spider-pipelines/releases</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,7 +33,8 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>$(MinVerVersion)</Version>
+    <Version Condition="'$(MinVerVersion)' != ''">$(MinVerVersion)</Version>
+    <Version Condition="'$(MinVerVersion)' == ''">1.0.0</Version>
     <MinVerTagPrefix>v</MinVerTagPrefix>
     <MinVerMinimumMajorMinor>1.0</MinVerMinimumMajorMinor>
     <MinVerBuildMetadata>build.{DateTime:yyyyMMddHHmmss}</MinVerBuildMetadata>
@@ -35,6 +43,7 @@
 
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.5" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageVersion Include="MinVer" Version="6.0.0" />
   </ItemGroup>
 
