@@ -31,6 +31,9 @@
         /// <inheritdoc/>
         public ITargetConfiguration<TRequest> Overrides(TargetHandler<TRequest> handler, OverridesConditionDelegate<TRequest> condition = null)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _targetHandler = handler;
             _overridesCondition = condition;
 
@@ -74,6 +77,9 @@
         /// <inheritdoc/>
         public ITargetConfiguration<TRequest, TResponse> Overrides(TargetHandler<TRequest, TResponse> handler, OverridesConditionDelegate<TRequest> condition = null)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _targetHandler = handler;
             _overridesCondition = condition;
 

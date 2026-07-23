@@ -21,6 +21,13 @@ namespace Spider.Pipelines.Tests.PreProcessing
         }
 
         [Fact]
+        public void OnPreProcess_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new PreProcessConfiguration<string>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnPreProcess(null));
+        }
+
+        [Fact]
         public void BuildExecution_ShouldReturnExecutionInstance()
         {
             var config = new PreProcessConfiguration<string>(new ServiceProviderStub());

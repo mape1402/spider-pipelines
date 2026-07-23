@@ -26,6 +26,9 @@
         /// <inheritdoc/>
         public IParallelConfiguration<TRequest> OnParallel(ParallelProcessDelegate<TRequest> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _parallelDelegates.Add(handler);
             return this;
         }
@@ -67,6 +70,9 @@
         /// <inheritdoc/>
         public IParallelConfiguration<TRequest, TResponse> OnParallel(ParallelProcessDelegate<TRequest> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _parallelDelegates.Add(handler);
             return this;
         }

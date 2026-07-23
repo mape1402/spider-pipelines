@@ -30,6 +30,9 @@
         /// <inheritdoc/>
         public IPreProcessConfiguration<TRequest> OnPreProcess(PreProcessDelegate<TRequest> handler)
         {
+            if (handler == null)
+                throw new ArgumentNullException(nameof(handler));
+
             _preprocessDelegates.Add(handler);
             return this;
         }

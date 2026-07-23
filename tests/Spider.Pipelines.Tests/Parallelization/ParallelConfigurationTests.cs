@@ -21,6 +21,13 @@ namespace Spider.Pipelines.Tests.Parallelization
         }
 
         [Fact]
+        public void OnParallel_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new ParallelConfiguration<string>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnParallel(null));
+        }
+
+        [Fact]
         public void WithMode_ShouldReturnSelf()
         {
             var config = new ParallelConfiguration<string>(new ServiceProviderStub());
@@ -60,6 +67,13 @@ namespace Spider.Pipelines.Tests.Parallelization
             var config = new ParallelConfiguration<string, int>(new ServiceProviderStub());
             var result = config.OnParallel((ctx, args) => Task.CompletedTask);
             Assert.Same(config, result);
+        }
+
+        [Fact]
+        public void OnParallel_WhenHandlerIsNull_ShouldThrow()
+        {
+            var config = new ParallelConfiguration<string, int>(new ServiceProviderStub());
+            Assert.Throws<ArgumentNullException>(() => config.OnParallel(null));
         }
 
         [Fact]
