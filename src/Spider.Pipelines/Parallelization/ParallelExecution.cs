@@ -12,21 +12,15 @@
         /// The collection of delegates to execute in parallel.
         /// </summary>
         private readonly IReadOnlyCollection<ParallelProcessDelegate<TRequest>> _parallelProcesses;
-        private readonly ParallelExecutionMode _mode;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ParallelExecution{TRequest}"/> class.
         /// </summary>
         /// <param name="parallelProcess">The collection of parallel processing delegates to execute.</param>
-        /// <param name="mode">When the parallel processing delegates run relative to the target handler.</param>
-        public ParallelExecution(IReadOnlyCollection<ParallelProcessDelegate<TRequest>> parallelProcess, ParallelExecutionMode mode = ParallelExecutionMode.WithTarget)
+        public ParallelExecution(IReadOnlyCollection<ParallelProcessDelegate<TRequest>> parallelProcess)
         {
             _parallelProcesses = parallelProcess ?? Array.Empty<ParallelProcessDelegate<TRequest>>();
-            _mode = mode;
         }
-
-        /// <inheritdoc/>
-        public ParallelExecutionMode Mode => _mode;
 
         /// <inheritdoc/>
         public async Task OnParallelAsync(IReadOnlyContext<TRequest> context)
@@ -56,21 +50,15 @@
         /// The collection of delegates to execute in parallel.
         /// </summary>
         private readonly IReadOnlyCollection<ParallelProcessDelegate<TRequest>> _parallelProcesses;
-        private readonly ParallelExecutionMode _mode;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ParallelExecution{TRequest, TResponse}"/> class.
         /// </summary>
         /// <param name="parallelProcesses">The collection of parallel processing delegates to execute.</param>
-        /// <param name="mode">When the parallel processing delegates run relative to the target handler.</param>
-        public ParallelExecution(IReadOnlyCollection<ParallelProcessDelegate<TRequest>> parallelProcesses, ParallelExecutionMode mode = ParallelExecutionMode.WithTarget)
+        public ParallelExecution(IReadOnlyCollection<ParallelProcessDelegate<TRequest>> parallelProcesses)
         {
             _parallelProcesses = parallelProcesses ?? Array.Empty<ParallelProcessDelegate<TRequest>>();
-            _mode = mode;
         }
-
-        /// <inheritdoc/>
-        public ParallelExecutionMode Mode => _mode;
 
         /// <inheritdoc/>
         public async Task OnParallelAsync(IReadOnlyContext<TRequest, TResponse> context)

@@ -15,7 +15,6 @@ Spider.Pipelines is a lightweight .NET library for composing service execution p
 - Dependency-injection friendly registration through `IServiceCollection`.
 - Immutable pipeline step snapshots at execution build time.
 - Thread-safe context state for concurrent target and parallel stages.
-- Explicit parallel execution modes: before, with, or after the target handler.
 - Tested with xUnit and NSubstitute.
 
 ## Installation
@@ -66,7 +65,6 @@ var typedBridge = bridge.Attach<string, string>(builder =>
             return response;
         })
         .UseOverride((req, token) => Task.FromResult($"Targeted: {req}"))
-        .ParallelMode(ParallelExecutionMode.AfterTarget)
         .Parallel((ctx, args) =>
         {
             Console.WriteLine($"Parallel work for: {ctx.Request}");
@@ -98,14 +96,12 @@ The default order is:
 1. Preprocessors run in registration order.
 2. Middleware wraps the target handler.
 3. Targeting runs the override handler when configured, otherwise the service handler.
-4. Parallel steps run according to `ParallelExecutionMode`. The default is `WithTarget` for backwards compatibility.
+4. Parallel steps run concurrently with middleware and target execution.
 5. Success or failure postprocessors run after targeting and parallel work complete.
 
-`ParallelExecutionMode.BeforeTarget` runs parallel steps before middleware and target. If a parallel step fails, the target is skipped and failure postprocessors run.
+Parallel steps are for work that should truly run at the same time as the main operation. Use preprocessors for before-target work, postprocessors for after-target work, and middleware when you need to wrap the target.
 
-`ParallelExecutionMode.WithTarget` runs parallel steps concurrently with middleware and target. Context state is synchronized, but user-provided request/response objects should still be treated with normal .NET thread-safety rules.
-
-`ParallelExecutionMode.AfterTarget` runs parallel steps after a successful target. If the target fails or the operation is cancelled, after-target parallel steps are skipped.
+Context state is synchronized while target and parallel steps run concurrently, but user-provided request/response objects should still be treated with normal .NET thread-safety rules.
 
 ## Error and Cancellation Behavior
 

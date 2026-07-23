@@ -1,7 +1,5 @@
 using Spider.Pipelines.Core.Internals;
 using Spider.Pipelines.Extensions;
-using Spider.Pipelines.Parallelization;
-using SpiderParallelExecutionMode = Spider.Pipelines.Parallelization.ParallelExecutionMode;
 
 namespace Spider.Pipelines.Tests.Extensions
 {
@@ -11,6 +9,7 @@ namespace Spider.Pipelines.Tests.Extensions
         public async Task ShortcutMethods_ShouldConfigureRequestPipeline()
         {
             var events = new List<string>();
+            var targetCanComplete = new TaskCompletionSource();
             var builder = new PipelineBuilder<string>(new ServiceProviderStub());
 
             builder
@@ -25,10 +24,10 @@ namespace Spider.Pipelines.Tests.Extensions
                     await next();
                     events.Add("middleware-after");
                 })
-                .ParallelMode(SpiderParallelExecutionMode.AfterTarget)
                 .Parallel((ctx, args) =>
                 {
                     events.Add("parallel");
+                    targetCanComplete.SetResult();
                     return Task.CompletedTask;
                 })
                 .OnSuccess((ctx, args) =>
@@ -40,12 +39,12 @@ namespace Spider.Pipelines.Tests.Extensions
             var pipeline = builder.Build((req, token) =>
             {
                 events.Add("target");
-                return Task.CompletedTask;
+                return targetCanComplete.Task;
             });
 
             await pipeline.RunAsync("request");
 
-            Assert.Equal(new[] { "pre", "middleware-before", "target", "middleware-after", "parallel", "success" }, events);
+            Assert.Equal(new[] { "pre", "middleware-before", "target", "parallel", "middleware-after", "success" }, events);
         }
 
         [Fact]

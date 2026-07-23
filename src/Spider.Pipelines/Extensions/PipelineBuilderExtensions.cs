@@ -79,22 +79,6 @@ namespace Spider.Pipelines.Extensions
             => builder.OnParallel(config => config.OnParallel(handler));
 
         /// <summary>
-        /// Configures when parallel steps run relative to the target handler.
-        /// </summary>
-        public static IPipelineBuilder<TRequest> ParallelMode<TRequest>(
-            this IPipelineBuilder<TRequest> builder,
-            ParallelExecutionMode mode)
-            => builder.OnParallel(config => config.WithMode(mode));
-
-        /// <summary>
-        /// Configures when parallel steps run relative to the target handler.
-        /// </summary>
-        public static IPipelineBuilder<TRequest, TResponse> ParallelMode<TRequest, TResponse>(
-            this IPipelineBuilder<TRequest, TResponse> builder,
-            ParallelExecutionMode mode)
-            => builder.OnParallel(config => config.WithMode(mode));
-
-        /// <summary>
         /// Adds a success postprocessing delegate.
         /// </summary>
         public static IPipelineBuilder<TRequest> OnSuccess<TRequest>(
