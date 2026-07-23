@@ -1,4 +1,5 @@
 using Spider.Pipelines.Parallelization;
+using SpiderParallelExecutionMode = Spider.Pipelines.Parallelization.ParallelExecutionMode;
 
 namespace Spider.Pipelines.Tests.Parallelization
 {
@@ -20,11 +21,27 @@ namespace Spider.Pipelines.Tests.Parallelization
         }
 
         [Fact]
+        public void WithMode_ShouldReturnSelf()
+        {
+            var config = new ParallelConfiguration<string>(new ServiceProviderStub());
+            var result = config.WithMode(SpiderParallelExecutionMode.AfterTarget);
+            Assert.Same(config, result);
+        }
+
+        [Fact]
         public void BuildExecution_ShouldReturnExecutionInstance()
         {
             var config = new ParallelConfiguration<string>(new ServiceProviderStub());
             var execution = config.BuildExecution();
             Assert.NotNull(execution);
+        }
+
+        [Fact]
+        public void BuildExecution_ShouldUseConfiguredMode()
+        {
+            var config = new ParallelConfiguration<string>(new ServiceProviderStub());
+            var execution = config.WithMode(SpiderParallelExecutionMode.BeforeTarget).BuildExecution();
+            Assert.Equal(SpiderParallelExecutionMode.BeforeTarget, execution.Mode);
         }
     }
 
@@ -46,11 +63,27 @@ namespace Spider.Pipelines.Tests.Parallelization
         }
 
         [Fact]
+        public void WithMode_ShouldReturnSelf()
+        {
+            var config = new ParallelConfiguration<string, int>(new ServiceProviderStub());
+            var result = config.WithMode(SpiderParallelExecutionMode.AfterTarget);
+            Assert.Same(config, result);
+        }
+
+        [Fact]
         public void BuildExecution_ShouldReturnExecutionInstance()
         {
             var config = new ParallelConfiguration<string, int>(new ServiceProviderStub());
             var execution = config.BuildExecution();
             Assert.NotNull(execution);
+        }
+
+        [Fact]
+        public void BuildExecution_ShouldUseConfiguredMode()
+        {
+            var config = new ParallelConfiguration<string, int>(new ServiceProviderStub());
+            var execution = config.WithMode(SpiderParallelExecutionMode.BeforeTarget).BuildExecution();
+            Assert.Equal(SpiderParallelExecutionMode.BeforeTarget, execution.Mode);
         }
     }
 
