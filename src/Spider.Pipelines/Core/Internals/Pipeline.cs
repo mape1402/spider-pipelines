@@ -1,5 +1,6 @@
 ﻿namespace Spider.Pipelines.Core.Internals
 {
+    using Spider.Pipelines.Boundaries.Internals;
     using Spider.Pipelines.Extensions;
     using Spider.Pipelines.Targeting;
 
@@ -30,6 +31,21 @@
         public async Task RunAsync(TRequest request, CancellationToken cancellationToken = default)
         {
             var context = new Context<TRequest>(request, _serviceProvider, cancellationToken);
+            var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
+
+            await boundaryRunner.RunAsync(
+                context,
+                () => RunCoreAsync(context),
+                cancellationToken);
+        }
+
+        /// <summary>
+        /// Runs the request-only pipeline core inside any registered execution boundaries.
+        /// </summary>
+        /// <param name="context">The current pipeline context.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private async Task RunCoreAsync(Context<TRequest> context)
+        {
             context.OnPreProcess();
 
             await _executionPlan.OnPreProcessAsync(context);
@@ -73,6 +89,21 @@
         public async Task<TResponse> RunAsync(TRequest request, CancellationToken cancellationToken = default)
         {
             var context = new Context<TRequest, TResponse>(request, _serviceProvider, cancellationToken);
+            var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
+
+            return await boundaryRunner.RunAsync(
+                context,
+                () => RunCoreAsync(context),
+                cancellationToken);
+        }
+
+        /// <summary>
+        /// Runs the request/response pipeline core inside any registered execution boundaries.
+        /// </summary>
+        /// <param name="context">The current pipeline context.</param>
+        /// <returns>A task containing the pipeline response.</returns>
+        private async Task<TResponse> RunCoreAsync(Context<TRequest, TResponse> context)
+        {
             context.OnPreProcess();
 
             await _executionPlan.OnPreProcessAsync(context);

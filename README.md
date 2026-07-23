@@ -15,6 +15,7 @@ Spider.Pipelines is a lightweight .NET library for composing service execution p
 - Dependency-injection friendly registration through `IServiceCollection`.
 - Immutable pipeline step snapshots at execution build time.
 - Thread-safe context state for concurrent target and parallel stages.
+- Provider-agnostic execution boundaries for wrapping complete pipeline execution.
 - Tested with xUnit and NSubstitute.
 
 ## Installation
@@ -29,6 +30,15 @@ dotnet add package Spider.Pipelines
 
 ```csharp
 services.AddSpider();
+```
+
+Execution boundaries can be registered through the Spider builder:
+
+```csharp
+services.AddSpider(spider =>
+{
+    spider.AddExecutionBoundary<MyBoundary>();
+});
 ```
 
 ### 2. Define a Service
@@ -103,8 +113,36 @@ Parallel steps are for work that should truly run at the same time as the main o
 
 Context state is synchronized while target and parallel steps run concurrently, but user-provided request/response objects should still be treated with normal .NET thread-safety rules.
 
+## Execution Boundaries
+
+Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider only calls `BeginAsync`, `CompleteAsync`, `FaultAsync`, `CancelAsync`, and `DisposeAsync`; application code decides what those operations mean.
+
+```csharp
+public sealed class MyBoundary : IPipelineExecutionBoundary
+{
+    public ValueTask<IPipelineExecutionBoundaryScope> BeginAsync(
+        PipelineExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult<IPipelineExecutionBoundaryScope>(
+            new MyBoundaryScope());
+    }
+}
+```
+
+Boundary order:
+
+1. Boundary begin.
+2. Preprocessors.
+3. Middleware, target/override, and parallel work.
+4. Postprocessors.
+5. Boundary complete, fault, or cancel.
+6. Boundary dispose.
+
+Multiple boundaries nest in registration order and dispose in reverse order.
+
 ## Error and Cancellation Behavior
 
 Target, middleware, and parallel exceptions are captured in the context as `ResultState.Failure`. Failure postprocessors run before the original exception is rethrown by the pipeline.
 
-Calling `ctx.CancelOperation()` sets `ResultState.Cancelled`. Cancellation skips target execution when observed before targeting and prevents success/failure postprocessors from running.
+Calling `ctx.CancelOperation()` sets `ResultState.Cancelled`. Cancellation skips target execution when observed before targeting, prevents success/failure postprocessors from running, and terminates registered boundaries through `CancelAsync`.
