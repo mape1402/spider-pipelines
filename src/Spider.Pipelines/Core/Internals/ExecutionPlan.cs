@@ -42,7 +42,7 @@
         /// <inheritdoc/>
         public Task OnTargetingAsync(IReadOnlyContext<TRequest> context, TargetHandler<TRequest> targetHandler)
         {
-            var overrides = async () =>
+            var runTarget = async () =>
             {
                 var settableContext = context.AsSettable();
 
@@ -67,12 +67,29 @@
                 }
             };
 
-            return Task.WhenAll(overrides(), _parallelExecution.OnParallelAsync(context));
+            return _parallelExecution.Mode switch
+            {
+                ParallelExecutionMode.BeforeTarget => RunBeforeTargetAsync(context, runTarget),
+                ParallelExecutionMode.AfterTarget => RunAfterTargetAsync(context, runTarget),
+                _ => Task.WhenAll(runTarget(), _parallelExecution.OnParallelAsync(context))
+            };
         }
 
         /// <inheritdoc/>
         public Task OnPostProcessAsync(IReadOnlyContext<TRequest> context)
             => context.IsSuccess() ? _postProcessExecution.OnSuccessAsync(context) : _postProcessExecution.OnFailureAsync(context);
+
+        private async Task RunBeforeTargetAsync(IReadOnlyContext<TRequest> context, Func<Task> runTarget)
+        {
+            await _parallelExecution.OnParallelAsync(context);
+            await runTarget();
+        }
+
+        private async Task RunAfterTargetAsync(IReadOnlyContext<TRequest> context, Func<Task> runTarget)
+        {
+            await runTarget();
+            await _parallelExecution.OnParallelAsync(context);
+        }
     }
 
     /// <summary>
@@ -112,7 +129,7 @@
         /// <inheritdoc/>
         public async Task<TResponse> OnTargetingAsync(IReadOnlyContext<TRequest, TResponse> context, TargetHandler<TRequest, TResponse> targetHandler)
         {
-            var overrides = async () =>
+            var runTarget = async () =>
             {
                 var settableContext = context.AsSettable();
 
@@ -141,11 +158,22 @@
 
             };
 
-            var overridesTask = overrides();
+            switch (_parallelExecution.Mode)
+            {
+                case ParallelExecutionMode.BeforeTarget:
+                    await _parallelExecution.OnParallelAsync(context);
+                    return await runTarget();
 
-            await Task.WhenAll(overridesTask, _parallelExecution.OnParallelAsync(context));
+                case ParallelExecutionMode.AfterTarget:
+                    var response = await runTarget();
+                    await _parallelExecution.OnParallelAsync(context);
+                    return response;
 
-            return overridesTask.Result;
+                default:
+                    var targetTask = runTarget();
+                    await Task.WhenAll(targetTask, _parallelExecution.OnParallelAsync(context));
+                    return targetTask.Result;
+            }
         }
 
         /// <inheritdoc/>
