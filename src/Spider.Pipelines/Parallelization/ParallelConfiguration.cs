@@ -10,7 +10,6 @@
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IList<ParallelProcessDelegate<TRequest>> _parallelDelegates;
-        private ParallelExecutionMode _mode;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ParallelConfiguration{TRequest}"/> class.
@@ -20,7 +19,6 @@
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _parallelDelegates = new List<ParallelProcessDelegate<TRequest>>();
-            _mode = ParallelExecutionMode.WithTarget;
         }
 
         /// <inheritdoc/>
@@ -34,15 +32,8 @@
         }
 
         /// <inheritdoc/>
-        public IParallelConfiguration<TRequest> WithMode(ParallelExecutionMode mode)
-        {
-            _mode = mode;
-            return this;
-        }
-
-        /// <inheritdoc/>
         public IParallelExecution<TRequest> BuildExecution()
-            => new ParallelExecution<TRequest>(_parallelDelegates.ToImmutableArray(), _mode);
+            => new ParallelExecution<TRequest>(_parallelDelegates.ToImmutableArray());
     }
 
     /// <summary>
@@ -54,7 +45,6 @@
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IList<ParallelProcessDelegate<TRequest>> _parallelDelegates;
-        private ParallelExecutionMode _mode;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ParallelConfiguration{TRequest, TResponse}"/> class.
@@ -64,7 +54,6 @@
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _parallelDelegates = new List<ParallelProcessDelegate<TRequest>>();
-            _mode = ParallelExecutionMode.WithTarget;
         }
 
         /// <inheritdoc/>
@@ -78,14 +67,7 @@
         }
 
         /// <inheritdoc/>
-        public IParallelConfiguration<TRequest, TResponse> WithMode(ParallelExecutionMode mode)
-        {
-            _mode = mode;
-            return this;
-        }
-
-        /// <inheritdoc/>
         public IParallelExecution<TRequest, TResponse> BuildExecution()
-            => new ParallelExecution<TRequest, TResponse>(_parallelDelegates.ToImmutableArray(), _mode);
+            => new ParallelExecution<TRequest, TResponse>(_parallelDelegates.ToImmutableArray());
     }
 }

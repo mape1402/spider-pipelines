@@ -12,7 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Explicit cancellation result state.
-- Configurable parallel execution modes.
 - Middleware support around target handlers.
 - Concise pipeline builder shortcut methods.
 - Benchmarked pipeline execution scenarios.
@@ -20,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Parallel execution failures are captured consistently as pipeline failures.
+- Parallel execution now has a single clear meaning: parallel steps run concurrently with the target.
 - Override handlers without a condition now apply by default.
 - Pipeline contracts for ordering, errors, cancellation, and parallel modes are documented.
 

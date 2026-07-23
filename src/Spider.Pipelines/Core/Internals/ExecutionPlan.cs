@@ -86,28 +86,7 @@
                 }
             };
 
-            switch (_parallelExecution.Mode)
-            {
-                case ParallelExecutionMode.BeforeTarget:
-                    await runParallel();
-
-                    if (!context.IsFailure())
-                        await runTarget();
-
-                    break;
-
-                case ParallelExecutionMode.AfterTarget:
-                    await runTarget();
-
-                    if (!context.IsFailure() && !context.IsCancelled())
-                        await runParallel();
-
-                    break;
-
-                default:
-                    await Task.WhenAll(runTarget(), runParallel());
-                    break;
-            }
+            await Task.WhenAll(runTarget(), runParallel());
         }
 
         /// <inheritdoc/>
@@ -200,25 +179,9 @@
                 }
             };
 
-            switch (_parallelExecution.Mode)
-            {
-                case ParallelExecutionMode.BeforeTarget:
-                    await runParallel();
-                    return context.IsFailure() ? default : await runTarget();
-
-                case ParallelExecutionMode.AfterTarget:
-                    var response = await runTarget();
-
-                    if (!context.IsFailure() && !context.IsCancelled())
-                        await runParallel();
-
-                    return response;
-
-                default:
-                    var targetTask = runTarget();
-                    await Task.WhenAll(targetTask, runParallel());
-                    return targetTask.Result;
-            }
+            var targetTask = runTarget();
+            await Task.WhenAll(targetTask, runParallel());
+            return targetTask.Result;
         }
 
         /// <inheritdoc/>

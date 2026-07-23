@@ -7,7 +7,6 @@ using Spider.Pipelines.PostProcessing;
 using Spider.Pipelines.PreProcessing;
 using Spider.Pipelines.Targeting;
 using Spider.Pipelines.Middleware;
-using SpiderParallelExecutionMode = Spider.Pipelines.Parallelization.ParallelExecutionMode;
 
 namespace Spider.Pipelines.Tests.Core
 {
@@ -42,46 +41,6 @@ namespace Spider.Pipelines.Tests.Core
 
             Assert.False(target.Called);
             Assert.Equal(ResultState.Cancelled, context.ResultState);
-        }
-
-        [Fact]
-        public async Task OnTargetingAsync_WhenParallelModeIsBeforeTarget_ShouldRunParallelFirst()
-        {
-            var order = new List<string>();
-            var plan = new ExecutionPlan<string>(
-                new PreProcessExecutionStub(),
-                new InvokingTargetExecutionStub(order),
-                new RecordingParallelExecutionStub(order, SpiderParallelExecutionMode.BeforeTarget),
-                new MiddlewareExecutionStub(),
-                new PostProcessExecutionStub());
-
-            await plan.OnTargetingAsync(new Context<string>("request", new ServiceProviderStub()), (req, token) =>
-            {
-                order.Add("handler");
-                return Task.CompletedTask;
-            });
-
-            Assert.Equal(new[] { "parallel", "target", "handler" }, order);
-        }
-
-        [Fact]
-        public async Task OnTargetingAsync_WhenParallelModeIsAfterTarget_ShouldRunParallelLast()
-        {
-            var order = new List<string>();
-            var plan = new ExecutionPlan<string>(
-                new PreProcessExecutionStub(),
-                new InvokingTargetExecutionStub(order),
-                new RecordingParallelExecutionStub(order, SpiderParallelExecutionMode.AfterTarget),
-                new MiddlewareExecutionStub(),
-                new PostProcessExecutionStub());
-
-            await plan.OnTargetingAsync(new Context<string>("request", new ServiceProviderStub()), (req, token) =>
-            {
-                order.Add("handler");
-                return Task.CompletedTask;
-            });
-
-            Assert.Equal(new[] { "target", "handler", "parallel" }, order);
         }
 
         [Fact]
@@ -175,7 +134,6 @@ namespace Spider.Pipelines.Tests.Core
     }
     public class ParallelExecutionStub : IParallelExecution<string>
     {
-        public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
         public Task OnParallelAsync(IReadOnlyContext<string> context) => Task.CompletedTask;
     }
     public class MiddlewareExecutionStub : IMiddlewareExecution<string>
@@ -183,28 +141,8 @@ namespace Spider.Pipelines.Tests.Core
         public Task OnMiddlewareAsync(IReadOnlyContext<string> context, Func<Task> target)
             => target();
     }
-    public class RecordingParallelExecutionStub : IParallelExecution<string>
-    {
-        private readonly IList<string> _order;
-
-        public RecordingParallelExecutionStub(IList<string> order, SpiderParallelExecutionMode mode)
-        {
-            _order = order;
-            Mode = mode;
-        }
-
-        public SpiderParallelExecutionMode Mode { get; }
-
-        public Task OnParallelAsync(IReadOnlyContext<string> context)
-        {
-            _order.Add("parallel");
-            return Task.CompletedTask;
-        }
-    }
     public class ThrowingParallelExecutionStub : IParallelExecution<string>
     {
-        public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
-
         public Task OnParallelAsync(IReadOnlyContext<string> context)
             => throw new InvalidOperationException("Parallel failed.");
     }
@@ -229,7 +167,6 @@ namespace Spider.Pipelines.Tests.Core
     }
     public class ParallelExecutionGenericStub : IParallelExecution<string, int>
     {
-        public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
         public Task OnParallelAsync(IReadOnlyContext<string, int> context) => Task.CompletedTask;
     }
     public class MiddlewareExecutionGenericStub : IMiddlewareExecution<string, int>
@@ -239,8 +176,6 @@ namespace Spider.Pipelines.Tests.Core
     }
     public class ThrowingParallelExecutionGenericStub : IParallelExecution<string, int>
     {
-        public SpiderParallelExecutionMode Mode => SpiderParallelExecutionMode.WithTarget;
-
         public Task OnParallelAsync(IReadOnlyContext<string, int> context)
             => throw new InvalidOperationException("Parallel failed.");
     }
@@ -250,21 +185,5 @@ namespace Spider.Pipelines.Tests.Core
         public Task OnFailureAsync(IReadOnlyContext<string, int> context) => Task.CompletedTask;
         // Implement missing interface member for OnFailureAsync(IReadOnlyContext<string>)
         public Task OnFailureAsync(IReadOnlyContext<string> context) => Task.CompletedTask;
-    }
-
-    public class InvokingTargetExecutionStub : ITargetExecution<string>
-    {
-        private readonly IList<string> _order;
-
-        public InvokingTargetExecutionStub(IList<string> order)
-        {
-            _order = order;
-        }
-
-        public async Task OnTargetExecution(IReadOnlyContext<string> context, TargetHandler<string> handler)
-        {
-            _order.Add("target");
-            await handler(context.Request, context.CancellationToken);
-        }
     }
 }

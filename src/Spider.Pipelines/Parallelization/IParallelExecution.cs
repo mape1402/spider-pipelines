@@ -9,11 +9,6 @@
     public interface IParallelExecution<TRequest>
     {
         /// <summary>
-        /// Gets when parallel steps run relative to the target handler.
-        /// </summary>
-        ParallelExecutionMode Mode { get; }
-
-        /// <summary>
         /// Executes parallel processing logic asynchronously for the specified request context.
         /// </summary>
         /// <param name="context">The read-only context containing the request and pipeline state.</param>
@@ -28,11 +23,6 @@
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
     public interface IParallelExecution<TRequest, TResponse>
     {
-        /// <summary>
-        /// Gets when parallel steps run relative to the target handler.
-        /// </summary>
-        ParallelExecutionMode Mode { get; }
-
         /// <summary>
         /// Executes parallel processing logic asynchronously for the specified request and response context.
         /// </summary>

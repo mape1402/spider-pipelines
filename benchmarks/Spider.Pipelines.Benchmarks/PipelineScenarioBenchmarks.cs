@@ -2,8 +2,6 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
 using Spider.Pipelines.Core;
 using Spider.Pipelines.Extensions;
-using Spider.Pipelines.Parallelization;
-using SpiderParallelExecutionMode = Spider.Pipelines.Parallelization.ParallelExecutionMode;
 
 [MemoryDiagnoser]
 public class PipelineScenarioBenchmarks
@@ -42,7 +40,6 @@ public class PipelineScenarioBenchmarks
             {
                 builder
                     .UseMiddleware<string, int>(async (ctx, next) => await next())
-                    .ParallelMode(SpiderParallelExecutionMode.AfterTarget)
                     .Parallel<string, int>((ctx, args) => Task.CompletedTask);
             });
 

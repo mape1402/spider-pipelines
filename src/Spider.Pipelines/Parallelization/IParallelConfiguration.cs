@@ -14,13 +14,6 @@
         IParallelConfiguration<TRequest> OnParallel(ParallelProcessDelegate<TRequest> handler);
 
         /// <summary>
-        /// Configures when parallel steps run relative to the target handler.
-        /// </summary>
-        /// <param name="mode">The execution mode to use.</param>
-        /// <returns>The current configuration instance.</returns>
-        IParallelConfiguration<TRequest> WithMode(ParallelExecutionMode mode);
-
-        /// <summary>
         /// Builds the execution logic for the configured parallel processing steps.
         /// </summary>
         /// <returns>An <see cref="IParallelExecution{TRequest}"/> instance that executes the configured parallel steps.</returns>
@@ -41,13 +34,6 @@
         /// <param name="handler">The parallel processing delegate to add.</param>
         /// <inheritdoc/>
         IParallelConfiguration<TRequest, TResponse> OnParallel(ParallelProcessDelegate<TRequest> handler);
-
-        /// <summary>
-        /// Configures when parallel steps run relative to the target handler.
-        /// </summary>
-        /// <param name="mode">The execution mode to use.</param>
-        /// <returns>The current configuration instance.</returns>
-        IParallelConfiguration<TRequest, TResponse> WithMode(ParallelExecutionMode mode);
 
         /// <summary>
         /// Builds the execution logic for the configured parallel processing steps.
