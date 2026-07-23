@@ -5,6 +5,7 @@
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
     using Spider.Pipelines.Targeting;
+    using Spider.Pipelines.Middleware;
 
     /// <summary>
     /// Represents the execution plan for a pipeline with a single request type, coordinating preprocessing, targeting, parallel, and postprocessing steps.
@@ -15,6 +16,7 @@
         private readonly IPreProcessExecution<TRequest> _preProcessExecution;
         private readonly ITargetExecution<TRequest> _targetExecution;
         private readonly IParallelExecution<TRequest> _parallelExecution;
+        private readonly IMiddlewareExecution<TRequest> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest> _postProcessExecution;
 
         /// <summary>
@@ -23,15 +25,18 @@
         /// <param name="preProcessExecution">The preprocessing execution logic.</param>
         /// <param name="targetExecution">The target execution logic.</param>
         /// <param name="parallelExecution">The parallel execution logic.</param>
+        /// <param name="middlewareExecution">The middleware execution logic.</param>
         /// <param name="postProcessExecution">The postprocessing execution logic.</param>
         public ExecutionPlan(IPreProcessExecution<TRequest> preProcessExecution,
                              ITargetExecution<TRequest> targetExecution,
                              IParallelExecution<TRequest> parallelExecution,
+                             IMiddlewareExecution<TRequest> middlewareExecution,
                              IPostProcessExecution<TRequest> postProcessExecution)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
             _parallelExecution = parallelExecution ?? throw new ArgumentNullException(nameof(parallelExecution));
+            _middlewareExecution = middlewareExecution ?? throw new ArgumentNullException(nameof(middlewareExecution));
             _postProcessExecution = postProcessExecution ?? throw new ArgumentNullException(nameof(postProcessExecution));
         }
 
@@ -54,7 +59,9 @@
                         return;
                     }
 
-                    await _targetExecution.OnTargetExecution(context, targetHandler);
+                    await _middlewareExecution.OnMiddlewareAsync(
+                        context,
+                        () => _targetExecution.OnTargetExecution(context, targetHandler));
 
                     if (context.IsCancelled())
                         settableContext.Cancelled();
@@ -119,6 +126,7 @@
         private readonly IPreProcessExecution<TRequest> _preProcessExecution;
         private readonly ITargetExecution<TRequest, TResponse> _targetExecution;
         private readonly IParallelExecution<TRequest, TResponse> _parallelExecution;
+        private readonly IMiddlewareExecution<TRequest, TResponse> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest, TResponse> _postProcessExecution;
 
         /// <summary>
@@ -127,15 +135,18 @@
         /// <param name="preProcessExecution">The preprocessing execution logic.</param>
         /// <param name="targetExecution">The target execution logic.</param>
         /// <param name="parallelExecution">The parallel execution logic.</param>
+        /// <param name="middlewareExecution">The middleware execution logic.</param>
         /// <param name="postProcessExecution">The postprocessing execution logic.</param>
         public ExecutionPlan(IPreProcessExecution<TRequest> preProcessExecution,
                              ITargetExecution<TRequest, TResponse> targetExecution,
                              IParallelExecution<TRequest, TResponse> parallelExecution,
+                             IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
                              IPostProcessExecution<TRequest, TResponse> postProcessExecution)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
             _parallelExecution = parallelExecution ?? throw new ArgumentNullException(nameof(parallelExecution));
+            _middlewareExecution = middlewareExecution ?? throw new ArgumentNullException(nameof(middlewareExecution));
             _postProcessExecution = postProcessExecution ?? throw new ArgumentNullException(nameof(postProcessExecution));
         }
 
@@ -158,7 +169,9 @@
                         return default;
                     }
 
-                    var response = await _targetExecution.OnTargetExecution(context, targetHandler);
+                    var response = await _middlewareExecution.OnMiddlewareAsync(
+                        context,
+                        () => _targetExecution.OnTargetExecution(context, targetHandler));
 
                     if (context.IsCancelled())
                         settableContext.Cancelled();

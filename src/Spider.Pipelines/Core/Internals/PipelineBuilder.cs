@@ -4,6 +4,7 @@
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
     using Spider.Pipelines.Targeting;
+    using Spider.Pipelines.Middleware;
 
     /// <summary>
     /// Provides a base implementation for pipeline builders, supporting type-safe configuration.
@@ -39,6 +40,7 @@
         private readonly IPostProcessConfiguration<TRequest> _postProcessConfiguration;
         private readonly ITargetConfiguration<TRequest> _targetConfiguration;
         private readonly IParallelConfiguration<TRequest> _parallelConfiguration;
+        private readonly IMiddlewareConfiguration<TRequest> _middlewareConfiguration;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -52,6 +54,7 @@
             _postProcessConfiguration = new PostProcessConfiguration<TRequest>(_serviceProvider);
             _targetConfiguration = new TargetConfiguration<TRequest>(_serviceProvider);
             _parallelConfiguration = new ParallelConfiguration<TRequest>(_serviceProvider);
+            _middlewareConfiguration = new MiddlewareConfiguration<TRequest>();
         }
 
         /// <inheritdoc/>
@@ -95,6 +98,16 @@
         }
 
         /// <inheritdoc/>
+        public IPipelineBuilder<TRequest> OnMiddleware(Action<IMiddlewareConfiguration<TRequest>> config)
+        {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
+            config(_middlewareConfiguration);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IPipeline<TRequest> Build(TargetHandler<TRequest> targetHandler)
         {
             if (targetHandler == null)
@@ -103,9 +116,10 @@
             var preProcessExecution = _preProcessConfiguration.BuildExecution();
             var targetExecution = _targetConfiguration.BuildExecution();
             var parallelExecution = _parallelConfiguration.BuildExecution();
+            var middlewareExecution = _middlewareConfiguration.BuildExecution();
             var postProcessExecution = _postProcessConfiguration.BuildExecution();
 
-            var executionPlan = new ExecutionPlan<TRequest>(preProcessExecution, targetExecution, parallelExecution, postProcessExecution);
+            var executionPlan = new ExecutionPlan<TRequest>(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution);
 
             return new Pipeline<TRequest>(targetHandler, executionPlan, _serviceProvider);
         }
@@ -122,6 +136,7 @@
         private readonly IPostProcessConfiguration<TRequest, TResponse> _postProcessConfiguration;
         private readonly ITargetConfiguration<TRequest, TResponse> _targetConfiguration;
         private readonly IParallelConfiguration<TRequest, TResponse> _parallelConfiguration;
+        private readonly IMiddlewareConfiguration<TRequest, TResponse> _middlewareConfiguration;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -135,6 +150,7 @@
             _postProcessConfiguration = new PostProcessConfiguration<TRequest, TResponse>(_serviceProvider);
             _targetConfiguration = new TargetConfiguration<TRequest, TResponse>(_serviceProvider);
             _parallelConfiguration = new ParallelConfiguration<TRequest, TResponse>(_serviceProvider);
+            _middlewareConfiguration = new MiddlewareConfiguration<TRequest, TResponse>();
         }
 
         /// <inheritdoc/>
@@ -178,6 +194,16 @@
         }
 
         /// <inheritdoc/>
+        public IPipelineBuilder<TRequest, TResponse> OnMiddleware(Action<IMiddlewareConfiguration<TRequest, TResponse>> config)
+        {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
+            config(_middlewareConfiguration);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IPipeline<TRequest, TResponse> Build(TargetHandler<TRequest, TResponse> targetHandler)
         {
             if (targetHandler == null)
@@ -186,9 +212,10 @@
             var preProcessExecution = _preProcessConfiguration.BuildExecution();
             var targetExecution = _targetConfiguration.BuildExecution();
             var parallelExecution = _parallelConfiguration.BuildExecution();
+            var middlewareExecution = _middlewareConfiguration.BuildExecution();
             var postProcessExecution = _postProcessConfiguration.BuildExecution();
 
-            var executionPlan = new ExecutionPlan<TRequest, TResponse>(preProcessExecution, targetExecution, parallelExecution, postProcessExecution);
+            var executionPlan = new ExecutionPlan<TRequest, TResponse>(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution);
 
             return new Pipeline<TRequest, TResponse>(targetHandler, executionPlan, _serviceProvider);
         }
