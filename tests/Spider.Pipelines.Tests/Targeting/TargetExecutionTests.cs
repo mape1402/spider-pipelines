@@ -13,6 +13,27 @@ namespace Spider.Pipelines.Tests.Targeting
             await execution.OnTargetExecution(new ReadOnlyContextStub(), (req, token) => { called = true; return Task.CompletedTask; });
             Assert.True(called);
         }
+
+        [Fact]
+        public async Task OnTargetExecution_ShouldInvokeOverride_WhenOverrideHasNoCondition()
+        {
+            var targetCalled = false;
+            var overrideCalled = false;
+            var execution = new TargetExecution<string>((req, token) =>
+            {
+                overrideCalled = true;
+                return Task.CompletedTask;
+            }, null);
+
+            await execution.OnTargetExecution(new ReadOnlyContextStub(), (req, token) =>
+            {
+                targetCalled = true;
+                return Task.CompletedTask;
+            });
+
+            Assert.True(overrideCalled);
+            Assert.False(targetCalled);
+        }
     }
 
     public class TargetExecutionGenericTests
@@ -24,6 +45,28 @@ namespace Spider.Pipelines.Tests.Targeting
             var execution = new TargetExecution<string, int>(null, null);
             await execution.OnTargetExecution(new ReadOnlyContextGenericStub(), (req, token) => { called = true; return Task.FromResult(42); });
             Assert.True(called);
+        }
+
+        [Fact]
+        public async Task OnTargetExecution_ShouldInvokeOverride_WhenOverrideHasNoCondition()
+        {
+            var targetCalled = false;
+            var overrideCalled = false;
+            var execution = new TargetExecution<string, int>((req, token) =>
+            {
+                overrideCalled = true;
+                return Task.FromResult(7);
+            }, null);
+
+            var result = await execution.OnTargetExecution(new ReadOnlyContextGenericStub(), (req, token) =>
+            {
+                targetCalled = true;
+                return Task.FromResult(42);
+            });
+
+            Assert.Equal(7, result);
+            Assert.True(overrideCalled);
+            Assert.False(targetCalled);
         }
     }
 
