@@ -10,7 +10,7 @@
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IList<FailurePostProcessDelegate<TRequest>> _failureDelegates;
-        private readonly IList<SuccessPostProcessDelegate<TRequest>> _successDelagates;
+        private readonly IList<SuccessPostProcessDelegate<TRequest>> _successDelegates;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PostProcessConfiguration{TRequest}"/> class.
@@ -20,7 +20,7 @@
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _failureDelegates = new List<FailurePostProcessDelegate<TRequest>>();
-            _successDelagates = new List<SuccessPostProcessDelegate<TRequest>>();
+            _successDelegates = new List<SuccessPostProcessDelegate<TRequest>>();
         }
 
         /// <inheritdoc/>
@@ -33,13 +33,13 @@
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest> OnSuccess(SuccessPostProcessDelegate<TRequest> handler)
         {
-            _successDelagates.Add(handler);
+            _successDelegates.Add(handler);
             return this;
         }
 
         /// <inheritdoc/>
         public IPostProcessExecution<TRequest> BuildExecution()
-            => new PostProcessExecution<TRequest>(_successDelagates.ToImmutableArray(), _failureDelegates.ToImmutableArray());
+            => new PostProcessExecution<TRequest>(_successDelegates.ToImmutableArray(), _failureDelegates.ToImmutableArray());
     }
 
     /// <summary>
@@ -51,7 +51,7 @@
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IList<FailurePostProcessDelegate<TRequest>> _failureDelegates;
-        private readonly IList<SuccessPostProcessDelegate<TRequest, TResponse>> _successDelagates;
+        private readonly IList<SuccessPostProcessDelegate<TRequest, TResponse>> _successDelegates;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PostProcessConfiguration{TRequest, TResponse}"/> class.
@@ -61,7 +61,7 @@
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _failureDelegates = new List<FailurePostProcessDelegate<TRequest>>();
-            _successDelagates = new List<SuccessPostProcessDelegate<TRequest, TResponse>>();
+            _successDelegates = new List<SuccessPostProcessDelegate<TRequest, TResponse>>();
         }
 
         /// <inheritdoc/>
@@ -74,12 +74,12 @@
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest, TResponse> OnSuccess(SuccessPostProcessDelegate<TRequest, TResponse> handler)
         {
-            _successDelagates.Add(handler);
+            _successDelegates.Add(handler);
             return this;
         }
 
         /// <inheritdoc/>
         public IPostProcessExecution<TRequest, TResponse> BuildExecution()
-            => new PostProcessExecution<TRequest, TResponse>(_successDelagates.ToImmutableArray(), _failureDelegates.ToImmutableArray());
+            => new PostProcessExecution<TRequest, TResponse>(_successDelegates.ToImmutableArray(), _failureDelegates.ToImmutableArray());
     }
 }

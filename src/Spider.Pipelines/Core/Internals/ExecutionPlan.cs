@@ -35,11 +35,11 @@
             _postProcessExecution = postProcessExecution ?? throw new ArgumentNullException(nameof(postProcessExecution));
         }
 
-        /// <iheritdoc/>
+        /// <inheritdoc/>
         public Task OnPreProcessAsync(IReadOnlyContext<TRequest> context)
             => _preProcessExecution.OnPreProcessAsync(context);
 
-        /// <iheritdoc/>
+        /// <inheritdoc/>
         public Task OnTargetingAsync(IReadOnlyContext<TRequest> context, TargetHandler<TRequest> targetHandler)
         {
             var overrides = async () =>
@@ -60,7 +60,7 @@
             return Task.WhenAll(overrides(), _parallelExecution.OnParallelAsync(context));
         }
 
-        /// <iheritdoc/>
+        /// <inheritdoc/>
         public Task OnPostProcessAsync(IReadOnlyContext<TRequest> context)
             => context.IsSuccess() ? _postProcessExecution.OnSuccessAsync(context) : _postProcessExecution.OnFailureAsync(context);
     }
@@ -95,11 +95,11 @@
             _postProcessExecution = postProcessExecution ?? throw new ArgumentNullException(nameof(postProcessExecution));
         }
 
-        /// <iheritdoc/>
+        /// <inheritdoc/>
         public Task OnPreProcessAsync(IReadOnlyContext<TRequest, TResponse> context)
             => _preProcessExecution.OnPreProcessAsync(context);
 
-        /// <iheritdoc/>
+        /// <inheritdoc/>
         public async Task<TResponse> OnTargetingAsync(IReadOnlyContext<TRequest, TResponse> context, TargetHandler<TRequest, TResponse> targetHandler)
         {
             var overrides = async () =>
@@ -128,7 +128,7 @@
             return overridesTask.Result;
         }
 
-        /// <iheritdoc/>
+        /// <inheritdoc/>
         public Task OnPostProcessAsync(IReadOnlyContext<TRequest, TResponse> context)
             => context.IsSuccess() ? _postProcessExecution.OnSuccessAsync(context) : _postProcessExecution.OnFailureAsync(context);
     }
