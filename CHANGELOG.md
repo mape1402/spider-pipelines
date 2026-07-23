@@ -11,4 +11,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 🎉 First stable release of Spider.Pipelines core.
+- First stable release of Spider.Pipelines core.

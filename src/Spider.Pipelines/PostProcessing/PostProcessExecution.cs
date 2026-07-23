@@ -9,17 +9,17 @@
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     internal sealed class PostProcessExecution<TRequest> : IPostProcessExecution<TRequest>
     {
-        private readonly IReadOnlyCollection<SuccessPostProcessDelegate<TRequest>> _successDelagates;
+        private readonly IReadOnlyCollection<SuccessPostProcessDelegate<TRequest>> _successDelegates;
         private readonly IReadOnlyCollection<FailurePostProcessDelegate<TRequest>> _failureDelegates;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PostProcessExecution{TRequest}"/> class.
         /// </summary>
-        /// <param name="successDelagates">The collection of delegates to execute after a successful operation.</param>
+        /// <param name="successDelegates">The collection of delegates to execute after a successful operation.</param>
         /// <param name="failureDelegates">The collection of delegates to execute after a failed operation.</param>
-        public PostProcessExecution(IReadOnlyCollection<SuccessPostProcessDelegate<TRequest>> successDelagates, IReadOnlyCollection<FailurePostProcessDelegate<TRequest>> failureDelegates)
+        public PostProcessExecution(IReadOnlyCollection<SuccessPostProcessDelegate<TRequest>> successDelegates, IReadOnlyCollection<FailurePostProcessDelegate<TRequest>> failureDelegates)
         {
-            _successDelagates = successDelagates;
+            _successDelegates = successDelegates;
             _failureDelegates = failureDelegates;
         }
 
@@ -45,7 +45,7 @@
             //TODO: Get standard configuration
             var arguments = new PostProcessArguments();
 
-            foreach (var process in _successDelagates)
+            foreach (var process in _successDelegates)
                 await process(context, arguments);
         }
     }
@@ -57,17 +57,17 @@
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
     internal sealed class PostProcessExecution<TRequest, TResponse> : IPostProcessExecution<TRequest, TResponse>
     {
-        private readonly IReadOnlyCollection<SuccessPostProcessDelegate<TRequest, TResponse>> _successDelagates;
+        private readonly IReadOnlyCollection<SuccessPostProcessDelegate<TRequest, TResponse>> _successDelegates;
         private readonly IReadOnlyCollection<FailurePostProcessDelegate<TRequest>> _failureDelegates;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PostProcessExecution{TRequest, TResponse}"/> class.
         /// </summary>
-        /// <param name="successDelagates">The collection of delegates to execute after a successful operation.</param>
+        /// <param name="successDelegates">The collection of delegates to execute after a successful operation.</param>
         /// <param name="failureDelegates">The collection of delegates to execute after a failed operation.</param>
-        public PostProcessExecution(IReadOnlyCollection<SuccessPostProcessDelegate<TRequest, TResponse>> successDelagates, IReadOnlyCollection<FailurePostProcessDelegate<TRequest>> failureDelegates)
+        public PostProcessExecution(IReadOnlyCollection<SuccessPostProcessDelegate<TRequest, TResponse>> successDelegates, IReadOnlyCollection<FailurePostProcessDelegate<TRequest>> failureDelegates)
         {
-            _successDelagates = successDelagates;
+            _successDelegates = successDelegates;
             _failureDelegates = failureDelegates;
         }
 
@@ -93,7 +93,7 @@
             //TODO: Get standard configuration
             var arguments = new PostProcessArguments();
 
-            foreach (var process in _successDelagates)
+            foreach (var process in _successDelegates)
                 await process.Invoke(context, arguments);
         }
     }
