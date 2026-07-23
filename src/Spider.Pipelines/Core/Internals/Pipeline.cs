@@ -32,20 +32,13 @@
             var context = new Context<TRequest>(request, _serviceProvider, cancellationToken);
             context.OnPreProcess();
 
-            await _executionPlan
-                        .OnPreProcessAsync(context)
-                        .ContinueWith(t =>
-                        {
-                            context.OnTargeting();
-                            return _executionPlan.OnTargetingAsync(context, _targetHandler);
-                        })
-                        .Unwrap()
-                        .ContinueWith(t =>
-                        {
-                            context.OnPostProcess();
-                            return _executionPlan.OnPostProcessAsync(context);
-                        })
-                        .Unwrap();
+            await _executionPlan.OnPreProcessAsync(context);
+
+            context.OnTargeting();
+            await _executionPlan.OnTargetingAsync(context, _targetHandler);
+
+            context.OnPostProcess();
+            await _executionPlan.OnPostProcessAsync(context);
 
             if (context.IsFailure())
                 throw context.Exception;
@@ -82,21 +75,13 @@
             var context = new Context<TRequest, TResponse>(request, _serviceProvider, cancellationToken);
             context.OnPreProcess();
 
-            var response = await _executionPlan
-                        .OnPreProcessAsync(context)
-                        .ContinueWith(t =>
-                        {
-                            context.OnTargeting();
-                            return _executionPlan.OnTargetingAsync(context, _targetHandler);
-                        })
-                        .Unwrap()
-                        .ContinueWith(async t =>
-                        {
-                            context.OnPostProcess();
-                            await _executionPlan.OnPostProcessAsync(context);
-                            return t.Result;
-                        })
-                        .Unwrap();
+            await _executionPlan.OnPreProcessAsync(context);
+
+            context.OnTargeting();
+            var response = await _executionPlan.OnTargetingAsync(context, _targetHandler);
+
+            context.OnPostProcess();
+            await _executionPlan.OnPostProcessAsync(context);
 
             if (context.IsFailure())
                 throw context.Exception;
