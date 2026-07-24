@@ -40,7 +40,7 @@ dotnet run --project samples/Spider.Pipelines.Samples.Basic/Spider.Pipelines.Sam
 services.AddSpider();
 ```
 
-Execution boundaries can be registered through the Spider builder:
+Execution boundaries can be registered globally through the Spider builder:
 
 ```csharp
 services.AddSpider(spider =>
@@ -48,6 +48,8 @@ services.AddSpider(spider =>
     spider.AddExecutionBoundary<MyBoundary>();
 });
 ```
+
+Global boundaries wrap every Spider pipeline execution resolved from that container.
 
 They can also be selected for a single attached pipeline through the fluent API. Register the implementation as a normal service, then add it to the pipeline:
 
@@ -58,6 +60,15 @@ bridge.Attach<string, string>(builder =>
 {
     builder.AddExecutionBoundary<MyBoundary>();
 });
+```
+
+For a single execution, pass boundary instances directly to `ExecuteAsync`:
+
+```csharp
+await typedBridge.ExecuteAsync(
+    svc => (input, token) => svc.Handle(input, token),
+    "World",
+    new[] { myBoundary });
 ```
 
 ### 2. Define a Service
@@ -165,7 +176,53 @@ Boundary order:
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
 
-For one-off calls, pass boundary instances to `ExecuteAsync`:
+### Global Boundaries
+
+Global boundaries are registered once and wrap every pipeline execution from the same container:
+
+```csharp
+services.AddSpider(spider =>
+{
+    spider.AddExecutionBoundary<AuditBoundary>();
+    spider.AddExecutionBoundary<TransactionBoundary>();
+});
+```
+
+### Fluent API Boundaries
+
+Fluent boundaries are part of one attached pipeline. Register the implementation as a normal DI service, then select it from the builder:
+
+```csharp
+services.AddScoped<OrderBoundary>();
+services.AddSpider();
+
+var bridge = spider
+    .InitBridge<OrderService>()
+    .Attach<OrderRequest, OrderReceipt>(builder =>
+    {
+        builder
+            .AddExecutionBoundary<OrderBoundary>()
+            .PreProcess((ctx, args) => Task.CompletedTask)
+            .OnSuccess((ctx, args) => Task.CompletedTask);
+    });
+```
+
+You can also pass an already-created boundary instance to the builder:
+
+```csharp
+var boundary = new CorrelationBoundary(correlationId);
+
+var bridge = spider
+    .InitBridge<OrderService>()
+    .Attach<OrderRequest, OrderReceipt>(builder =>
+    {
+        builder.AddExecutionBoundary(boundary);
+    });
+```
+
+### Invocation Boundaries
+
+Invocation boundaries apply only to one `ExecuteAsync` call:
 
 ```csharp
 await typedBridge.ExecuteAsync(
