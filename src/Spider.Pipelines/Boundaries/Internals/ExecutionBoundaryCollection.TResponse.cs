@@ -20,16 +20,6 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <inheritdoc/>
-        public IExecutionBoundaryCollection<TRequest, TResponse> AddExecutionBoundary(IBoundary<TRequest, TResponse> boundary)
-        {
-            if (boundary == null)
-                throw new ArgumentNullException(nameof(boundary));
-
-            _boundaryFactories.Add(_ => boundary);
-            return this;
-        }
-
-        /// <inheritdoc/>
         public IExecutionBoundaryCollection<TRequest, TResponse> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration<TRequest, TResponse>> configure)
         {
             if (configure == null)
@@ -40,6 +30,20 @@ namespace Spider.Pipelines.Boundaries.Internals
             _boundaryFactories.Add(_ => boundary);
             return this;
         }
+
+        /// <inheritdoc/>
+        public IExecutionBoundaryCollection<TRequest, TResponse> AddExecutionBoundary(Type boundaryType)
+        {
+            if (boundaryType == null)
+                throw new ArgumentNullException(nameof(boundaryType));
+
+            _boundaryFactories.Add(serviceProvider => ExecutionBoundaryTypeResolver.Resolve<TRequest, TResponse>(serviceProvider, boundaryType));
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IExecutionBoundaryCollection<TRequest, TResponse> AddBoundary(Type boundaryType)
+            => AddExecutionBoundary(boundaryType);
 
         /// <inheritdoc/>
         public IExecutionBoundaryCollection<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
