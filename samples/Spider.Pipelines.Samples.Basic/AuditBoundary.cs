@@ -46,11 +46,5 @@ namespace Spider.Pipelines.Samples.Basic
             return ValueTask.CompletedTask;
         }
 
-        /// <inheritdoc/>
-        public ValueTask DisposeAsync(PipelineExecutionContext context)
-        {
-            _log.Write("audit: dispose");
-            return ValueTask.CompletedTask;
-        }
     }
 }

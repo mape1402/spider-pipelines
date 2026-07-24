@@ -53,8 +53,5 @@ namespace Spider.Pipelines.Tests.Boundaries
             return ValueTask.CompletedTask;
         }
 
-        /// <inheritdoc/>
-        public virtual ValueTask DisposeAsync(PipelineExecutionContext context)
-            => ValueTask.CompletedTask;
     }
 }

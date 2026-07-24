@@ -310,17 +310,12 @@ namespace Spider.Pipelines.Tests.Boundaries
                         {
                             log.Add("delegate:cancel");
                             return ValueTask.CompletedTask;
-                        })
-                        .OnDispose(ctx =>
-                        {
-                            log.Add("delegate:dispose");
-                            return ValueTask.CompletedTask;
                         });
                 })
                 .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
-            Assert.Equal(new[] { "delegate:begin:String", "delegate:complete:Int32", "delegate:dispose" }, log.Events);
+            Assert.Equal(new[] { "delegate:begin:String", "delegate:complete:Int32" }, log.Events);
         }
 
         /// <summary>

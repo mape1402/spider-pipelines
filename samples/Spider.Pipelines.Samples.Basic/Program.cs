@@ -93,11 +93,6 @@ namespace Spider.Pipelines.Samples.Basic
                         {
                             log.Write("fluent-boundary: cancel");
                             return ValueTask.CompletedTask;
-                        })
-                        .OnDispose(ctx =>
-                        {
-                            log.Write("fluent-boundary: dispose");
-                            return ValueTask.CompletedTask;
                         });
                 })
                 .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log))

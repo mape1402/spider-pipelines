@@ -37,8 +37,5 @@ namespace Spider.Pipelines.Tests.Boundaries
         public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
             => ValueTask.CompletedTask;
 
-        /// <inheritdoc/>
-        public ValueTask DisposeAsync(PipelineExecutionContext context)
-            => ValueTask.CompletedTask;
     }
 }

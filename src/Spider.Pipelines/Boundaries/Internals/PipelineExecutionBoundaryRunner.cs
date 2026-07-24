@@ -45,22 +45,12 @@ namespace Spider.Pipelines.Boundaries.Internals
 
             var executionContext = CreateExecutionContext<TRequest>(context);
             var boundaries = ResolveBoundaries(executionBoundaries);
-            var outcome = BoundaryOutcome.Pending();
-            Exception terminalException = null;
-            IReadOnlyCollection<IPipelineExecutionBoundary> openedBoundaries = Array.Empty<IPipelineExecutionBoundary>();
+            var openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
+            var outcome = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
+            var terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
 
-            try
-            {
-                openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
-                outcome = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
-                terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
-                ThrowIfTerminalException(terminalException);
-                outcome.ThrowIfFaulted();
-            }
-            finally
-            {
-                await DisposeBoundariesAsync(openedBoundaries, executionContext, outcome.Exception ?? terminalException);
-            }
+            ThrowIfTerminalException(terminalException);
+            outcome.ThrowIfFaulted();
         }
 
         /// <summary>
@@ -90,24 +80,13 @@ namespace Spider.Pipelines.Boundaries.Internals
 
             var executionContext = CreateExecutionContext<TRequest, TResponse>(context);
             var boundaries = ResolveBoundaries(executionBoundaries);
-            var outcome = BoundaryOutcome.Pending();
-            var response = default(TResponse);
-            Exception terminalException = null;
-            IReadOnlyCollection<IPipelineExecutionBoundary> openedBoundaries = Array.Empty<IPipelineExecutionBoundary>();
+            var openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
+            var (outcome, response) = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
+            var terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
 
-            try
-            {
-                openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
-                (outcome, response) = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
-                terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
-                ThrowIfTerminalException(terminalException);
-                outcome.ThrowIfFaulted();
-                return response;
-            }
-            finally
-            {
-                await DisposeBoundariesAsync(openedBoundaries, executionContext, outcome.Exception ?? terminalException);
-            }
+            ThrowIfTerminalException(terminalException);
+            outcome.ThrowIfFaulted();
+            return response;
         }
 
         /// <summary>
@@ -137,7 +116,6 @@ namespace Spider.Pipelines.Boundaries.Internals
             catch (Exception ex)
             {
                 await FaultBoundariesPreservingOriginalAsync(openedBoundaries, context, ex, cancellationToken);
-                await DisposeBoundariesPreservingOriginalAsync(openedBoundaries, context, ex);
                 throw;
             }
         }
@@ -306,58 +284,6 @@ namespace Spider.Pipelines.Boundaries.Internals
         {
             foreach (var boundary in boundaries.Reverse())
                 await boundary.CancelAsync(context, cancellationToken);
-        }
-
-        /// <summary>
-        /// Disposes opened boundaries in reverse registration order while preserving the original exception.
-        /// </summary>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The boundary execution context.</param>
-        /// <param name="originalException">The original pipeline exception, when one exists.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task DisposeBoundariesAsync(
-            IEnumerable<IPipelineExecutionBoundary> boundaries,
-            PipelineExecutionContext context,
-            Exception originalException)
-        {
-            Exception disposeException = null;
-
-            foreach (var boundary in boundaries.Reverse())
-            {
-                try
-                {
-                    await boundary.DisposeAsync(context);
-                }
-                catch (Exception ex)
-                {
-                    disposeException ??= ex;
-                }
-            }
-
-            if (originalException == null && disposeException != null)
-                throw disposeException;
-        }
-
-        /// <summary>
-        /// Disposes opened boundaries while preserving the original begin exception.
-        /// </summary>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The boundary execution context.</param>
-        /// <param name="originalException">The original begin exception.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task DisposeBoundariesPreservingOriginalAsync(
-            IEnumerable<IPipelineExecutionBoundary> boundaries,
-            PipelineExecutionContext context,
-            Exception originalException)
-        {
-            try
-            {
-                await DisposeBoundariesAsync(boundaries, context, originalException);
-            }
-            catch
-            {
-                // The original begin exception must remain the surfaced failure.
-            }
         }
 
         /// <summary>
