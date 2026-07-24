@@ -49,28 +49,31 @@ services.AddSpider(spider =>
 });
 ```
 
-They can also be selected for a single attached pipeline through the fluent API. Register the implementation as a normal service, then add it to the pipeline:
+They can also be selected for a bridge execution flow through the fluent API. Register the implementation as a normal service, then add it after bridge initialization and before attaching the pipeline:
 
 ```csharp
 services.AddScoped<MyBoundary>();
 
-bridge.Attach<string, string>(builder =>
-{
-    builder.AddExecutionBoundary<MyBoundary>();
-});
+var typedBridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary<MyBoundary>()
+    .Attach<string, string>(builder => { });
 ```
 
-Inline boundary callbacks can be configured directly on the pipeline builder:
+Inline boundary callbacks can be configured directly on the bridge:
 
 ```csharp
-builder.AddExecutionBoundary(boundary =>
-{
-    boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
-    boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
-    boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
-    boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-    boundary.OnDispose(ctx => ValueTask.CompletedTask);
-});
+var typedBridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary(boundary =>
+    {
+        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnDispose(ctx => ValueTask.CompletedTask);
+    })
+    .Attach<string, string>(builder => { });
 ```
 
 ### 2. Define a Service

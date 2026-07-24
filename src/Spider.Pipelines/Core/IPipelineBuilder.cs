@@ -1,6 +1,5 @@
 ﻿namespace Spider.Pipelines.Core
 {
-    using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Parallelization;
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
@@ -70,28 +69,6 @@
         IPipelineBuilder<TRequest> OnMiddleware(Action<IMiddlewareConfiguration<TRequest>> middleware);
 
         /// <summary>
-        /// Adds a DI-resolved execution boundary type to this pipeline configuration.
-        /// </summary>
-        /// <typeparam name="TBoundary">The boundary implementation type to resolve from DI.</typeparam>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IPipelineExecutionBoundary;
-
-        /// <summary>
-        /// Adds a DI-resolved execution boundary type to this pipeline configuration.
-        /// </summary>
-        /// <param name="boundaryType">The boundary implementation type to resolve from DI.</param>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest> AddExecutionBoundary(Type boundaryType);
-
-        /// <summary>
-        /// Adds a delegate execution boundary to this pipeline configuration.
-        /// </summary>
-        /// <param name="configure">The boundary callback configuration.</param>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure);
-
-        /// <summary>
         /// Builds the pipeline with the specified target handler.
         /// </summary>
         /// <param name="targetHandler">The target handler delegate.</param>
@@ -140,28 +117,6 @@
         /// <param name="middleware">An action to configure middleware.</param>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest, TResponse> OnMiddleware(Action<IMiddlewareConfiguration<TRequest, TResponse>> middleware);
-
-        /// <summary>
-        /// Adds a DI-resolved execution boundary type to this pipeline configuration.
-        /// </summary>
-        /// <typeparam name="TBoundary">The boundary implementation type to resolve from DI.</typeparam>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IPipelineExecutionBoundary;
-
-        /// <summary>
-        /// Adds a DI-resolved execution boundary type to this pipeline configuration.
-        /// </summary>
-        /// <param name="boundaryType">The boundary implementation type to resolve from DI.</param>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Type boundaryType);
-
-        /// <summary>
-        /// Adds a delegate execution boundary to this pipeline configuration.
-        /// </summary>
-        /// <param name="configure">The boundary callback configuration.</param>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure);
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.

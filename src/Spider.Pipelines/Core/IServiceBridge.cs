@@ -30,6 +30,13 @@ namespace Spider.Pipelines.Core
         IServiceBridge<TService> AddExecutionBoundary(Type boundaryType);
 
         /// <summary>
+        /// Adds a delegate execution boundary to every execution created from this bridge.
+        /// </summary>
+        /// <param name="configure">The boundary callback configuration.</param>
+        /// <returns>The current service bridge.</returns>
+        IServiceBridge<TService> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure);
+
+        /// <summary>
         /// Attaches a pipeline configuration for a specific request type.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>

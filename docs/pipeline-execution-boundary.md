@@ -99,35 +99,40 @@ services
     .AddExecutionBoundary<MyBoundary>();
 ```
 
-Configure boundaries for a single pipeline with the pipeline fluent API. The boundary implementation must be registered as a normal DI service; this fluent call only selects it for that pipeline:
+Configure boundaries for a bridge execution flow with the bridge fluent API. The boundary implementation must be registered as a normal DI service; this fluent call only selects it for executions created from that bridge:
 
 ```csharp
 services.AddScoped<MyBoundary>();
 
-spider.InitBridge<MyService>()
-    .Attach<MyRequest, MyResponse>(builder =>
+var bridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary<MyBoundary>()
+    .Attach<MyRequest, MyResponse>(builder => { });
+```
+
+You can also select a DI-registered boundary by runtime type through the bridge fluent API:
+
+```csharp
+var bridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary(typeof(MyBoundary))
+    .Attach<MyRequest, MyResponse>(builder => { });
+```
+
+Configure inline boundary callbacks through the bridge fluent API when no reusable implementation is needed:
+
+```csharp
+var bridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary(boundary =>
     {
-        builder.AddExecutionBoundary<MyBoundary>();
-    });
-```
-
-You can also select a DI-registered boundary by runtime type through the fluent API:
-
-```csharp
-builder.AddExecutionBoundary(typeof(MyBoundary));
-```
-
-Configure inline boundary callbacks through the pipeline fluent API when no reusable implementation is needed:
-
-```csharp
-builder.AddExecutionBoundary(boundary =>
-{
-    boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
-    boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
-    boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
-    boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-    boundary.OnDispose(ctx => ValueTask.CompletedTask);
-});
+        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnDispose(ctx => ValueTask.CompletedTask);
+    })
+    .Attach<MyRequest, MyResponse>(builder => { });
 ```
 
 For a bridge execution flow, select DI-registered boundaries after initializing the bridge and before attaching the pipeline:
@@ -148,7 +153,6 @@ When boundaries are provided from multiple levels, Spider begins them in this or
 
 ```txt
 Global DI boundaries
-Pipeline fluent boundaries
 Bridge-selected boundaries
 ```
 

@@ -38,6 +38,18 @@ namespace Spider.Pipelines.Boundaries.Internals
             return this;
         }
 
+        /// <inheritdoc/>
+        public IExecutionBoundaryCollection AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            var boundary = new DelegateExecutionBoundary();
+            configure(boundary);
+            _boundaryFactories.Add(_ => boundary);
+            return this;
+        }
+
         /// <summary>
         /// Creates the execution boundaries from the configured factories.
         /// </summary>
