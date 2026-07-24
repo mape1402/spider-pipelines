@@ -1,8 +1,7 @@
-namespace Spider.Pipelines.Core.Internals
+﻿namespace Spider.Pipelines.Core.Internals
 {
     using Microsoft.Extensions.DependencyInjection;
     using Spider.Pipelines.Boundaries;
-    using Spider.Pipelines.Boundaries.Internals;
     using Spider.Pipelines.Parallelization;
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
@@ -44,7 +43,7 @@ namespace Spider.Pipelines.Core.Internals
         private readonly ITargetConfiguration<TRequest> _targetConfiguration;
         private readonly IParallelConfiguration<TRequest> _parallelConfiguration;
         private readonly IMiddlewareConfiguration<TRequest> _middlewareConfiguration;
-        private readonly IList<Func<IServiceProvider, IBoundary<TRequest>>> _boundaryFactories;
+        private readonly IList<Func<IServiceProvider, IPipelineExecutionBoundary>> _boundaryFactories;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -59,7 +58,7 @@ namespace Spider.Pipelines.Core.Internals
             _targetConfiguration = new TargetConfiguration<TRequest>(_serviceProvider);
             _parallelConfiguration = new ParallelConfiguration<TRequest>(_serviceProvider);
             _middlewareConfiguration = new MiddlewareConfiguration<TRequest>();
-            _boundaryFactories = new List<Func<IServiceProvider, IBoundary<TRequest>>>();
+            _boundaryFactories = new List<Func<IServiceProvider, IPipelineExecutionBoundary>>();
         }
 
         /// <inheritdoc/>
@@ -113,36 +112,20 @@ namespace Spider.Pipelines.Core.Internals
         }
 
         /// <inheritdoc/>
+        public IPipelineBuilder<TRequest> AddExecutionBoundary(IPipelineExecutionBoundary boundary)
+        {
+            if (boundary == null)
+                throw new ArgumentNullException(nameof(boundary));
+
+            _boundaryFactories.Add(_ => boundary);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IPipelineBuilder<TRequest> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IBoundary<TRequest>
+            where TBoundary : class, IPipelineExecutionBoundary
         {
             _boundaryFactories.Add(serviceProvider => serviceProvider.GetRequiredService<TBoundary>());
-            return this;
-        }
-
-        /// <inheritdoc/>
-        public IPipelineBuilder<TRequest> AddExecutionBoundary(Type boundaryType)
-        {
-            if (boundaryType == null)
-                throw new ArgumentNullException(nameof(boundaryType));
-
-            _boundaryFactories.Add(serviceProvider => ExecutionBoundaryTypeResolver.Resolve<TRequest>(serviceProvider, boundaryType));
-            return this;
-        }
-
-        /// <inheritdoc/>
-        public IPipelineBuilder<TRequest> AddBoundary(Type boundaryType)
-            => AddExecutionBoundary(boundaryType);
-
-        /// <inheritdoc/>
-        public IPipelineBuilder<TRequest> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration<TRequest>> configure)
-        {
-            if (configure == null)
-                throw new ArgumentNullException(nameof(configure));
-
-            var boundary = new DelegateExecutionBoundary<TRequest>();
-            configure(boundary);
-            _boundaryFactories.Add(_ => boundary);
             return this;
         }
 
@@ -176,7 +159,7 @@ namespace Spider.Pipelines.Core.Internals
         private readonly ITargetConfiguration<TRequest, TResponse> _targetConfiguration;
         private readonly IParallelConfiguration<TRequest, TResponse> _parallelConfiguration;
         private readonly IMiddlewareConfiguration<TRequest, TResponse> _middlewareConfiguration;
-        private readonly IList<Func<IServiceProvider, IBoundary<TRequest, TResponse>>> _boundaryFactories;
+        private readonly IList<Func<IServiceProvider, IPipelineExecutionBoundary>> _boundaryFactories;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -191,7 +174,7 @@ namespace Spider.Pipelines.Core.Internals
             _targetConfiguration = new TargetConfiguration<TRequest, TResponse>(_serviceProvider);
             _parallelConfiguration = new ParallelConfiguration<TRequest, TResponse>(_serviceProvider);
             _middlewareConfiguration = new MiddlewareConfiguration<TRequest, TResponse>();
-            _boundaryFactories = new List<Func<IServiceProvider, IBoundary<TRequest, TResponse>>>();
+            _boundaryFactories = new List<Func<IServiceProvider, IPipelineExecutionBoundary>>();
         }
 
         /// <inheritdoc/>
@@ -245,36 +228,20 @@ namespace Spider.Pipelines.Core.Internals
         }
 
         /// <inheritdoc/>
+        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IPipelineExecutionBoundary boundary)
+        {
+            if (boundary == null)
+                throw new ArgumentNullException(nameof(boundary));
+
+            _boundaryFactories.Add(_ => boundary);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IBoundary<TRequest, TResponse>
+            where TBoundary : class, IPipelineExecutionBoundary
         {
             _boundaryFactories.Add(serviceProvider => serviceProvider.GetRequiredService<TBoundary>());
-            return this;
-        }
-
-        /// <inheritdoc/>
-        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Type boundaryType)
-        {
-            if (boundaryType == null)
-                throw new ArgumentNullException(nameof(boundaryType));
-
-            _boundaryFactories.Add(serviceProvider => ExecutionBoundaryTypeResolver.Resolve<TRequest, TResponse>(serviceProvider, boundaryType));
-            return this;
-        }
-
-        /// <inheritdoc/>
-        public IPipelineBuilder<TRequest, TResponse> AddBoundary(Type boundaryType)
-            => AddExecutionBoundary(boundaryType);
-
-        /// <inheritdoc/>
-        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration<TRequest, TResponse>> configure)
-        {
-            if (configure == null)
-                throw new ArgumentNullException(nameof(configure));
-
-            var boundary = new DelegateExecutionBoundary<TRequest, TResponse>();
-            configure(boundary);
-            _boundaryFactories.Add(_ => boundary);
             return this;
         }
 

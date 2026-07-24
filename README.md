@@ -40,51 +40,24 @@ dotnet run --project samples/Spider.Pipelines.Samples.Basic/Spider.Pipelines.Sam
 services.AddSpider();
 ```
 
-Execution boundaries can be registered globally through the Spider builder:
+Execution boundaries can be registered through the Spider builder:
 
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddBoundary(typeof(MyBoundary<,>));
+    spider.AddExecutionBoundary<MyBoundary>();
 });
 ```
-
-Global boundaries wrap every Spider pipeline execution resolved from that container.
 
 They can also be selected for a single attached pipeline through the fluent API. Register the implementation as a normal service, then add it to the pipeline:
 
 ```csharp
-services.AddScoped<OrderBoundary>();
+services.AddScoped<MyBoundary>();
 
 bridge.Attach<string, string>(builder =>
 {
-    builder.AddExecutionBoundary<OrderBoundary>();
+    builder.AddExecutionBoundary<MyBoundary>();
 });
-```
-
-Or configure the boundary callbacks inline:
-
-```csharp
-bridge.Attach<string, string>(builder =>
-{
-    builder.AddExecutionBoundary(boundary =>
-    {
-        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
-        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnDispose(ctx => ValueTask.CompletedTask);
-    });
-});
-```
-
-For a single execution, configure DI-resolved invocation boundaries directly on `ExecuteAsync`:
-
-```csharp
-await typedBridge.ExecuteAsync(
-    svc => (input, token) => svc.Handle(input, token),
-    "World",
-    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
 ```
 
 ### 2. Define a Service
@@ -161,50 +134,25 @@ Context state is synchronized while target and parallel steps run concurrently, 
 
 ## Execution Boundaries
 
-Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves typed boundaries from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`, followed by `DisposeAsync`.
+Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves the boundary from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`.
 
 ```csharp
-public sealed class MyBoundary<TRequest, TResponse> : IBoundary<TRequest, TResponse>
+public sealed class MyBoundary : IPipelineExecutionBoundary
 {
     public ValueTask BeginAsync(
-        PipelineExecutionContext<TRequest, TResponse> context,
+        PipelineExecutionContext context,
         CancellationToken cancellationToken)
     {
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask CompleteAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
+    public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask FaultAsync(PipelineExecutionContext<TRequest, TResponse> context, Exception exception, CancellationToken cancellationToken)
+    public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask CancelAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask DisposeAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-}
-```
-
-For request-only pipelines, implement `IBoundary<TRequest>`:
-
-```csharp
-public sealed class MyBoundary<TRequest> : IBoundary<TRequest>
-{
-    public ValueTask BeginAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask CompleteAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask FaultAsync(PipelineExecutionContext<TRequest> context, Exception exception, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask CancelAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask DisposeAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+    public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 }
 ```
@@ -216,113 +164,14 @@ Boundary order:
 3. Middleware, target/override, and parallel work.
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
-6. Boundary dispose.
 
-### Global Boundaries
-
-Global boundaries are registered once and wrap every pipeline execution from the same container:
-
-```csharp
-services.AddSpider(spider =>
-{
-    spider.AddBoundary(typeof(AuditBoundary<,>));
-    spider.AddBoundary(typeof(TransactionBoundary<,>));
-});
-```
-
-Global boundaries should usually be open-generic so the registration is reusable across request/response models:
-
-```csharp
-services.AddSpider(spider =>
-{
-    spider.AddBoundary(typeof(MyBoundary<,>));
-});
-```
-
-### Fluent API Boundaries
-
-Fluent boundaries are part of one attached pipeline. Register the implementation as a normal DI service, then select it from the builder:
-
-```csharp
-services.AddScoped<OrderBoundary>();
-services.AddSpider();
-
-var bridge = spider
-    .InitBridge<OrderService>()
-    .Attach<OrderRequest, OrderReceipt>(builder =>
-    {
-        builder
-            .AddExecutionBoundary<OrderBoundary>()
-            .PreProcess((ctx, args) => Task.CompletedTask)
-            .OnSuccess((ctx, args) => Task.CompletedTask);
-    });
-```
-
-Fluent boundaries can also be defined with callbacks instead of a class:
-
-```csharp
-var bridge = spider
-    .InitBridge<OrderService>()
-    .Attach<OrderRequest, OrderReceipt>(builder =>
-    {
-        builder.AddExecutionBoundary(boundary =>
-        {
-            boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
-            boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
-            boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
-            boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-            boundary.OnDispose(ctx => ValueTask.CompletedTask);
-        });
-    });
-```
-
-Open-generic boundaries can also be selected for one attached pipeline by runtime type, as long as the implementation is registered in DI:
-
-```csharp
-services.AddScoped(typeof(MyBoundary<,>));
-
-var bridge = spider
-    .InitBridge<OrderService>()
-    .Attach<OrderRequest, OrderReceipt>(builder =>
-    {
-        builder.AddBoundary(typeof(MyBoundary<,>));
-    });
-```
-
-### Invocation Boundaries
-
-Invocation boundaries apply only to one `ExecuteAsync` call:
+For one-off calls, pass boundary instances to `ExecuteAsync`:
 
 ```csharp
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
-```
-
-Open-generic boundary types can be selected for one execution too:
-
-```csharp
-await typedBridge.ExecuteAsync(
-    svc => (input, token) => svc.Handle(input, token),
-    "World",
-    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
-```
-
-They can also be configured inline with callbacks:
-
-```csharp
-await typedBridge.ExecuteAsync(
-    svc => (input, token) => svc.Handle(input, token),
-    "World",
-    execution => execution.AddExecutionBoundary(boundary =>
-    {
-        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
-        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnDispose(ctx => ValueTask.CompletedTask);
-    }));
+    new[] { myBoundary });
 ```
 
 Multiple boundaries begin in this order: global DI, fluent pipeline, invocation. They terminate in reverse order.

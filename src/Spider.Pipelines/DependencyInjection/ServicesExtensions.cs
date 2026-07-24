@@ -1,4 +1,4 @@
-namespace Microsoft.Extensions.DependencyInjection
+﻿namespace Microsoft.Extensions.DependencyInjection
 {
     using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Core;
@@ -38,51 +38,19 @@ namespace Microsoft.Extensions.DependencyInjection
         }
 
         /// <summary>
-        /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
+        /// Registers an execution boundary that wraps full Spider pipeline executions.
         /// </summary>
+        /// <typeparam name="TBoundary">The concrete boundary implementation type.</typeparam>
         /// <param name="builder">The Spider builder to configure.</param>
-        /// <param name="boundaryType">The boundary implementation type to register.</param>
         /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddBoundary(this ISpiderBuilder builder, Type boundaryType)
+        public static ISpiderBuilder AddExecutionBoundary<TBoundary>(this ISpiderBuilder builder)
+            where TBoundary : class, IPipelineExecutionBoundary
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
 
-            if (boundaryType == null)
-                throw new ArgumentNullException(nameof(boundaryType));
-
-            var registered = false;
-
-            foreach (var contractType in boundaryType.GetInterfaces().Where(IsBoundaryContract))
-            {
-                var serviceType = contractType.ContainsGenericParameters
-                    ? contractType.GetGenericTypeDefinition()
-                    : contractType;
-
-                builder.Services.AddScoped(serviceType, boundaryType);
-                registered = true;
-            }
-
-            if (!registered)
-                throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IBoundary<TRequest> or IBoundary<TRequest, TResponse>.");
-
-            builder.Services.AddScoped(boundaryType, boundaryType);
-
+            builder.Services.AddScoped<IPipelineExecutionBoundary, TBoundary>();
             return builder;
-        }
-
-        /// <summary>
-        /// Determines whether the specified type is a Spider execution boundary contract.
-        /// </summary>
-        /// <param name="contractType">The contract type to inspect.</param>
-        /// <returns><c>true</c> when the type is a boundary contract; otherwise, <c>false</c>.</returns>
-        private static bool IsBoundaryContract(Type contractType)
-        {
-            if (!contractType.IsGenericType)
-                return false;
-
-            var definition = contractType.GetGenericTypeDefinition();
-            return definition == typeof(IBoundary<>) || definition == typeof(IBoundary<,>);
         }
     }
 }
