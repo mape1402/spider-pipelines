@@ -45,7 +45,7 @@ Execution boundaries can be registered globally through the Spider builder:
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<MyBoundary>();
+    spider.AddExecutionBoundary<string, string, MyBoundary>();
 });
 ```
 
@@ -59,6 +59,22 @@ services.AddScoped<MyBoundary>();
 bridge.Attach<string, string>(builder =>
 {
     builder.AddExecutionBoundary<MyBoundary>();
+});
+```
+
+Or configure the boundary callbacks inline:
+
+```csharp
+bridge.Attach<string, string>(builder =>
+{
+    builder.AddExecutionBoundary(boundary =>
+    {
+        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnDispose(ctx => ValueTask.CompletedTask);
+    });
 });
 ```
 
@@ -145,25 +161,28 @@ Context state is synchronized while target and parallel steps run concurrently, 
 
 ## Execution Boundaries
 
-Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves the boundary from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`.
+Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves typed boundaries from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`, followed by `DisposeAsync`.
 
 ```csharp
-public sealed class MyBoundary : IPipelineExecutionBoundary
+public sealed class MyBoundary : IPipelineExecutionBoundary<string, string>
 {
     public ValueTask BeginAsync(
-        PipelineExecutionContext context,
+        IReadOnlyContext<string, string> context,
         CancellationToken cancellationToken)
     {
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask CompleteAsync(IReadOnlyContext<string, string> context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
+    public ValueTask FaultAsync(IReadOnlyContext<string, string> context, Exception exception, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+    public ValueTask CancelAsync(IReadOnlyContext<string, string> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync(IReadOnlyContext<string, string> context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 }
 ```
@@ -175,6 +194,7 @@ Boundary order:
 3. Middleware, target/override, and parallel work.
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
+6. Boundary dispose.
 
 ### Global Boundaries
 
@@ -183,8 +203,8 @@ Global boundaries are registered once and wrap every pipeline execution from the
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<AuditBoundary>();
-    spider.AddExecutionBoundary<TransactionBoundary>();
+    spider.AddExecutionBoundary<OrderRequest, OrderReceipt, AuditBoundary>();
+    spider.AddExecutionBoundary<OrderRequest, OrderReceipt, TransactionBoundary>();
 });
 ```
 
@@ -204,6 +224,24 @@ var bridge = spider
             .AddExecutionBoundary<OrderBoundary>()
             .PreProcess((ctx, args) => Task.CompletedTask)
             .OnSuccess((ctx, args) => Task.CompletedTask);
+    });
+```
+
+Fluent boundaries can also be defined with callbacks instead of a class:
+
+```csharp
+var bridge = spider
+    .InitBridge<OrderService>()
+    .Attach<OrderRequest, OrderReceipt>(builder =>
+    {
+        builder.AddExecutionBoundary(boundary =>
+        {
+            boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+            boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+            boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+            boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+            boundary.OnDispose(ctx => ValueTask.CompletedTask);
+        });
     });
 ```
 

@@ -2,31 +2,41 @@
 
 ## Objective
 
-Spider provides a provider-agnostic execution boundary that wraps a complete pipeline execution. The core library owns only the orchestration point; application code or optional integration packages decide what each boundary operation means.
+Spider provides typed execution boundaries that wrap a complete pipeline execution. Boundaries can be registered globally, selected per fluent pipeline configuration, or passed to a single invocation.
 
 ## Boundary Contract
 
-Boundaries implement `IPipelineExecutionBoundary`:
+Request-only boundaries implement `IPipelineExecutionBoundary<TRequest>`:
 
 ```csharp
-public interface IPipelineExecutionBoundary
+public interface IPipelineExecutionBoundary<TRequest>
 {
-    ValueTask BeginAsync(
-        PipelineExecutionContext context,
-        CancellationToken cancellationToken);
+    ValueTask BeginAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
 
-    ValueTask CompleteAsync(
-        PipelineExecutionContext context,
-        CancellationToken cancellationToken);
+    ValueTask CompleteAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
 
-    ValueTask FaultAsync(
-        PipelineExecutionContext context,
-        Exception exception,
-        CancellationToken cancellationToken);
+    ValueTask FaultAsync(IReadOnlyContext<TRequest> context, Exception exception, CancellationToken cancellationToken);
 
-    ValueTask CancelAsync(
-        PipelineExecutionContext context,
-        CancellationToken cancellationToken);
+    ValueTask CancelAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
+
+    ValueTask DisposeAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
+}
+```
+
+Request/response boundaries implement `IPipelineExecutionBoundary<TRequest, TResponse>`:
+
+```csharp
+public interface IPipelineExecutionBoundary<TRequest, TResponse>
+{
+    ValueTask BeginAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+
+    ValueTask CompleteAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+
+    ValueTask FaultAsync(IReadOnlyContext<TRequest, TResponse> context, Exception exception, CancellationToken cancellationToken);
+
+    ValueTask CancelAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+
+    ValueTask DisposeAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
 }
 ```
 
@@ -40,6 +50,7 @@ Boundary.Begin
   Middleware / Target / Parallel work
   Post-processors
 Boundary.Complete
+Boundary.Dispose
 ```
 
 For a faulted pipeline:
@@ -48,6 +59,7 @@ For a faulted pipeline:
 Boundary.Begin
   Pipeline throws
 Boundary.Fault
+Boundary.Dispose
 ```
 
 For a cooperatively cancelled pipeline:
@@ -56,66 +68,85 @@ For a cooperatively cancelled pipeline:
 Boundary.Begin
   Pipeline cancels
 Boundary.Cancel
+Boundary.Dispose
 ```
 
 ## Multiple Boundaries
 
-Boundaries begin in registration order and terminate in reverse order:
+Boundaries begin in this order:
 
 ```txt
-BoundaryA.Begin
-  BoundaryB.Begin
-    Pipeline
-  BoundaryB.Complete
-BoundaryA.Complete
+Global DI boundaries
+Pipeline fluent boundaries
+Invocation boundaries
 ```
+
+Terminal and dispose callbacks run in reverse order.
 
 ## Exception Rules
 
 - If the pipeline throws, Spider calls `FaultAsync` and rethrows the original exception.
 - If the pipeline is cancelled through `CancelOperation`, Spider calls `CancelAsync`.
-- If `BeginAsync` fails, already opened boundaries are faulted.
-- If `CompleteAsync`, `FaultAsync`, or `CancelAsync` fails after the pipeline already threw, the original pipeline exception is preserved.
-- If the pipeline succeeded and `CompleteAsync` fails, the boundary exception is surfaced.
+- If `BeginAsync` fails, already opened boundaries are faulted and disposed.
+- If `CompleteAsync`, `FaultAsync`, `CancelAsync`, or `DisposeAsync` fails after the pipeline already threw, the original pipeline exception is preserved.
+- If the pipeline succeeded and `CompleteAsync` or `DisposeAsync` fails, the boundary exception is surfaced.
 
-## Registration
+## Global Registration
 
-Register global boundaries with the Spider builder:
+Register a global request/response boundary with the Spider builder:
 
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<MyBoundary>();
+    spider.AddExecutionBoundary<OrderRequest, OrderReceipt, OrderBoundary>();
 });
 ```
 
-Or chain from the returned builder:
+For request-only pipelines:
 
 ```csharp
-services
-    .AddSpider()
-    .AddExecutionBoundary<MyBoundary>();
+services.AddSpider(spider =>
+{
+    spider.AddExecutionBoundary<OrderRequest, OrderBoundary>();
+});
 ```
 
-Configure boundaries for a single pipeline with the pipeline fluent API. The boundary implementation must be registered as a normal DI service; this fluent call only selects it for that pipeline:
+## Fluent API
+
+Select a DI-registered boundary for one attached pipeline:
 
 ```csharp
-services.AddScoped<MyBoundary>();
+services.AddScoped<OrderBoundary>();
 
-spider.InitBridge<MyService>()
-    .Attach<MyRequest, MyResponse>(builder =>
+spider.InitBridge<OrderService>()
+    .Attach<OrderRequest, OrderReceipt>(builder =>
     {
-        builder.AddExecutionBoundary<MyBoundary>();
+        builder.AddExecutionBoundary<OrderBoundary>();
     });
 ```
 
-You can also provide an already-created boundary instance through the fluent API:
+Configure a delegate-backed boundary directly in the fluent pipeline:
+
+```csharp
+builder.AddExecutionBoundary(boundary =>
+{
+    boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+    boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnDispose(ctx => ValueTask.CompletedTask);
+});
+```
+
+You can also provide an already-created typed boundary instance:
 
 ```csharp
 builder.AddExecutionBoundary(myBoundary);
 ```
 
-For a single invocation, pass boundary instances to `ExecuteAsync`:
+## Invocation Boundaries
+
+Pass typed boundary instances to a single `ExecuteAsync` call:
 
 ```csharp
 await bridge.ExecuteAsync(
@@ -124,33 +155,13 @@ await bridge.ExecuteAsync(
     new[] { myBoundary });
 ```
 
-When boundaries are provided from multiple levels, Spider begins them in this order:
-
-```txt
-Global DI boundaries
-Pipeline fluent boundaries
-Invocation boundaries
-```
-
-Termination still runs in reverse order.
-
 ## Context
 
-`PipelineExecutionContext` exposes Spider-owned metadata:
+Boundary callbacks receive the same typed pipeline context shape used by pipeline stages:
 
 ```csharp
-public sealed class PipelineExecutionContext
-{
-    public Type RequestType { get; init; }
-
-    public Type ResponseType { get; init; }
-
-    public object Request { get; init; }
-
-    public IServiceProvider Services { get; init; }
-
-    public IDictionary<string, object> Items { get; }
-}
+IReadOnlyContext<TRequest>
+IReadOnlyContext<TRequest, TResponse>
 ```
 
-Boundary implementations may use this metadata to decide whether and how to activate, without Spider taking a dependency on any concrete infrastructure policy.
+That gives boundaries typed access to `Request`, `Response`, `Services`, cancellation state, pipeline state, result state, and captured exceptions.
