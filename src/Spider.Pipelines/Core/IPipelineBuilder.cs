@@ -85,6 +85,13 @@
         IPipelineBuilder<TRequest> AddExecutionBoundary(Type boundaryType);
 
         /// <summary>
+        /// Adds a delegate execution boundary to this pipeline configuration.
+        /// </summary>
+        /// <param name="configure">The boundary callback configuration.</param>
+        /// <returns>The current pipeline builder instance.</returns>
+        IPipelineBuilder<TRequest> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure);
+
+        /// <summary>
         /// Builds the pipeline with the specified target handler.
         /// </summary>
         /// <param name="targetHandler">The target handler delegate.</param>
@@ -148,6 +155,13 @@
         /// <param name="boundaryType">The boundary implementation type to resolve from DI.</param>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Type boundaryType);
+
+        /// <summary>
+        /// Adds a delegate execution boundary to this pipeline configuration.
+        /// </summary>
+        /// <param name="configure">The boundary callback configuration.</param>
+        /// <returns>The current pipeline builder instance.</returns>
+        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure);
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.

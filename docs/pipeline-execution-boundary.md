@@ -27,6 +27,8 @@ public interface IPipelineExecutionBoundary
     ValueTask CancelAsync(
         PipelineExecutionContext context,
         CancellationToken cancellationToken);
+
+    ValueTask DisposeAsync(PipelineExecutionContext context);
 }
 ```
 
@@ -115,22 +117,31 @@ You can also select a DI-registered boundary by runtime type through the fluent 
 builder.AddExecutionBoundary(typeof(MyBoundary));
 ```
 
-For a single invocation, select DI-registered boundaries through the execution callback:
+Configure inline boundary callbacks through the pipeline fluent API when no reusable implementation is needed:
 
 ```csharp
-await bridge.ExecuteAsync(
-    service => (request, token) => service.HandleAsync(request, token),
-    request,
-    execution => execution.AddExecutionBoundary<MyBoundary>());
+builder.AddExecutionBoundary(boundary =>
+{
+    boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+    boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnDispose(ctx => ValueTask.CompletedTask);
+});
 ```
 
-The execution callback can also select a DI-registered boundary by runtime type:
+For a bridge execution flow, select DI-registered boundaries after initializing the bridge and before attaching the pipeline:
 
 ```csharp
+var bridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary<MyBoundary>()
+    .AddExecutionBoundary(typeof(OtherBoundary))
+    .Attach<MyRequest, MyResponse>(builder => { });
+
 await bridge.ExecuteAsync(
     service => (request, token) => service.HandleAsync(request, token),
-    request,
-    execution => execution.AddExecutionBoundary(typeof(MyBoundary)));
+    request);
 ```
 
 When boundaries are provided from multiple levels, Spider begins them in this order:
@@ -138,7 +149,7 @@ When boundaries are provided from multiple levels, Spider begins them in this or
 ```txt
 Global DI boundaries
 Pipeline fluent boundaries
-Invocation boundaries
+Bridge-selected boundaries
 ```
 
 Termination still runs in reverse order.

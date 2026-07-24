@@ -18,7 +18,7 @@ namespace Spider.Pipelines.Tests.Core
         [Fact]
         public void Constructor_ShouldInitialize()
         {
-            var bridge = new ServiceBridge<object, string>(new ServiceProviderStub(), new object(), new PipelineBuilderStub());
+            var bridge = new ServiceBridge<object, string>(new ServiceProviderStub(), new object(), new PipelineBuilderStub(), Array.Empty<Type>());
             Assert.NotNull(bridge);
         }
     }
@@ -28,7 +28,7 @@ namespace Spider.Pipelines.Tests.Core
         [Fact]
         public void Constructor_ShouldInitialize()
         {
-            var bridge = new ServiceBridge<object, string, int>(new ServiceProviderStub(), new object(), new PipelineBuilderStub());
+            var bridge = new ServiceBridge<object, string, int>(new ServiceProviderStub(), new object(), new PipelineBuilderStub(), Array.Empty<Type>());
             Assert.NotNull(bridge);
         }
     }

@@ -60,6 +60,19 @@ bridge.Attach<string, string>(builder =>
 });
 ```
 
+Inline boundary callbacks can be configured directly on the pipeline builder:
+
+```csharp
+builder.AddExecutionBoundary(boundary =>
+{
+    boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+    boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+    boundary.OnDispose(ctx => ValueTask.CompletedTask);
+});
+```
+
 ### 2. Define a Service
 
 ```csharp
@@ -154,6 +167,9 @@ public sealed class MyBoundary : IPipelineExecutionBoundary
 
     public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync(PipelineExecutionContext context)
+        => ValueTask.CompletedTask;
 }
 ```
 
@@ -165,16 +181,21 @@ Boundary order:
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
 
-For one-off calls, select DI-registered boundaries through the execution callback:
+For a bridge execution flow, select DI-registered boundaries after initializing the bridge and before attaching the pipeline:
 
 ```csharp
+var typedBridge = spider
+    .InitBridge<MyService>()
+    .AddExecutionBoundary<MyBoundary>()
+    .AddExecutionBoundary<OtherBoundary>()
+    .Attach<string, string>(builder => { });
+
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
-    "World",
-    execution => execution.AddExecutionBoundary<MyBoundary>());
+    "World");
 ```
 
-Multiple boundaries begin in this order: global DI, fluent pipeline, invocation. They terminate in reverse order.
+Multiple boundaries begin in this order: global DI, fluent pipeline, bridge-selected. They terminate in reverse order.
 
 ## Error and Cancellation Behavior
 

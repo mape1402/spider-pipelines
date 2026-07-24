@@ -17,10 +17,10 @@ namespace Spider.Pipelines.Core
         Task RunAsync(TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Runs the pipeline asynchronously with execution boundaries configured only for this invocation.
+        /// Runs the pipeline asynchronously with execution boundaries configured for this materialized execution.
         /// </summary>
         /// <param name="request">The request object to process.</param>
-        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
+        /// <param name="configureExecution">The action that configures execution-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         Task RunAsync(TRequest request, Action<IExecutionBoundaryCollection> configureExecution, CancellationToken cancellationToken = default);
@@ -42,10 +42,10 @@ namespace Spider.Pipelines.Core
         Task<TResponse> RunAsync(TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Runs the pipeline asynchronously with execution boundaries configured only for this invocation.
+        /// Runs the pipeline asynchronously with execution boundaries configured for this materialized execution.
         /// </summary>
         /// <param name="request">The request object to process.</param>
-        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
+        /// <param name="configureExecution">The action that configures execution-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
         Task<TResponse> RunAsync(TRequest request, Action<IExecutionBoundaryCollection> configureExecution, CancellationToken cancellationToken = default);

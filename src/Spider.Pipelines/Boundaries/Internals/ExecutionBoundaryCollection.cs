@@ -3,7 +3,7 @@ namespace Spider.Pipelines.Boundaries.Internals
     using Microsoft.Extensions.DependencyInjection;
 
     /// <summary>
-    /// Collects invocation boundaries and creates them from the active service provider.
+    /// Collects execution boundaries and creates them from the active service provider.
     /// </summary>
     internal sealed class ExecutionBoundaryCollection : IExecutionBoundaryCollection
     {
@@ -39,10 +39,10 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Creates the invocation boundaries from the configured factories.
+        /// Creates the execution boundaries from the configured factories.
         /// </summary>
         /// <param name="serviceProvider">The service provider used to resolve DI-backed boundaries.</param>
-        /// <returns>The boundaries configured for the current invocation.</returns>
+        /// <returns>The boundaries configured for the current materialized execution.</returns>
         public IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(IServiceProvider serviceProvider)
         {
             if (serviceProvider == null)
