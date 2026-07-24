@@ -53,7 +53,7 @@ namespace Spider.Pipelines.Core
         Task ExecuteAsync<TRequest>(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest>> executionBoundaries,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace Spider.Pipelines.Core
         Task<TResponse> ExecuteAsync<TRequest, TResponse>(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest, TResponse>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
             CancellationToken cancellationToken = default);
     }
 
@@ -111,7 +111,7 @@ namespace Spider.Pipelines.Core
         Task ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest>> executionBoundaries,
             CancellationToken cancellationToken = default);
     }
 
@@ -143,7 +143,7 @@ namespace Spider.Pipelines.Core
         Task<TResponse> ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest, TResponse>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
             CancellationToken cancellationToken = default);
     }
 }

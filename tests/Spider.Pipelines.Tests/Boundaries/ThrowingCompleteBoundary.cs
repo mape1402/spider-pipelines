@@ -1,5 +1,4 @@
 using Spider.Pipelines.Boundaries;
-using Spider.Pipelines.Core;
 
 namespace Spider.Pipelines.Tests.Boundaries
 {
@@ -15,7 +14,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         public ThrowingCompleteBoundary(BoundaryEventLog log) : base("throw-complete", log) { }
 
         /// <inheritdoc/>
-        public override ValueTask CompleteAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
+        public override ValueTask CompleteAsync(PipelineExecutionContext<string, int> context, CancellationToken cancellationToken)
         {
             base.CompleteAsync(context, cancellationToken);
             throw new InvalidOperationException("Complete failed.");

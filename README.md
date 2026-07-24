@@ -164,25 +164,47 @@ Context state is synchronized while target and parallel steps run concurrently, 
 Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves typed boundaries from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`, followed by `DisposeAsync`.
 
 ```csharp
-public sealed class MyBoundary : IPipelineExecutionBoundary<string, string>
+public sealed class MyBoundary<TRequest, TResponse> : IBoundary<TRequest, TResponse>
 {
     public ValueTask BeginAsync(
-        IReadOnlyContext<string, string> context,
+        PipelineExecutionContext<TRequest, TResponse> context,
         CancellationToken cancellationToken)
     {
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask CompleteAsync(IReadOnlyContext<string, string> context, CancellationToken cancellationToken)
+    public ValueTask CompleteAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask FaultAsync(IReadOnlyContext<string, string> context, Exception exception, CancellationToken cancellationToken)
+    public ValueTask FaultAsync(PipelineExecutionContext<TRequest, TResponse> context, Exception exception, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask CancelAsync(IReadOnlyContext<string, string> context, CancellationToken cancellationToken)
+    public ValueTask CancelAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 
-    public ValueTask DisposeAsync(IReadOnlyContext<string, string> context, CancellationToken cancellationToken)
+    public ValueTask DisposeAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+}
+```
+
+For request-only pipelines, implement `IBoundary<TRequest>`:
+
+```csharp
+public sealed class MyBoundary<TRequest> : IBoundary<TRequest>
+{
+    public ValueTask BeginAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask CompleteAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask FaultAsync(PipelineExecutionContext<TRequest> context, Exception exception, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask CancelAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 }
 ```

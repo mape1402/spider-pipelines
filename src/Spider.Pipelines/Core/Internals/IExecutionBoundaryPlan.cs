@@ -13,7 +13,7 @@ namespace Spider.Pipelines.Core.Internals
         /// </summary>
         /// <param name="serviceProvider">The service provider used to resolve boundary implementations.</param>
         /// <returns>The execution boundaries configured for this pipeline.</returns>
-        IReadOnlyCollection<IPipelineExecutionBoundary<TRequest>> CreateExecutionBoundaries(IServiceProvider serviceProvider);
+        IReadOnlyCollection<IBoundary<TRequest>> CreateExecutionBoundaries(IServiceProvider serviceProvider);
     }
 
     /// <summary>
@@ -28,6 +28,6 @@ namespace Spider.Pipelines.Core.Internals
         /// </summary>
         /// <param name="serviceProvider">The service provider used to resolve boundary implementations.</param>
         /// <returns>The execution boundaries configured for this pipeline.</returns>
-        IReadOnlyCollection<IPipelineExecutionBoundary<TRequest, TResponse>> CreateExecutionBoundaries(IServiceProvider serviceProvider);
+        IReadOnlyCollection<IBoundary<TRequest, TResponse>> CreateExecutionBoundaries(IServiceProvider serviceProvider);
     }
 }

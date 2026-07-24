@@ -6,37 +6,81 @@ Spider provides typed execution boundaries that wrap a complete pipeline executi
 
 ## Boundary Contract
 
-Request-only boundaries implement `IPipelineExecutionBoundary<TRequest>`:
+Request-only boundaries implement `IBoundary<TRequest>`:
 
 ```csharp
-public interface IPipelineExecutionBoundary<TRequest>
+public interface IBoundary<TRequest>
 {
-    ValueTask BeginAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
+    ValueTask BeginAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken);
 
-    ValueTask CompleteAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
+    ValueTask CompleteAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken);
 
-    ValueTask FaultAsync(IReadOnlyContext<TRequest> context, Exception exception, CancellationToken cancellationToken);
+    ValueTask FaultAsync(PipelineExecutionContext<TRequest> context, Exception exception, CancellationToken cancellationToken);
 
-    ValueTask CancelAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
+    ValueTask CancelAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken);
 
-    ValueTask DisposeAsync(IReadOnlyContext<TRequest> context, CancellationToken cancellationToken);
+    ValueTask DisposeAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken);
 }
 ```
 
-Request/response boundaries implement `IPipelineExecutionBoundary<TRequest, TResponse>`:
+For reusable request-only infrastructure, implement the boundary as a generic type:
 
 ```csharp
-public interface IPipelineExecutionBoundary<TRequest, TResponse>
+public sealed class MyBoundary<TRequest> : IBoundary<TRequest>
 {
-    ValueTask BeginAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+    public ValueTask BeginAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 
-    ValueTask CompleteAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+    public ValueTask CompleteAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 
-    ValueTask FaultAsync(IReadOnlyContext<TRequest, TResponse> context, Exception exception, CancellationToken cancellationToken);
+    public ValueTask FaultAsync(PipelineExecutionContext<TRequest> context, Exception exception, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 
-    ValueTask CancelAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+    public ValueTask CancelAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 
-    ValueTask DisposeAsync(IReadOnlyContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+    public ValueTask DisposeAsync(PipelineExecutionContext<TRequest> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+}
+```
+
+Request/response boundaries implement `IBoundary<TRequest, TResponse>`:
+
+```csharp
+public interface IBoundary<TRequest, TResponse>
+{
+    ValueTask BeginAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+
+    ValueTask CompleteAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+
+    ValueTask FaultAsync(PipelineExecutionContext<TRequest, TResponse> context, Exception exception, CancellationToken cancellationToken);
+
+    ValueTask CancelAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+
+    ValueTask DisposeAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken);
+}
+```
+
+For reusable request/response infrastructure, implement the boundary as a generic type:
+
+```csharp
+public sealed class MyBoundary<TRequest, TResponse> : IBoundary<TRequest, TResponse>
+{
+    public ValueTask BeginAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask CompleteAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask FaultAsync(PipelineExecutionContext<TRequest, TResponse> context, Exception exception, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask CancelAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync(PipelineExecutionContext<TRequest, TResponse> context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 }
 ```
 
@@ -157,11 +201,11 @@ await bridge.ExecuteAsync(
 
 ## Context
 
-Boundary callbacks receive the same typed pipeline context shape used by pipeline stages:
+Boundary callbacks receive typed, provider-agnostic boundary contexts:
 
 ```csharp
-IReadOnlyContext<TRequest>
-IReadOnlyContext<TRequest, TResponse>
+PipelineExecutionContext<TRequest>
+PipelineExecutionContext<TRequest, TResponse>
 ```
 
-That gives boundaries typed access to `Request`, `Response`, `Services`, cancellation state, pipeline state, result state, and captured exceptions.
+That gives boundaries typed access to `Request`, `Response` for request/response pipelines, `Services`, and per-execution `Items` without exposing Spider's internal pipeline context.

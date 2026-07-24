@@ -1,7 +1,5 @@
 namespace Spider.Pipelines.Boundaries
 {
-    using Spider.Pipelines.Core;
-
     /// <summary>
     /// Configures delegate callbacks for a request/response execution boundary.
     /// </summary>
@@ -14,34 +12,34 @@ namespace Spider.Pipelines.Boundaries
         /// </summary>
         /// <param name="handler">The begin callback.</param>
         /// <returns>The current boundary configuration.</returns>
-        IExecutionBoundaryConfiguration<TRequest, TResponse> OnBegin(Func<IReadOnlyContext<TRequest, TResponse>, CancellationToken, ValueTask> handler);
+        IExecutionBoundaryConfiguration<TRequest, TResponse> OnBegin(Func<PipelineExecutionContext<TRequest, TResponse>, CancellationToken, ValueTask> handler);
 
         /// <summary>
         /// Configures the callback invoked when the boundary completes successfully.
         /// </summary>
         /// <param name="handler">The complete callback.</param>
         /// <returns>The current boundary configuration.</returns>
-        IExecutionBoundaryConfiguration<TRequest, TResponse> OnComplete(Func<IReadOnlyContext<TRequest, TResponse>, CancellationToken, ValueTask> handler);
+        IExecutionBoundaryConfiguration<TRequest, TResponse> OnComplete(Func<PipelineExecutionContext<TRequest, TResponse>, CancellationToken, ValueTask> handler);
 
         /// <summary>
         /// Configures the callback invoked when the boundary faults.
         /// </summary>
         /// <param name="handler">The fault callback.</param>
         /// <returns>The current boundary configuration.</returns>
-        IExecutionBoundaryConfiguration<TRequest, TResponse> OnFault(Func<IReadOnlyContext<TRequest, TResponse>, Exception, CancellationToken, ValueTask> handler);
+        IExecutionBoundaryConfiguration<TRequest, TResponse> OnFault(Func<PipelineExecutionContext<TRequest, TResponse>, Exception, CancellationToken, ValueTask> handler);
 
         /// <summary>
         /// Configures the callback invoked when the boundary cancels.
         /// </summary>
         /// <param name="handler">The cancel callback.</param>
         /// <returns>The current boundary configuration.</returns>
-        IExecutionBoundaryConfiguration<TRequest, TResponse> OnCancel(Func<IReadOnlyContext<TRequest, TResponse>, CancellationToken, ValueTask> handler);
+        IExecutionBoundaryConfiguration<TRequest, TResponse> OnCancel(Func<PipelineExecutionContext<TRequest, TResponse>, CancellationToken, ValueTask> handler);
 
         /// <summary>
         /// Configures the callback invoked after the terminal boundary operation has been attempted.
         /// </summary>
         /// <param name="handler">The dispose callback.</param>
         /// <returns>The current boundary configuration.</returns>
-        IExecutionBoundaryConfiguration<TRequest, TResponse> OnDispose(Func<IReadOnlyContext<TRequest, TResponse>, ValueTask> handler);
+        IExecutionBoundaryConfiguration<TRequest, TResponse> OnDispose(Func<PipelineExecutionContext<TRequest, TResponse>, ValueTask> handler);
     }
 }

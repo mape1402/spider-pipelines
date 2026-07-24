@@ -1,4 +1,4 @@
-﻿namespace Spider.Pipelines.Core.Internals
+namespace Spider.Pipelines.Core.Internals
 {
     using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Extensions;
@@ -19,7 +19,7 @@
         private readonly IParallelExecution<TRequest> _parallelExecution;
         private readonly IMiddlewareExecution<TRequest> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest> _postProcessExecution;
-        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>> _boundaryFactories;
+        private readonly IReadOnlyCollection<Func<IServiceProvider, IBoundary<TRequest>>> _boundaryFactories;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest}"/> class.
@@ -34,7 +34,7 @@
                              IParallelExecution<TRequest> parallelExecution,
                              IMiddlewareExecution<TRequest> middlewareExecution,
                              IPostProcessExecution<TRequest> postProcessExecution)
-            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>>())
+            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IBoundary<TRequest>>>())
         {
         }
 
@@ -52,7 +52,7 @@
                              IParallelExecution<TRequest> parallelExecution,
                              IMiddlewareExecution<TRequest> middlewareExecution,
                              IPostProcessExecution<TRequest> postProcessExecution,
-                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>> boundaryFactories)
+                             IReadOnlyCollection<Func<IServiceProvider, IBoundary<TRequest>>> boundaryFactories)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
@@ -63,7 +63,7 @@
         }
 
         /// <inheritdoc/>
-        public IReadOnlyCollection<IPipelineExecutionBoundary<TRequest>> CreateExecutionBoundaries(IServiceProvider serviceProvider)
+        public IReadOnlyCollection<IBoundary<TRequest>> CreateExecutionBoundaries(IServiceProvider serviceProvider)
             => _boundaryFactories.Select(factory => factory(serviceProvider)).ToArray();
 
         /// <inheritdoc/>
@@ -133,7 +133,7 @@
         private readonly IParallelExecution<TRequest, TResponse> _parallelExecution;
         private readonly IMiddlewareExecution<TRequest, TResponse> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest, TResponse> _postProcessExecution;
-        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>> _boundaryFactories;
+        private readonly IReadOnlyCollection<Func<IServiceProvider, IBoundary<TRequest, TResponse>>> _boundaryFactories;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest, TResponse}"/> class.
@@ -148,7 +148,7 @@
                              IParallelExecution<TRequest, TResponse> parallelExecution,
                              IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
                              IPostProcessExecution<TRequest, TResponse> postProcessExecution)
-            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>>())
+            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IBoundary<TRequest, TResponse>>>())
         {
         }
 
@@ -166,7 +166,7 @@
                              IParallelExecution<TRequest, TResponse> parallelExecution,
                              IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
                              IPostProcessExecution<TRequest, TResponse> postProcessExecution,
-                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>> boundaryFactories)
+                             IReadOnlyCollection<Func<IServiceProvider, IBoundary<TRequest, TResponse>>> boundaryFactories)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
@@ -177,7 +177,7 @@
         }
 
         /// <inheritdoc/>
-        public IReadOnlyCollection<IPipelineExecutionBoundary<TRequest, TResponse>> CreateExecutionBoundaries(IServiceProvider serviceProvider)
+        public IReadOnlyCollection<IBoundary<TRequest, TResponse>> CreateExecutionBoundaries(IServiceProvider serviceProvider)
             => _boundaryFactories.Select(factory => factory(serviceProvider)).ToArray();
 
         /// <inheritdoc/>
