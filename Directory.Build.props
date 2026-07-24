@@ -6,37 +6,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
+    <IsPackable>false</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <IncludeSymbols>true</IncludeSymbols>
-    <IncludeSource>true</IncludeSource>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <Deterministic>true</Deterministic>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <DebugType>portable</DebugType>
-
-    <Authors>Elysium Coding</Authors>
-    <Company>Elysium Coding</Company>
-    <RepositoryUrl>https://github.com/mape1402/spider-pipelines</RepositoryUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/mape1402/spider-pipelines</PackageProjectUrl>
-    <PackageIcon>image.png</PackageIcon>
-    <PackageReleaseNotes>https://github.com/mape1402/spider-pipelines/releases</PackageReleaseNotes>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="../../README.md" Pack="true" Visible="false" PackagePath="" />
-    <None Include="../../assets/image.png" Pack="true" Visible="false" PackagePath="" />
-  </ItemGroup>
 
   <PropertyGroup>
     <Version Condition="'$(MinVerVersion)' != ''">$(MinVerVersion)</Version>
-    <Version Condition="'$(MinVerVersion)' == ''">1.0.0</Version>
+    <Version Condition="'$(MinVerVersion)' == ''">2.0.0</Version>
     <MinVerTagPrefix>v</MinVerTagPrefix>
-    <MinVerMinimumMajorMinor>1.0</MinVerMinimumMajorMinor>
+    <MinVerMinimumMajorMinor>2.0</MinVerMinimumMajorMinor>
     <MinVerBuildMetadata>build.{DateTime:yyyyMMddHHmmss}</MinVerBuildMetadata>
     <MinVerIsRelease>false</MinVerIsRelease>
   </PropertyGroup>
