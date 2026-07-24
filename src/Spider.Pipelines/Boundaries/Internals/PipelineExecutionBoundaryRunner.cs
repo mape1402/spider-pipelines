@@ -38,22 +38,16 @@ namespace Spider.Pipelines.Boundaries.Internals
             if (runCoreAsync == null)
                 throw new ArgumentNullException(nameof(runCoreAsync));
 
-            var scopes = new Stack<IPipelineExecutionBoundaryScope>();
+            var executionContext = CreateExecutionContext<TRequest>(context);
+            var boundaries = ResolveBoundaries();
             var outcome = BoundaryOutcome.Pending();
             Exception terminalException = null;
 
-            try
-            {
-                await BeginBoundariesAsync(scopes, CreateExecutionContext<TRequest>(context), cancellationToken);
-                outcome = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
-                terminalException = await TerminateBoundariesAndCaptureExceptionAsync(scopes, outcome, cancellationToken);
-                ThrowIfTerminalException(terminalException);
-                outcome.ThrowIfFaulted();
-            }
-            finally
-            {
-                await DisposeBoundariesAsync(scopes, outcome.Exception ?? terminalException);
-            }
+            var openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
+            outcome = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
+            terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
+            ThrowIfTerminalException(terminalException);
+            outcome.ThrowIfFaulted();
         }
 
         /// <summary>
@@ -76,61 +70,50 @@ namespace Spider.Pipelines.Boundaries.Internals
             if (runCoreAsync == null)
                 throw new ArgumentNullException(nameof(runCoreAsync));
 
-            var scopes = new Stack<IPipelineExecutionBoundaryScope>();
+            var executionContext = CreateExecutionContext<TRequest, TResponse>(context);
+            var boundaries = ResolveBoundaries();
             var outcome = BoundaryOutcome.Pending();
             var response = default(TResponse);
             Exception terminalException = null;
 
-            try
-            {
-                await BeginBoundariesAsync(scopes, CreateExecutionContext<TRequest, TResponse>(context), cancellationToken);
-                (outcome, response) = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
-                terminalException = await TerminateBoundariesAndCaptureExceptionAsync(scopes, outcome, cancellationToken);
-                ThrowIfTerminalException(terminalException);
-                outcome.ThrowIfFaulted();
-                return response;
-            }
-            finally
-            {
-                await DisposeBoundariesAsync(scopes, outcome.Exception ?? terminalException);
-            }
+            var openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
+            (outcome, response) = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
+            terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
+            ThrowIfTerminalException(terminalException);
+            outcome.ThrowIfFaulted();
+            return response;
         }
 
         /// <summary>
         /// Opens registered boundaries in registration order.
         /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
+        /// <param name="boundaries">The registered execution boundaries.</param>
         /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private async Task BeginBoundariesAsync(
-            Stack<IPipelineExecutionBoundaryScope> scopes,
+        /// <returns>The boundaries that opened successfully.</returns>
+        private static async Task<IReadOnlyCollection<IPipelineExecutionBoundary>> BeginBoundariesAsync(
+            IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
+            var openedBoundaries = new List<IPipelineExecutionBoundary>();
+
             try
             {
-                foreach (var boundary in GetBoundaries())
+                foreach (var boundary in boundaries)
                 {
-                    var scope = await boundary.BeginAsync(context, cancellationToken);
-                    scopes.Push(scope ?? throw new InvalidOperationException("Pipeline execution boundary returned a null scope."));
+                    await boundary.BeginAsync(context, cancellationToken);
+                    openedBoundaries.Add(boundary);
                 }
+
+                return openedBoundaries;
             }
             catch (Exception ex)
             {
-                await FaultBoundariesPreservingOriginalAsync(scopes, ex, cancellationToken);
+                await FaultBoundariesPreservingOriginalAsync(openedBoundaries, context, ex, cancellationToken);
                 throw;
             }
         }
-
-        /// <summary>
-        /// Resolves registered boundaries, returning an empty collection when none are registered.
-        /// </summary>
-        /// <returns>The registered execution boundaries.</returns>
-        private IEnumerable<IPipelineExecutionBoundary> GetBoundaries()
-            => _serviceProvider.GetService(typeof(IEnumerable<IPipelineExecutionBoundary>)) is IEnumerable<IPipelineExecutionBoundary> boundaries
-                ? boundaries
-                : Array.Empty<IPipelineExecutionBoundary>();
 
         /// <summary>
         /// Runs request-only pipeline core logic and captures its terminal outcome.
@@ -179,45 +162,123 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Applies the terminal boundary operation matching the pipeline outcome.
-        /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
-        /// <param name="outcome">The captured pipeline outcome.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static Task TerminateBoundariesAsync(
-            Stack<IPipelineExecutionBoundaryScope> scopes,
-            BoundaryOutcome outcome,
-            CancellationToken cancellationToken)
-            => outcome.State switch
-            {
-                BoundaryOutcomeState.Completed => CompleteBoundariesAsync(scopes, cancellationToken),
-                BoundaryOutcomeState.Cancelled => CancelBoundariesAsync(scopes, cancellationToken),
-                BoundaryOutcomeState.Faulted => FaultBoundariesAsync(scopes, outcome.Exception, cancellationToken),
-                _ => Task.CompletedTask
-            };
-
-        /// <summary>
         /// Applies terminal boundary operations and captures boundary termination exceptions.
         /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
+        /// <param name="boundaries">The boundaries that opened successfully.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="outcome">The captured pipeline outcome.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>The exception that should be surfaced from termination, or <c>null</c> when termination succeeds.</returns>
         private static async Task<Exception> TerminateBoundariesAndCaptureExceptionAsync(
-            Stack<IPipelineExecutionBoundaryScope> scopes,
+            IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             BoundaryOutcome outcome,
             CancellationToken cancellationToken)
         {
             try
             {
-                await TerminateBoundariesAsync(scopes, outcome, cancellationToken);
+                await TerminateBoundariesAsync(boundaries, context, outcome, cancellationToken);
                 return null;
             }
             catch (Exception ex)
             {
                 return outcome.Exception ?? ex;
             }
+        }
+
+        /// <summary>
+        /// Applies the terminal boundary operation matching the pipeline outcome.
+        /// </summary>
+        /// <param name="boundaries">The boundaries that opened successfully.</param>
+        /// <param name="context">The boundary execution context.</param>
+        /// <param name="outcome">The captured pipeline outcome.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static Task TerminateBoundariesAsync(
+            IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
+            BoundaryOutcome outcome,
+            CancellationToken cancellationToken)
+            => outcome.State switch
+            {
+                BoundaryOutcomeState.Completed => CompleteBoundariesAsync(boundaries, context, cancellationToken),
+                BoundaryOutcomeState.Cancelled => CancelBoundariesAsync(boundaries, context, cancellationToken),
+                BoundaryOutcomeState.Faulted => FaultBoundariesAsync(boundaries, context, outcome.Exception, cancellationToken),
+                _ => Task.CompletedTask
+            };
+
+        /// <summary>
+        /// Completes opened boundaries in reverse registration order.
+        /// </summary>
+        /// <param name="boundaries">The boundaries that opened successfully.</param>
+        /// <param name="context">The boundary execution context.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task CompleteBoundariesAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            foreach (var boundary in boundaries.Reverse())
+                await boundary.CompleteAsync(context, cancellationToken);
+        }
+
+        /// <summary>
+        /// Faults opened boundaries in reverse registration order.
+        /// </summary>
+        /// <param name="boundaries">The boundaries that opened successfully.</param>
+        /// <param name="context">The boundary execution context.</param>
+        /// <param name="exception">The exception that faulted the pipeline.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task FaultBoundariesAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
+            Exception exception,
+            CancellationToken cancellationToken)
+        {
+            foreach (var boundary in boundaries.Reverse())
+                await boundary.FaultAsync(context, exception, cancellationToken);
+        }
+
+        /// <summary>
+        /// Faults opened boundaries while preserving the original begin exception.
+        /// </summary>
+        /// <param name="boundaries">The boundaries that opened successfully.</param>
+        /// <param name="context">The boundary execution context.</param>
+        /// <param name="exception">The original begin exception.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task FaultBoundariesPreservingOriginalAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
+            Exception exception,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await FaultBoundariesAsync(boundaries, context, exception, cancellationToken);
+            }
+            catch
+            {
+                // The original begin exception must remain the surfaced failure.
+            }
+        }
+
+        /// <summary>
+        /// Cancels opened boundaries in reverse registration order.
+        /// </summary>
+        /// <param name="boundaries">The boundaries that opened successfully.</param>
+        /// <param name="context">The boundary execution context.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task CancelBoundariesAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            foreach (var boundary in boundaries.Reverse())
+                await boundary.CancelAsync(context, cancellationToken);
         }
 
         /// <summary>
@@ -231,98 +292,13 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Completes opened scopes in reverse registration order.
+        /// Resolves registered boundaries, returning an empty collection when none are registered.
         /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CompleteBoundariesAsync(
-            IEnumerable<IPipelineExecutionBoundaryScope> scopes,
-            CancellationToken cancellationToken)
-        {
-            foreach (var scope in scopes)
-                await scope.CompleteAsync(cancellationToken);
-        }
-
-        /// <summary>
-        /// Faults opened scopes in reverse registration order.
-        /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
-        /// <param name="exception">The exception that faulted the pipeline.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesAsync(
-            IEnumerable<IPipelineExecutionBoundaryScope> scopes,
-            Exception exception,
-            CancellationToken cancellationToken)
-        {
-            foreach (var scope in scopes)
-                await scope.FaultAsync(exception, cancellationToken);
-        }
-
-        /// <summary>
-        /// Faults opened scopes while preserving the original begin exception.
-        /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
-        /// <param name="exception">The original begin exception.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesPreservingOriginalAsync(
-            IEnumerable<IPipelineExecutionBoundaryScope> scopes,
-            Exception exception,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                await FaultBoundariesAsync(scopes, exception, cancellationToken);
-            }
-            catch
-            {
-                // The original begin exception must remain the surfaced failure.
-            }
-        }
-
-        /// <summary>
-        /// Cancels opened scopes in reverse registration order.
-        /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CancelBoundariesAsync(
-            IEnumerable<IPipelineExecutionBoundaryScope> scopes,
-            CancellationToken cancellationToken)
-        {
-            foreach (var scope in scopes)
-                await scope.CancelAsync(cancellationToken);
-        }
-
-        /// <summary>
-        /// Disposes opened scopes in reverse registration order while preserving the original exception.
-        /// </summary>
-        /// <param name="scopes">The stack of opened scopes.</param>
-        /// <param name="originalException">The original pipeline exception, when one exists.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task DisposeBoundariesAsync(
-            Stack<IPipelineExecutionBoundaryScope> scopes,
-            Exception originalException)
-        {
-            Exception disposeException = null;
-
-            while (scopes.Count > 0)
-            {
-                try
-                {
-                    await scopes.Pop().DisposeAsync();
-                }
-                catch (Exception ex)
-                {
-                    disposeException ??= ex;
-                }
-            }
-
-            if (originalException == null && disposeException != null)
-                throw disposeException;
-        }
+        /// <returns>The registered execution boundaries.</returns>
+        private IReadOnlyCollection<IPipelineExecutionBoundary> ResolveBoundaries()
+            => _serviceProvider.GetService(typeof(IEnumerable<IPipelineExecutionBoundary>)) is IEnumerable<IPipelineExecutionBoundary> boundaries
+                ? boundaries.ToArray()
+                : Array.Empty<IPipelineExecutionBoundary>();
 
         /// <summary>
         /// Creates boundary metadata for a request-only pipeline.
