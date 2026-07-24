@@ -6,7 +6,7 @@ Spider provides a provider-agnostic execution boundary that wraps a complete pip
 
 ## Boundary Contract
 
-Boundaries implement `IPipelineExecutionBoundary`:
+Boundaries can implement `IPipelineExecutionBoundary` directly:
 
 ```csharp
 public interface IPipelineExecutionBoundary
@@ -27,6 +27,24 @@ public interface IPipelineExecutionBoundary
     ValueTask CancelAsync(
         PipelineExecutionContext context,
         CancellationToken cancellationToken);
+}
+```
+
+Most custom boundaries should inherit `PipelineExecutionBoundary` instead. It implements the interface with no-op defaults so a boundary can override only the callbacks it needs:
+
+```csharp
+public sealed class MyBoundary : PipelineExecutionBoundary
+{
+    public override ValueTask BeginAsync(
+        PipelineExecutionContext context,
+        CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public override ValueTask FaultAsync(
+        PipelineExecutionContext context,
+        Exception exception,
+        CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 }
 ```
 

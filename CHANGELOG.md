@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Concise pipeline builder shortcut methods.
 - Benchmarked pipeline execution scenarios.
 - .NET 8, .NET 9, and .NET 10 target framework support.
+- `PipelineExecutionBoundary` base class with no-op boundary operations.
 
 ### Changed
 
