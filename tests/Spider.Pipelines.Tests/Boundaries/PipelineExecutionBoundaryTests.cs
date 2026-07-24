@@ -203,6 +203,100 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
+        /// Verifies that fluent-configured DI boundary types apply only to the configured pipeline.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentType_ShouldResolveBoundaryFromDi()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddScoped<SecondRecordingBoundary>();
+                services.AddSpider();
+            });
+
+            await bridge
+                .Attach<string, int>(builder => builder.AddExecutionBoundary<SecondRecordingBoundary>())
+                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
+
+            Assert.Equal(new[] { "second:begin", "second:complete" }, log.Events);
+        }
+
+        /// <summary>
+        /// Verifies that fluent-configured boundary instances apply only to the configured pipeline.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentInstance_ShouldUseBoundaryInstance()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddSpider();
+            });
+
+            await bridge
+                .Attach<string, int>(builder => builder.AddExecutionBoundary(new RecordingBoundary(log)))
+                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
+
+            Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
+        }
+
+        /// <summary>
+        /// Verifies that invocation-specific boundaries apply only to the current execution.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenBoundaryIsProvidedAtInvocation_ShouldUseInvocationBoundary()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddSpider();
+            });
+
+            await bridge
+                .Attach<string, int>(builder => { })
+                .ExecuteAsync(
+                    service => (request, token) => service.HandleAsync(request, token),
+                    "spider",
+                    new[] { new RecordingBoundary(log) });
+
+            Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
+        }
+
+        /// <summary>
+        /// Verifies that global, fluent, and invocation boundaries compose in deterministic order.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenBoundariesComeFromAllLevels_ShouldComposeInOrder()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddScoped<SecondRecordingBoundary>();
+                services.AddSpider().AddExecutionBoundary<FirstRecordingBoundary>();
+            });
+
+            await bridge
+                .Attach<string, int>(builder => builder.AddExecutionBoundary<SecondRecordingBoundary>())
+                .ExecuteAsync(
+                    service => (request, token) => service.HandleAsync(request, token),
+                    "spider",
+                    new[] { new RecordingBoundary(log) });
+
+            Assert.Equal(
+                new[] { "first:begin", "second:begin", "boundary:begin", "boundary:complete", "second:complete", "first:complete" },
+                log.Events);
+        }
+
+        /// <summary>
         /// Verifies that a begin failure faults only the boundaries that already began.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
