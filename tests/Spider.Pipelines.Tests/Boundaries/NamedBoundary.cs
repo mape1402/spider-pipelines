@@ -1,12 +1,11 @@
 using Spider.Pipelines.Boundaries;
-using Spider.Pipelines.Core;
 
 namespace Spider.Pipelines.Tests.Boundaries
 {
     /// <summary>
     /// Provides a named test boundary.
     /// </summary>
-    public abstract class NamedBoundary : IPipelineExecutionBoundary<string, int>
+    public abstract class NamedBoundary : IBoundary<string, int>
     {
         private readonly string _name;
         private readonly BoundaryEventLog _log;
@@ -23,7 +22,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask BeginAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
+        public virtual ValueTask BeginAsync(PipelineExecutionContext<string, int> context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:begin");
             _log.Activate();
@@ -31,28 +30,28 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask CompleteAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
+        public virtual ValueTask CompleteAsync(PipelineExecutionContext<string, int> context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:complete");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask FaultAsync(IReadOnlyContext<string, int> context, Exception exception, CancellationToken cancellationToken)
+        public virtual ValueTask FaultAsync(PipelineExecutionContext<string, int> context, Exception exception, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:fault:{exception.GetType().Name}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask CancelAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
+        public virtual ValueTask CancelAsync(PipelineExecutionContext<string, int> context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:cancel");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask DisposeAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
+        public virtual ValueTask DisposeAsync(PipelineExecutionContext<string, int> context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:dispose");
             _log.Deactivate();

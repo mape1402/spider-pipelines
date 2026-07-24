@@ -1,4 +1,4 @@
-﻿namespace Spider.Pipelines.Core.Internals
+namespace Spider.Pipelines.Core.Internals
 {
     using Microsoft.Extensions.DependencyInjection;
     using Spider.Pipelines.Boundaries;
@@ -44,7 +44,7 @@
         private readonly ITargetConfiguration<TRequest> _targetConfiguration;
         private readonly IParallelConfiguration<TRequest> _parallelConfiguration;
         private readonly IMiddlewareConfiguration<TRequest> _middlewareConfiguration;
-        private readonly IList<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>> _boundaryFactories;
+        private readonly IList<Func<IServiceProvider, IBoundary<TRequest>>> _boundaryFactories;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -59,7 +59,7 @@
             _targetConfiguration = new TargetConfiguration<TRequest>(_serviceProvider);
             _parallelConfiguration = new ParallelConfiguration<TRequest>(_serviceProvider);
             _middlewareConfiguration = new MiddlewareConfiguration<TRequest>();
-            _boundaryFactories = new List<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>>();
+            _boundaryFactories = new List<Func<IServiceProvider, IBoundary<TRequest>>>();
         }
 
         /// <inheritdoc/>
@@ -113,7 +113,7 @@
         }
 
         /// <inheritdoc/>
-        public IPipelineBuilder<TRequest> AddExecutionBoundary(IPipelineExecutionBoundary<TRequest> boundary)
+        public IPipelineBuilder<TRequest> AddExecutionBoundary(IBoundary<TRequest> boundary)
         {
             if (boundary == null)
                 throw new ArgumentNullException(nameof(boundary));
@@ -124,7 +124,7 @@
 
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IPipelineExecutionBoundary<TRequest>
+            where TBoundary : class, IBoundary<TRequest>
         {
             _boundaryFactories.Add(serviceProvider => serviceProvider.GetRequiredService<TBoundary>());
             return this;
@@ -172,7 +172,7 @@
         private readonly ITargetConfiguration<TRequest, TResponse> _targetConfiguration;
         private readonly IParallelConfiguration<TRequest, TResponse> _parallelConfiguration;
         private readonly IMiddlewareConfiguration<TRequest, TResponse> _middlewareConfiguration;
-        private readonly IList<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>> _boundaryFactories;
+        private readonly IList<Func<IServiceProvider, IBoundary<TRequest, TResponse>>> _boundaryFactories;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -187,7 +187,7 @@
             _targetConfiguration = new TargetConfiguration<TRequest, TResponse>(_serviceProvider);
             _parallelConfiguration = new ParallelConfiguration<TRequest, TResponse>(_serviceProvider);
             _middlewareConfiguration = new MiddlewareConfiguration<TRequest, TResponse>();
-            _boundaryFactories = new List<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>>();
+            _boundaryFactories = new List<Func<IServiceProvider, IBoundary<TRequest, TResponse>>>();
         }
 
         /// <inheritdoc/>
@@ -241,7 +241,7 @@
         }
 
         /// <inheritdoc/>
-        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IPipelineExecutionBoundary<TRequest, TResponse> boundary)
+        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IBoundary<TRequest, TResponse> boundary)
         {
             if (boundary == null)
                 throw new ArgumentNullException(nameof(boundary));
@@ -252,7 +252,7 @@
 
         /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IPipelineExecutionBoundary<TRequest, TResponse>
+            where TBoundary : class, IBoundary<TRequest, TResponse>
         {
             _boundaryFactories.Add(serviceProvider => serviceProvider.GetRequiredService<TBoundary>());
             return this;

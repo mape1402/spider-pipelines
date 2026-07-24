@@ -1,4 +1,4 @@
-﻿namespace Microsoft.Extensions.DependencyInjection
+namespace Microsoft.Extensions.DependencyInjection
 {
     using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Core;
@@ -45,12 +45,12 @@
         /// <param name="builder">The Spider builder to configure.</param>
         /// <returns>The current Spider builder instance.</returns>
         public static ISpiderBuilder AddExecutionBoundary<TRequest, TBoundary>(this ISpiderBuilder builder)
-            where TBoundary : class, IPipelineExecutionBoundary<TRequest>
+            where TBoundary : class, IBoundary<TRequest>
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
 
-            builder.Services.AddScoped<IPipelineExecutionBoundary<TRequest>, TBoundary>();
+            builder.Services.AddScoped<IBoundary<TRequest>, TBoundary>();
             return builder;
         }
 
@@ -63,12 +63,12 @@
         /// <param name="builder">The Spider builder to configure.</param>
         /// <returns>The current Spider builder instance.</returns>
         public static ISpiderBuilder AddExecutionBoundary<TRequest, TResponse, TBoundary>(this ISpiderBuilder builder)
-            where TBoundary : class, IPipelineExecutionBoundary<TRequest, TResponse>
+            where TBoundary : class, IBoundary<TRequest, TResponse>
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
 
-            builder.Services.AddScoped<IPipelineExecutionBoundary<TRequest, TResponse>, TBoundary>();
+            builder.Services.AddScoped<IBoundary<TRequest, TResponse>, TBoundary>();
             return builder;
         }
     }

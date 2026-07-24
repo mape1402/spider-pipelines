@@ -1,4 +1,4 @@
-﻿namespace Spider.Pipelines.Core.Internals
+namespace Spider.Pipelines.Core.Internals
 {
     using System.Linq.Expressions;
     using Spider.Pipelines.Boundaries;
@@ -56,13 +56,13 @@
 
         /// <inheritdoc/>
         public Task ExecuteAsync<TRequest>(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default)
-            => ExecuteAsync(targetHandler, request, Array.Empty<IPipelineExecutionBoundary<TRequest>>(), cancellationToken);
+            => ExecuteAsync(targetHandler, request, Array.Empty<IBoundary<TRequest>>(), cancellationToken);
 
         /// <inheritdoc/>
         public Task ExecuteAsync<TRequest>(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest>> executionBoundaries,
             CancellationToken cancellationToken = default)
         {
             if (targetHandler == null)
@@ -80,13 +80,13 @@
 
         /// <inheritdoc/>
         public Task<TResponse> ExecuteAsync<TRequest, TResponse>(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default)
-            => ExecuteAsync(targetHandler, request, Array.Empty<IPipelineExecutionBoundary<TRequest, TResponse>>(), cancellationToken);
+            => ExecuteAsync(targetHandler, request, Array.Empty<IBoundary<TRequest, TResponse>>(), cancellationToken);
 
         /// <inheritdoc/>
         public Task<TResponse> ExecuteAsync<TRequest, TResponse>(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest, TResponse>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
             CancellationToken cancellationToken = default)
         {
             if (targetHandler == null)
@@ -129,7 +129,7 @@
         public Task ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest>> executionBoundaries,
             CancellationToken cancellationToken = default)
             => ExecuteAsync<TRequest>(targetHandler, request, executionBoundaries, cancellationToken);
     }
@@ -161,7 +161,7 @@
         public Task<TResponse> ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary<TRequest, TResponse>> executionBoundaries,
+            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
             CancellationToken cancellationToken = default)
             => ExecuteAsync<TRequest, TResponse>(targetHandler, request, executionBoundaries, cancellationToken);
     }

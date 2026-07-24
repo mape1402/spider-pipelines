@@ -23,7 +23,7 @@ namespace Spider.Pipelines.Core
         /// <param name="executionBoundaries">The typed execution boundaries to apply only to this invocation.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        Task RunAsync(TRequest request, IEnumerable<IPipelineExecutionBoundary<TRequest>> executionBoundaries, CancellationToken cancellationToken = default);
+        Task RunAsync(TRequest request, IEnumerable<IBoundary<TRequest>> executionBoundaries, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -48,6 +48,6 @@ namespace Spider.Pipelines.Core
         /// <param name="executionBoundaries">The typed execution boundaries to apply only to this invocation.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
-        Task<TResponse> RunAsync(TRequest request, IEnumerable<IPipelineExecutionBoundary<TRequest, TResponse>> executionBoundaries, CancellationToken cancellationToken = default);
+        Task<TResponse> RunAsync(TRequest request, IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries, CancellationToken cancellationToken = default);
     }
 }

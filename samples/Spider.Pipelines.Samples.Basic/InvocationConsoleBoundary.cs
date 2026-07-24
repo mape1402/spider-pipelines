@@ -1,12 +1,11 @@
 namespace Spider.Pipelines.Samples.Basic
 {
     using Spider.Pipelines.Boundaries;
-    using Spider.Pipelines.Core;
 
     /// <summary>
     /// Provides a sample execution boundary passed directly to a single invocation.
     /// </summary>
-    public sealed class InvocationConsoleBoundary : IPipelineExecutionBoundary<OrderRequest, OrderReceipt>
+    public sealed class InvocationConsoleBoundary : IBoundary<OrderRequest, OrderReceipt>
     {
         private readonly SampleEventLog _log;
 
@@ -20,35 +19,35 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask BeginAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
+        public ValueTask BeginAsync(PipelineExecutionContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
             _log.Write($"invocation boundary: begin {context.Request.OrderId}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask CompleteAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
+        public ValueTask CompleteAsync(PipelineExecutionContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
             _log.Write($"invocation boundary: complete {context.Response.ReceiptId}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask FaultAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, Exception exception, CancellationToken cancellationToken)
+        public ValueTask FaultAsync(PipelineExecutionContext<OrderRequest, OrderReceipt> context, Exception exception, CancellationToken cancellationToken)
         {
             _log.Write($"invocation boundary: fault {exception.GetType().Name}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask CancelAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
+        public ValueTask CancelAsync(PipelineExecutionContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
             _log.Write("invocation boundary: cancel");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask DisposeAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
+        public ValueTask DisposeAsync(PipelineExecutionContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
             _log.Write("invocation boundary: dispose");
             return ValueTask.CompletedTask;

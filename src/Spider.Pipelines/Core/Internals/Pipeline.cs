@@ -1,4 +1,4 @@
-﻿namespace Spider.Pipelines.Core.Internals
+namespace Spider.Pipelines.Core.Internals
 {
     using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Boundaries.Internals;
@@ -30,10 +30,10 @@
 
         /// <inheritdoc/>
         public async Task RunAsync(TRequest request, CancellationToken cancellationToken = default)
-            => await RunAsync(request, Array.Empty<IPipelineExecutionBoundary<TRequest>>(), cancellationToken);
+            => await RunAsync(request, Array.Empty<IBoundary<TRequest>>(), cancellationToken);
 
         /// <inheritdoc/>
-        public async Task RunAsync(TRequest request, IEnumerable<IPipelineExecutionBoundary<TRequest>> executionBoundaries, CancellationToken cancellationToken = default)
+        public async Task RunAsync(TRequest request, IEnumerable<IBoundary<TRequest>> executionBoundaries, CancellationToken cancellationToken = default)
         {
             if (executionBoundaries == null)
                 throw new ArgumentNullException(nameof(executionBoundaries));
@@ -75,10 +75,10 @@
         /// Resolves boundaries configured through the fluent pipeline builder.
         /// </summary>
         /// <returns>The execution boundaries configured for this pipeline.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary<TRequest>> CreatePipelineBoundaries()
+        private IReadOnlyCollection<IBoundary<TRequest>> CreatePipelineBoundaries()
             => _executionPlan is IExecutionBoundaryPlan<TRequest> boundaryPlan
                 ? boundaryPlan.CreateExecutionBoundaries(_serviceProvider)
-                : Array.Empty<IPipelineExecutionBoundary<TRequest>>();
+                : Array.Empty<IBoundary<TRequest>>();
     }
 
     /// <summary>
@@ -107,10 +107,10 @@
 
         /// <inheritdoc/>
         public async Task<TResponse> RunAsync(TRequest request, CancellationToken cancellationToken = default)
-            => await RunAsync(request, Array.Empty<IPipelineExecutionBoundary<TRequest, TResponse>>(), cancellationToken);
+            => await RunAsync(request, Array.Empty<IBoundary<TRequest, TResponse>>(), cancellationToken);
 
         /// <inheritdoc/>
-        public async Task<TResponse> RunAsync(TRequest request, IEnumerable<IPipelineExecutionBoundary<TRequest, TResponse>> executionBoundaries, CancellationToken cancellationToken = default)
+        public async Task<TResponse> RunAsync(TRequest request, IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries, CancellationToken cancellationToken = default)
         {
             if (executionBoundaries == null)
                 throw new ArgumentNullException(nameof(executionBoundaries));
@@ -154,9 +154,9 @@
         /// Resolves boundaries configured through the fluent pipeline builder.
         /// </summary>
         /// <returns>The execution boundaries configured for this pipeline.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary<TRequest, TResponse>> CreatePipelineBoundaries()
+        private IReadOnlyCollection<IBoundary<TRequest, TResponse>> CreatePipelineBoundaries()
             => _executionPlan is IExecutionBoundaryPlan<TRequest, TResponse> boundaryPlan
                 ? boundaryPlan.CreateExecutionBoundaries(_serviceProvider)
-                : Array.Empty<IPipelineExecutionBoundary<TRequest, TResponse>>();
+                : Array.Empty<IBoundary<TRequest, TResponse>>();
     }
 }

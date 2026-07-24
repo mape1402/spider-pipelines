@@ -74,7 +74,7 @@ namespace Spider.Pipelines.Core
         /// </summary>
         /// <param name="boundary">The boundary instance to use when this pipeline executes.</param>
         /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest> AddExecutionBoundary(IPipelineExecutionBoundary<TRequest> boundary);
+        IPipelineBuilder<TRequest> AddExecutionBoundary(IBoundary<TRequest> boundary);
 
         /// <summary>
         /// Adds a typed delegate execution boundary to this pipeline configuration.
@@ -89,7 +89,7 @@ namespace Spider.Pipelines.Core
         /// <typeparam name="TBoundary">The boundary implementation type to resolve from DI.</typeparam>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IPipelineExecutionBoundary<TRequest>;
+            where TBoundary : class, IBoundary<TRequest>;
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.
@@ -146,7 +146,7 @@ namespace Spider.Pipelines.Core
         /// </summary>
         /// <param name="boundary">The boundary instance to use when this pipeline executes.</param>
         /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IPipelineExecutionBoundary<TRequest, TResponse> boundary);
+        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IBoundary<TRequest, TResponse> boundary);
 
         /// <summary>
         /// Adds a typed delegate execution boundary to this pipeline configuration.
@@ -161,7 +161,7 @@ namespace Spider.Pipelines.Core
         /// <typeparam name="TBoundary">The boundary implementation type to resolve from DI.</typeparam>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
-            where TBoundary : class, IPipelineExecutionBoundary<TRequest, TResponse>;
+            where TBoundary : class, IBoundary<TRequest, TResponse>;
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.
