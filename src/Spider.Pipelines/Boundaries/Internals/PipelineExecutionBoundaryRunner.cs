@@ -20,7 +20,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Executes request-only pipeline core logic inside typed registered boundaries.
+        /// Executes request-only pipeline core logic inside registered boundaries.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <param name="context">The current pipeline context.</param>
@@ -31,7 +31,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         public async Task RunAsync<TRequest>(
             IReadOnlyContext<TRequest> context,
             Func<Task> runCoreAsync,
-            IEnumerable<IBoundary<TRequest>> executionBoundaries,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
             CancellationToken cancellationToken)
         {
             if (context == null)
@@ -43,28 +43,20 @@ namespace Spider.Pipelines.Boundaries.Internals
             if (executionBoundaries == null)
                 throw new ArgumentNullException(nameof(executionBoundaries));
 
-            var boundaryContext = new PipelineExecutionContext<TRequest>(context.Request, context.Services);
+            var executionContext = CreateExecutionContext<TRequest>(context);
             var boundaries = ResolveBoundaries(executionBoundaries);
             var outcome = BoundaryOutcome.Pending();
             Exception terminalException = null;
-            IReadOnlyCollection<IBoundary<TRequest>> openedBoundaries = Array.Empty<IBoundary<TRequest>>();
 
-            try
-            {
-                openedBoundaries = await BeginBoundariesAsync(boundaries, boundaryContext, cancellationToken);
-                outcome = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
-                terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, boundaryContext, outcome, cancellationToken);
-                ThrowIfTerminalException(terminalException);
-                outcome.ThrowIfFaulted();
-            }
-            finally
-            {
-                await DisposeBoundariesPreservingOriginalAsync(openedBoundaries, boundaryContext, outcome.Exception ?? terminalException, cancellationToken);
-            }
+            var openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
+            outcome = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
+            terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
+            ThrowIfTerminalException(terminalException);
+            outcome.ThrowIfFaulted();
         }
 
         /// <summary>
-        /// Executes request/response pipeline core logic inside typed registered boundaries.
+        /// Executes request/response pipeline core logic inside registered boundaries.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <typeparam name="TResponse">The type of the response object.</typeparam>
@@ -76,7 +68,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         public async Task<TResponse> RunAsync<TRequest, TResponse>(
             IReadOnlyContext<TRequest, TResponse> context,
             Func<Task<TResponse>> runCoreAsync,
-            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
             CancellationToken cancellationToken)
         {
             if (context == null)
@@ -88,43 +80,33 @@ namespace Spider.Pipelines.Boundaries.Internals
             if (executionBoundaries == null)
                 throw new ArgumentNullException(nameof(executionBoundaries));
 
-            var boundaryContext = new PipelineExecutionContext<TRequest, TResponse>(context.Request, context.Services);
+            var executionContext = CreateExecutionContext<TRequest, TResponse>(context);
             var boundaries = ResolveBoundaries(executionBoundaries);
             var outcome = BoundaryOutcome.Pending();
             var response = default(TResponse);
             Exception terminalException = null;
-            IReadOnlyCollection<IBoundary<TRequest, TResponse>> openedBoundaries = Array.Empty<IBoundary<TRequest, TResponse>>();
 
-            try
-            {
-                openedBoundaries = await BeginBoundariesAsync(boundaries, boundaryContext, cancellationToken);
-                (outcome, response) = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
-                boundaryContext.SetResponse(response);
-                terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, boundaryContext, outcome, cancellationToken);
-                ThrowIfTerminalException(terminalException);
-                outcome.ThrowIfFaulted();
-                return response;
-            }
-            finally
-            {
-                await DisposeBoundariesPreservingOriginalAsync(openedBoundaries, boundaryContext, outcome.Exception ?? terminalException, cancellationToken);
-            }
+            var openedBoundaries = await BeginBoundariesAsync(boundaries, executionContext, cancellationToken);
+            (outcome, response) = await RunCoreAndCaptureOutcomeAsync(context, runCoreAsync);
+            terminalException = await TerminateBoundariesAndCaptureExceptionAsync(openedBoundaries, executionContext, outcome, cancellationToken);
+            ThrowIfTerminalException(terminalException);
+            outcome.ThrowIfFaulted();
+            return response;
         }
 
         /// <summary>
-        /// Opens request-only boundaries in registration order.
+        /// Opens registered boundaries in registration order.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <param name="boundaries">The registered execution boundaries.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>The boundaries that opened successfully.</returns>
-        private static async Task<IReadOnlyCollection<IBoundary<TRequest>>> BeginBoundariesAsync<TRequest>(
-            IReadOnlyCollection<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static async Task<IReadOnlyCollection<IPipelineExecutionBoundary>> BeginBoundariesAsync(
+            IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
-            var openedBoundaries = new List<IBoundary<TRequest>>();
+            var openedBoundaries = new List<IPipelineExecutionBoundary>();
 
             try
             {
@@ -139,41 +121,6 @@ namespace Spider.Pipelines.Boundaries.Internals
             catch (Exception ex)
             {
                 await FaultBoundariesPreservingOriginalAsync(openedBoundaries, context, ex, cancellationToken);
-                await DisposeBoundariesPreservingOriginalAsync(openedBoundaries, context, ex, cancellationToken);
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// Opens request/response boundaries in registration order.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
-        /// <param name="boundaries">The registered execution boundaries.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>The boundaries that opened successfully.</returns>
-        private static async Task<IReadOnlyCollection<IBoundary<TRequest, TResponse>>> BeginBoundariesAsync<TRequest, TResponse>(
-            IReadOnlyCollection<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            CancellationToken cancellationToken)
-        {
-            var openedBoundaries = new List<IBoundary<TRequest, TResponse>>();
-
-            try
-            {
-                foreach (var boundary in boundaries)
-                {
-                    await boundary.BeginAsync(context, cancellationToken);
-                    openedBoundaries.Add(boundary);
-                }
-
-                return openedBoundaries;
-            }
-            catch (Exception ex)
-            {
-                await FaultBoundariesPreservingOriginalAsync(openedBoundaries, context, ex, cancellationToken);
-                await DisposeBoundariesPreservingOriginalAsync(openedBoundaries, context, ex, cancellationToken);
                 throw;
             }
         }
@@ -225,17 +172,16 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Applies terminal request-only boundary operations and captures boundary termination exceptions.
+        /// Applies terminal boundary operations and captures boundary termination exceptions.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="outcome">The captured pipeline outcome.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>The exception that should be surfaced from termination, or <c>null</c> when termination succeeds.</returns>
-        private static async Task<Exception> TerminateBoundariesAndCaptureExceptionAsync<TRequest>(
-            IReadOnlyCollection<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static async Task<Exception> TerminateBoundariesAndCaptureExceptionAsync(
+            IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             BoundaryOutcome outcome,
             CancellationToken cancellationToken)
         {
@@ -251,44 +197,16 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Applies terminal request/response boundary operations and captures boundary termination exceptions.
+        /// Applies the terminal boundary operation matching the pipeline outcome.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="outcome">The captured pipeline outcome.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>The exception that should be surfaced from termination, or <c>null</c> when termination succeeds.</returns>
-        private static async Task<Exception> TerminateBoundariesAndCaptureExceptionAsync<TRequest, TResponse>(
-            IReadOnlyCollection<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            BoundaryOutcome outcome,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                await TerminateBoundariesAsync(boundaries, context, outcome, cancellationToken);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                return outcome.Exception ?? ex;
-            }
-        }
-
-        /// <summary>
-        /// Applies the terminal request-only boundary operation matching the pipeline outcome.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="outcome">The captured pipeline outcome.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static Task TerminateBoundariesAsync<TRequest>(
-            IReadOnlyCollection<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static Task TerminateBoundariesAsync(
+            IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             BoundaryOutcome outcome,
             CancellationToken cancellationToken)
             => outcome.State switch
@@ -300,39 +218,15 @@ namespace Spider.Pipelines.Boundaries.Internals
             };
 
         /// <summary>
-        /// Applies the terminal request/response boundary operation matching the pipeline outcome.
+        /// Completes opened boundaries in reverse registration order.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="outcome">The captured pipeline outcome.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static Task TerminateBoundariesAsync<TRequest, TResponse>(
-            IReadOnlyCollection<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            BoundaryOutcome outcome,
-            CancellationToken cancellationToken)
-            => outcome.State switch
-            {
-                BoundaryOutcomeState.Completed => CompleteBoundariesAsync(boundaries, context, cancellationToken),
-                BoundaryOutcomeState.Cancelled => CancelBoundariesAsync(boundaries, context, cancellationToken),
-                BoundaryOutcomeState.Faulted => FaultBoundariesAsync(boundaries, context, outcome.Exception, cancellationToken),
-                _ => Task.CompletedTask
-            };
-
-        /// <summary>
-        /// Completes opened request-only boundaries in reverse registration order.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CompleteBoundariesAsync<TRequest>(
-            IEnumerable<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static async Task CompleteBoundariesAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
             foreach (var boundary in boundaries.Reverse())
@@ -340,35 +234,16 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Completes opened request/response boundaries in reverse registration order.
+        /// Faults opened boundaries in reverse registration order.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CompleteBoundariesAsync<TRequest, TResponse>(
-            IEnumerable<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            CancellationToken cancellationToken)
-        {
-            foreach (var boundary in boundaries.Reverse())
-                await boundary.CompleteAsync(context, cancellationToken);
-        }
-
-        /// <summary>
-        /// Faults opened request-only boundaries in reverse registration order.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="exception">The exception that faulted the pipeline.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesAsync<TRequest>(
-            IEnumerable<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static async Task FaultBoundariesAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             Exception exception,
             CancellationToken cancellationToken)
         {
@@ -377,37 +252,16 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Faults opened request/response boundaries in reverse registration order.
+        /// Faults opened boundaries while preserving the original begin exception.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="exception">The exception that faulted the pipeline.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesAsync<TRequest, TResponse>(
-            IEnumerable<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            Exception exception,
-            CancellationToken cancellationToken)
-        {
-            foreach (var boundary in boundaries.Reverse())
-                await boundary.FaultAsync(context, exception, cancellationToken);
-        }
-
-        /// <summary>
-        /// Faults opened request-only boundaries while preserving the original begin exception.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="exception">The original begin exception.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesPreservingOriginalAsync<TRequest>(
-            IEnumerable<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static async Task FaultBoundariesPreservingOriginalAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             Exception exception,
             CancellationToken cancellationToken)
         {
@@ -422,131 +276,19 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Faults opened request/response boundaries while preserving the original begin exception.
+        /// Cancels opened boundaries in reverse registration order.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="exception">The original begin exception.</param>
+        /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesPreservingOriginalAsync<TRequest, TResponse>(
-            IEnumerable<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            Exception exception,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                await FaultBoundariesAsync(boundaries, context, exception, cancellationToken);
-            }
-            catch
-            {
-                // The original begin exception must remain the surfaced failure.
-            }
-        }
-
-        /// <summary>
-        /// Cancels opened request-only boundaries in reverse registration order.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CancelBoundariesAsync<TRequest>(
-            IEnumerable<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
+        private static async Task CancelBoundariesAsync(
+            IEnumerable<IPipelineExecutionBoundary> boundaries,
+            PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
             foreach (var boundary in boundaries.Reverse())
                 await boundary.CancelAsync(context, cancellationToken);
-        }
-
-        /// <summary>
-        /// Cancels opened request/response boundaries in reverse registration order.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CancelBoundariesAsync<TRequest, TResponse>(
-            IEnumerable<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            CancellationToken cancellationToken)
-        {
-            foreach (var boundary in boundaries.Reverse())
-                await boundary.CancelAsync(context, cancellationToken);
-        }
-
-        /// <summary>
-        /// Disposes request-only boundary state while preserving the original exception.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="originalException">The original exception to preserve, when one exists.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task DisposeBoundariesPreservingOriginalAsync<TRequest>(
-            IEnumerable<IBoundary<TRequest>> boundaries,
-            PipelineExecutionContext<TRequest> context,
-            Exception originalException,
-            CancellationToken cancellationToken)
-        {
-            Exception disposeException = null;
-
-            foreach (var boundary in boundaries.Reverse())
-            {
-                try
-                {
-                    await boundary.DisposeAsync(context, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    disposeException ??= ex;
-                }
-            }
-
-            if (originalException == null && disposeException != null)
-                throw disposeException;
-        }
-
-        /// <summary>
-        /// Disposes request/response boundary state while preserving the original exception.
-        /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
-        /// <param name="boundaries">The boundaries that opened successfully.</param>
-        /// <param name="context">The typed pipeline execution context.</param>
-        /// <param name="originalException">The original exception to preserve, when one exists.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task DisposeBoundariesPreservingOriginalAsync<TRequest, TResponse>(
-            IEnumerable<IBoundary<TRequest, TResponse>> boundaries,
-            PipelineExecutionContext<TRequest, TResponse> context,
-            Exception originalException,
-            CancellationToken cancellationToken)
-        {
-            Exception disposeException = null;
-
-            foreach (var boundary in boundaries.Reverse())
-            {
-                try
-                {
-                    await boundary.DisposeAsync(context, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    disposeException ??= ex;
-                }
-            }
-
-            if (originalException == null && disposeException != null)
-                throw disposeException;
         }
 
         /// <summary>
@@ -560,36 +302,48 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Resolves request-only registered boundaries and appends invocation-specific boundaries.
+        /// Resolves registered boundaries and appends invocation-specific boundaries.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <param name="executionBoundaries">The execution boundaries to append after globally registered boundaries.</param>
         /// <returns>The registered execution boundaries.</returns>
-        private IReadOnlyCollection<IBoundary<TRequest>> ResolveBoundaries<TRequest>(
-            IEnumerable<IBoundary<TRequest>> executionBoundaries)
+        private IReadOnlyCollection<IPipelineExecutionBoundary> ResolveBoundaries(IEnumerable<IPipelineExecutionBoundary> executionBoundaries)
         {
-            var globalBoundaries = _serviceProvider.GetService(typeof(IEnumerable<IBoundary<TRequest>>)) is IEnumerable<IBoundary<TRequest>> boundaries
+            var globalBoundaries = _serviceProvider.GetService(typeof(IEnumerable<IPipelineExecutionBoundary>)) is IEnumerable<IPipelineExecutionBoundary> boundaries
                 ? boundaries
-                : Array.Empty<IBoundary<TRequest>>();
+                : Array.Empty<IPipelineExecutionBoundary>();
 
             return globalBoundaries.Concat(executionBoundaries).ToArray();
         }
 
         /// <summary>
-        /// Resolves request/response registered boundaries and appends invocation-specific boundaries.
+        /// Creates boundary metadata for a request-only pipeline.
+        /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
+        /// <param name="context">The current pipeline context.</param>
+        /// <returns>The boundary execution context.</returns>
+        private static PipelineExecutionContext CreateExecutionContext<TRequest>(IReadOnlyContext<TRequest> context)
+            => new PipelineExecutionContext
+            {
+                RequestType = typeof(TRequest),
+                ResponseType = null,
+                Request = context.Request,
+                Services = context.Services
+            };
+
+        /// <summary>
+        /// Creates boundary metadata for a request/response pipeline.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <typeparam name="TResponse">The type of the response object.</typeparam>
-        /// <param name="executionBoundaries">The execution boundaries to append after globally registered boundaries.</param>
-        /// <returns>The registered execution boundaries.</returns>
-        private IReadOnlyCollection<IBoundary<TRequest, TResponse>> ResolveBoundaries<TRequest, TResponse>(
-            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries)
-        {
-            var globalBoundaries = _serviceProvider.GetService(typeof(IEnumerable<IBoundary<TRequest, TResponse>>)) is IEnumerable<IBoundary<TRequest, TResponse>> boundaries
-                ? boundaries
-                : Array.Empty<IBoundary<TRequest, TResponse>>();
-
-            return globalBoundaries.Concat(executionBoundaries).ToArray();
-        }
+        /// <param name="context">The current pipeline context.</param>
+        /// <returns>The boundary execution context.</returns>
+        private static PipelineExecutionContext CreateExecutionContext<TRequest, TResponse>(IReadOnlyContext<TRequest, TResponse> context)
+            => new PipelineExecutionContext
+            {
+                RequestType = typeof(TRequest),
+                ResponseType = typeof(TResponse),
+                Request = context.Request,
+                Services = context.Services
+            };
     }
 }

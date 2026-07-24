@@ -14,7 +14,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         public ThrowingFaultBoundary(BoundaryEventLog log) : base("throw-fault", log) { }
 
         /// <inheritdoc/>
-        public override ValueTask FaultAsync(PipelineExecutionContext<string, int> context, Exception exception, CancellationToken cancellationToken)
+        public override ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
         {
             base.FaultAsync(context, exception, cancellationToken);
             throw new InvalidOperationException("Fault failed.");

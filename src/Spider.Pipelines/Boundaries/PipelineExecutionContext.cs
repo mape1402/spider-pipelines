@@ -1,34 +1,32 @@
 namespace Spider.Pipelines.Boundaries
 {
     /// <summary>
-    /// Provides provider-agnostic metadata for a typed request-only pipeline execution boundary.
+    /// Provides Spider-owned metadata for a pipeline execution boundary.
     /// </summary>
-    /// <typeparam name="TRequest">The type of the request object.</typeparam>
-    public class PipelineExecutionContext<TRequest>
+    public sealed class PipelineExecutionContext
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="PipelineExecutionContext{TRequest}"/> class.
+        /// Gets or initializes the type of the request being processed.
         /// </summary>
-        /// <param name="request">The request instance being processed.</param>
-        /// <param name="services">The service provider associated with the current execution.</param>
-        public PipelineExecutionContext(TRequest request, IServiceProvider services)
-        {
-            Request = request;
-            Services = services ?? throw new ArgumentNullException(nameof(services));
-        }
+        public Type RequestType { get; init; }
 
         /// <summary>
-        /// Gets the request instance being processed.
+        /// Gets or initializes the type of the response being produced, or <c>null</c> for request-only pipelines.
         /// </summary>
-        public TRequest Request { get; }
+        public Type ResponseType { get; init; }
 
         /// <summary>
-        /// Gets the service provider associated with the current execution.
+        /// Gets or initializes the request instance being processed.
         /// </summary>
-        public IServiceProvider Services { get; }
+        public object Request { get; init; }
 
         /// <summary>
-        /// Gets arbitrary metadata shared by boundary callbacks during this execution.
+        /// Gets or initializes the service provider associated with the current pipeline execution.
+        /// </summary>
+        public IServiceProvider Services { get; init; }
+
+        /// <summary>
+        /// Gets arbitrary metadata shared by boundary implementations during this execution.
         /// </summary>
         public IDictionary<string, object> Items { get; } = new Dictionary<string, object>();
     }

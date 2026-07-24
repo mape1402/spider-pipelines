@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Spider.Pipelines.Boundaries;
 using Spider.Pipelines.Core;
 using Spider.Pipelines.Extensions;
 
@@ -37,7 +36,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(RecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<RecordingBoundary>();
             });
 
             await bridge
@@ -73,14 +72,14 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(RecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<RecordingBoundary>();
             });
 
             await bridge
                 .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:complete", "boundary:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
         }
 
         /// <summary>
@@ -94,7 +93,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(RecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<RecordingBoundary>();
             });
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
@@ -104,7 +103,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider"));
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:fault:InvalidOperationException", "boundary:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:fault:InvalidOperationException" }, log.Events);
         }
 
         /// <summary>
@@ -118,14 +117,14 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(RecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<RecordingBoundary>();
             });
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
                 .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.ThrowAsync(request, token), "spider"));
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:fault:InvalidOperationException", "boundary:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:fault:InvalidOperationException" }, log.Events);
         }
 
         /// <summary>
@@ -139,7 +138,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(RecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<RecordingBoundary>();
             });
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
@@ -149,7 +148,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider"));
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:fault:InvalidOperationException", "boundary:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:fault:InvalidOperationException" }, log.Events);
         }
 
         /// <summary>
@@ -163,7 +162,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(RecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<RecordingBoundary>();
             });
 
             await bridge
@@ -177,7 +176,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:cancel", "boundary:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:cancel" }, log.Events);
         }
 
         /// <summary>
@@ -192,36 +191,15 @@ namespace Spider.Pipelines.Tests.Boundaries
             {
                 services.AddSingleton(log);
                 services.AddSpider()
-                    .AddBoundary(typeof(FirstRecordingBoundary))
-                    .AddBoundary(typeof(SecondRecordingBoundary));
+                    .AddExecutionBoundary<FirstRecordingBoundary>()
+                    .AddExecutionBoundary<SecondRecordingBoundary>();
             });
 
             await bridge
                 .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
-            Assert.Equal(new[] { "first:begin", "second:begin", "second:complete", "first:complete", "second:dispose", "first:dispose" }, log.Events);
-        }
-
-        /// <summary>
-        /// Verifies that global open-generic boundary types are registered and resolved from DI.
-        /// </summary>
-        /// <returns>A task representing the asynchronous test.</returns>
-        [Fact]
-        public async Task ExecuteAsync_WhenOpenGenericBoundaryIsRegisteredGloballyByTypeObject_ShouldResolveBoundaryFromDi()
-        {
-            var log = new BoundaryEventLog();
-            var bridge = CreateBridge(services =>
-            {
-                services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(OpenRecordingBoundary<,>));
-            });
-
-            await bridge
-                .Attach<string, int>(builder => { })
-                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
-
-            Assert.Equal(new[] { "open:begin", "open:complete", "open:dispose" }, log.Events);
+            Assert.Equal(new[] { "first:begin", "second:begin", "second:complete", "first:complete" }, log.Events);
         }
 
         /// <summary>
@@ -243,103 +221,28 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .Attach<string, int>(builder => builder.AddExecutionBoundary<SecondRecordingBoundary>())
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
-            Assert.Equal(new[] { "second:begin", "second:complete", "second:dispose" }, log.Events);
+            Assert.Equal(new[] { "second:begin", "second:complete" }, log.Events);
         }
 
         /// <summary>
-        /// Verifies that fluent-configured boundary types can be selected by runtime type.
+        /// Verifies that fluent-configured boundary instances apply only to the configured pipeline.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
-        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentTypeObject_ShouldResolveBoundaryFromDi()
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentInstance_ShouldUseBoundaryInstance()
         {
             var log = new BoundaryEventLog();
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
             await bridge
-                .Attach<string, int>(builder => builder.AddExecutionBoundary(typeof(RecordingBoundary)))
+                .Attach<string, int>(builder => builder.AddExecutionBoundary(new RecordingBoundary(log)))
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:complete", "boundary:dispose" }, log.Events);
-        }
-
-        /// <summary>
-        /// Verifies that fluent-configured open-generic boundary types are closed and resolved from DI.
-        /// </summary>
-        /// <returns>A task representing the asynchronous test.</returns>
-        [Fact]
-        public async Task ExecuteAsync_WhenOpenGenericBoundaryIsConfiguredByFluentTypeObject_ShouldResolveBoundaryFromDi()
-        {
-            var log = new BoundaryEventLog();
-            var bridge = CreateBridge(services =>
-            {
-                services.AddSingleton(log);
-                services.AddScoped(typeof(OpenRecordingBoundary<,>));
-                services.AddSpider();
-            });
-
-            await bridge
-                .Attach<string, int>(builder => builder.AddBoundary(typeof(OpenRecordingBoundary<,>)))
-                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
-
-            Assert.Equal(new[] { "open:begin", "open:complete", "open:dispose" }, log.Events);
-        }
-
-        /// <summary>
-        /// Verifies that fluent-configured delegate boundaries can use typed request and response data.
-        /// </summary>
-        /// <returns>A task representing the asynchronous test.</returns>
-        [Fact]
-        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByDelegates_ShouldUseTypedCallbacks()
-        {
-            var log = new BoundaryEventLog();
-            var bridge = CreateBridge(services =>
-            {
-                services.AddSingleton(log);
-                services.AddScoped<RecordingBoundary>();
-                services.AddSpider();
-            });
-
-            await bridge
-                .Attach<string, int>(builder =>
-                {
-                    builder.AddExecutionBoundary(boundary =>
-                    {
-                        boundary.OnBegin((ctx, token) =>
-                        {
-                            log.Add($"delegate:begin:{ctx.Request}");
-                            return ValueTask.CompletedTask;
-                        });
-                        boundary.OnComplete((ctx, token) =>
-                        {
-                            log.Add($"delegate:complete:{ctx.Response}");
-                            return ValueTask.CompletedTask;
-                        });
-                        boundary.OnFault((ctx, ex, token) =>
-                        {
-                            log.Add($"delegate:fault:{ex.GetType().Name}");
-                            return ValueTask.CompletedTask;
-                        });
-                        boundary.OnCancel((ctx, token) =>
-                        {
-                            log.Add("delegate:cancel");
-                            return ValueTask.CompletedTask;
-                        });
-                        boundary.OnDispose(ctx =>
-                        {
-                            log.Add("delegate:dispose");
-                            return ValueTask.CompletedTask;
-                        });
-                    });
-                })
-                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
-
-            Assert.Equal(new[] { "delegate:begin:spider", "delegate:complete:6", "delegate:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
         }
 
         /// <summary>
@@ -353,7 +256,6 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
@@ -362,75 +264,9 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider",
-                    execution => execution.AddExecutionBoundary<RecordingBoundary>());
+                    new[] { new RecordingBoundary(log) });
 
-            Assert.Equal(new[] { "boundary:begin", "boundary:complete", "boundary:dispose" }, log.Events);
-        }
-
-        /// <summary>
-        /// Verifies that invocation-specific open-generic boundary types are closed and resolved from DI.
-        /// </summary>
-        /// <returns>A task representing the asynchronous test.</returns>
-        [Fact]
-        public async Task ExecuteAsync_WhenOpenGenericBoundaryIsProvidedAtInvocation_ShouldResolveBoundaryFromDi()
-        {
-            var log = new BoundaryEventLog();
-            var bridge = CreateBridge(services =>
-            {
-                services.AddSingleton(log);
-                services.AddScoped(typeof(OpenRecordingBoundary<,>));
-                services.AddSpider();
-            });
-
-            await bridge
-                .Attach<string, int>(builder => { })
-                .ExecuteAsync(
-                    service => (request, token) => service.HandleAsync(request, token),
-                    "spider",
-                    execution => execution.AddBoundary(typeof(OpenRecordingBoundary<,>)));
-
-            Assert.Equal(new[] { "open:begin", "open:complete", "open:dispose" }, log.Events);
-        }
-
-        /// <summary>
-        /// Verifies that invocation-specific delegate boundaries can be configured without creating a boundary type.
-        /// </summary>
-        /// <returns>A task representing the asynchronous test.</returns>
-        [Fact]
-        public async Task ExecuteAsync_WhenDelegateBoundaryIsProvidedAtInvocation_ShouldUseInvocationBoundary()
-        {
-            var log = new BoundaryEventLog();
-            var bridge = CreateBridge(services =>
-            {
-                services.AddSingleton(log);
-                services.AddSpider();
-            });
-
-            await bridge
-                .Attach<string, int>(builder => { })
-                .ExecuteAsync(
-                    service => (request, token) => service.HandleAsync(request, token),
-                    "spider",
-                    execution => execution.AddExecutionBoundary(boundary =>
-                    {
-                        boundary.OnBegin((ctx, token) =>
-                        {
-                            log.Add($"invocation:begin:{ctx.Request}");
-                            return ValueTask.CompletedTask;
-                        });
-                        boundary.OnComplete((ctx, token) =>
-                        {
-                            log.Add($"invocation:complete:{ctx.Response}");
-                            return ValueTask.CompletedTask;
-                        });
-                        boundary.OnDispose(ctx =>
-                        {
-                            log.Add("invocation:dispose");
-                            return ValueTask.CompletedTask;
-                        });
-                    }));
-
-            Assert.Equal(new[] { "invocation:begin:spider", "invocation:complete:6", "invocation:dispose" }, log.Events);
+            Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
         }
 
         /// <summary>
@@ -445,8 +281,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             {
                 services.AddSingleton(log);
                 services.AddScoped<SecondRecordingBoundary>();
-                services.AddScoped<RecordingBoundary>();
-                services.AddSpider().AddBoundary(typeof(FirstRecordingBoundary));
+                services.AddSpider().AddExecutionBoundary<FirstRecordingBoundary>();
             });
 
             await bridge
@@ -454,10 +289,10 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider",
-                    execution => execution.AddExecutionBoundary(typeof(RecordingBoundary)));
+                    new[] { new RecordingBoundary(log) });
 
             Assert.Equal(
-                new[] { "first:begin", "second:begin", "boundary:begin", "boundary:complete", "second:complete", "first:complete", "boundary:dispose", "second:dispose", "first:dispose" },
+                new[] { "first:begin", "second:begin", "boundary:begin", "boundary:complete", "second:complete", "first:complete" },
                 log.Events);
         }
 
@@ -473,15 +308,15 @@ namespace Spider.Pipelines.Tests.Boundaries
             {
                 services.AddSingleton(log);
                 services.AddSpider()
-                    .AddBoundary(typeof(FirstRecordingBoundary))
-                    .AddBoundary(typeof(ThrowingBeginBoundary));
+                    .AddExecutionBoundary<FirstRecordingBoundary>()
+                    .AddExecutionBoundary<ThrowingBeginBoundary>();
             });
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
                 .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider"));
 
-            Assert.Equal(new[] { "first:begin", "throw-begin:begin", "first:fault:InvalidOperationException", "first:dispose" }, log.Events);
+            Assert.Equal(new[] { "first:begin", "throw-begin:begin", "first:fault:InvalidOperationException" }, log.Events);
         }
 
         /// <summary>
@@ -496,8 +331,8 @@ namespace Spider.Pipelines.Tests.Boundaries
             {
                 services.AddSingleton(log);
                 services.AddSpider()
-                    .AddBoundary(typeof(FirstRecordingBoundary))
-                    .AddBoundary(typeof(ThrowingCompleteBoundary));
+                    .AddExecutionBoundary<FirstRecordingBoundary>()
+                    .AddExecutionBoundary<ThrowingCompleteBoundary>();
             });
 
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
@@ -505,7 +340,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider"));
 
             Assert.Equal("Complete failed.", exception.Message);
-            Assert.Equal(new[] { "first:begin", "throw-complete:begin", "throw-complete:complete", "throw-complete:dispose", "first:dispose" }, log.Events);
+            Assert.Equal(new[] { "first:begin", "throw-complete:begin", "throw-complete:complete" }, log.Events);
         }
 
         /// <summary>
@@ -519,7 +354,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
-                services.AddSpider().AddBoundary(typeof(ThrowingFaultBoundary));
+                services.AddSpider().AddExecutionBoundary<ThrowingFaultBoundary>();
             });
 
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
@@ -527,7 +362,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(service => (request, token) => service.ThrowAsync(request, token), "spider"));
 
             Assert.Equal("Handler failed.", exception.Message);
-            Assert.Equal(new[] { "throw-fault:begin", "throw-fault:fault:InvalidOperationException", "throw-fault:dispose" }, log.Events);
+            Assert.Equal(new[] { "throw-fault:begin", "throw-fault:fault:InvalidOperationException" }, log.Events);
         }
 
         /// <summary>
