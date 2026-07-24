@@ -12,14 +12,14 @@
     /// Represents the execution plan for a pipeline with a single request type, coordinating preprocessing, targeting, parallel, and postprocessing steps.
     /// </summary>
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
-    internal sealed class ExecutionPlan<TRequest> : IExecutionPlan<TRequest>, IExecutionBoundaryPlan
+    internal sealed class ExecutionPlan<TRequest> : IExecutionPlan<TRequest>, IExecutionBoundaryPlan<TRequest>
     {
         private readonly IPreProcessExecution<TRequest> _preProcessExecution;
         private readonly ITargetExecution<TRequest> _targetExecution;
         private readonly IParallelExecution<TRequest> _parallelExecution;
         private readonly IMiddlewareExecution<TRequest> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest> _postProcessExecution;
-        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> _boundaryFactories;
+        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>> _boundaryFactories;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest}"/> class.
@@ -34,7 +34,7 @@
                              IParallelExecution<TRequest> parallelExecution,
                              IMiddlewareExecution<TRequest> middlewareExecution,
                              IPostProcessExecution<TRequest> postProcessExecution)
-            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary>>())
+            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>>())
         {
         }
 
@@ -52,7 +52,7 @@
                              IParallelExecution<TRequest> parallelExecution,
                              IMiddlewareExecution<TRequest> middlewareExecution,
                              IPostProcessExecution<TRequest> postProcessExecution,
-                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> boundaryFactories)
+                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest>>> boundaryFactories)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
@@ -63,7 +63,7 @@
         }
 
         /// <inheritdoc/>
-        public IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(IServiceProvider serviceProvider)
+        public IReadOnlyCollection<IPipelineExecutionBoundary<TRequest>> CreateExecutionBoundaries(IServiceProvider serviceProvider)
             => _boundaryFactories.Select(factory => factory(serviceProvider)).ToArray();
 
         /// <inheritdoc/>
@@ -126,14 +126,14 @@
     /// </summary>
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
-    internal sealed class ExecutionPlan<TRequest, TResponse> : IExecutionPlan<TRequest, TResponse>, IExecutionBoundaryPlan
+    internal sealed class ExecutionPlan<TRequest, TResponse> : IExecutionPlan<TRequest, TResponse>, IExecutionBoundaryPlan<TRequest, TResponse>
     {
         private readonly IPreProcessExecution<TRequest> _preProcessExecution;
         private readonly ITargetExecution<TRequest, TResponse> _targetExecution;
         private readonly IParallelExecution<TRequest, TResponse> _parallelExecution;
         private readonly IMiddlewareExecution<TRequest, TResponse> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest, TResponse> _postProcessExecution;
-        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> _boundaryFactories;
+        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>> _boundaryFactories;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest, TResponse}"/> class.
@@ -148,7 +148,7 @@
                              IParallelExecution<TRequest, TResponse> parallelExecution,
                              IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
                              IPostProcessExecution<TRequest, TResponse> postProcessExecution)
-            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary>>())
+            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>>())
         {
         }
 
@@ -166,7 +166,7 @@
                              IParallelExecution<TRequest, TResponse> parallelExecution,
                              IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
                              IPostProcessExecution<TRequest, TResponse> postProcessExecution,
-                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> boundaryFactories)
+                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary<TRequest, TResponse>>> boundaryFactories)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
@@ -177,7 +177,7 @@
         }
 
         /// <inheritdoc/>
-        public IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(IServiceProvider serviceProvider)
+        public IReadOnlyCollection<IPipelineExecutionBoundary<TRequest, TResponse>> CreateExecutionBoundaries(IServiceProvider serviceProvider)
             => _boundaryFactories.Select(factory => factory(serviceProvider)).ToArray();
 
         /// <inheritdoc/>

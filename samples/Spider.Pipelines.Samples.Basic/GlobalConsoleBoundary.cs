@@ -1,11 +1,12 @@
 namespace Spider.Pipelines.Samples.Basic
 {
     using Spider.Pipelines.Boundaries;
+    using Spider.Pipelines.Core;
 
     /// <summary>
     /// Provides a globally registered sample execution boundary.
     /// </summary>
-    public sealed class GlobalConsoleBoundary : IPipelineExecutionBoundary
+    public sealed class GlobalConsoleBoundary : IPipelineExecutionBoundary<OrderRequest, OrderReceipt>
     {
         private readonly SampleEventLog _log;
 
@@ -19,30 +20,37 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public ValueTask BeginAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
-            _log.Write($"global boundary: begin {context.RequestType.Name}");
+            _log.Write($"global boundary: begin {context.Request.OrderId}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public ValueTask CompleteAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
-            _log.Write("global boundary: complete");
+            _log.Write($"global boundary: complete {context.Response.ReceiptId}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
+        public ValueTask FaultAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, Exception exception, CancellationToken cancellationToken)
         {
             _log.Write($"global boundary: fault {exception.GetType().Name}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public ValueTask CancelAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
         {
             _log.Write("global boundary: cancel");
+            return ValueTask.CompletedTask;
+        }
+
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync(IReadOnlyContext<OrderRequest, OrderReceipt> context, CancellationToken cancellationToken)
+        {
+            _log.Write("global boundary: dispose");
             return ValueTask.CompletedTask;
         }
     }

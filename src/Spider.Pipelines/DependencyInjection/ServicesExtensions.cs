@@ -38,18 +38,37 @@
         }
 
         /// <summary>
-        /// Registers an execution boundary that wraps full Spider pipeline executions.
+        /// Registers a typed request-only execution boundary that wraps matching Spider pipeline executions.
         /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <typeparam name="TBoundary">The concrete boundary implementation type.</typeparam>
         /// <param name="builder">The Spider builder to configure.</param>
         /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddExecutionBoundary<TBoundary>(this ISpiderBuilder builder)
-            where TBoundary : class, IPipelineExecutionBoundary
+        public static ISpiderBuilder AddExecutionBoundary<TRequest, TBoundary>(this ISpiderBuilder builder)
+            where TBoundary : class, IPipelineExecutionBoundary<TRequest>
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
 
-            builder.Services.AddScoped<IPipelineExecutionBoundary, TBoundary>();
+            builder.Services.AddScoped<IPipelineExecutionBoundary<TRequest>, TBoundary>();
+            return builder;
+        }
+
+        /// <summary>
+        /// Registers a typed request/response execution boundary that wraps matching Spider pipeline executions.
+        /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
+        /// <typeparam name="TResponse">The type of the response object.</typeparam>
+        /// <typeparam name="TBoundary">The concrete boundary implementation type.</typeparam>
+        /// <param name="builder">The Spider builder to configure.</param>
+        /// <returns>The current Spider builder instance.</returns>
+        public static ISpiderBuilder AddExecutionBoundary<TRequest, TResponse, TBoundary>(this ISpiderBuilder builder)
+            where TBoundary : class, IPipelineExecutionBoundary<TRequest, TResponse>
+        {
+            if (builder == null)
+                throw new ArgumentNullException(nameof(builder));
+
+            builder.Services.AddScoped<IPipelineExecutionBoundary<TRequest, TResponse>, TBoundary>();
             return builder;
         }
     }

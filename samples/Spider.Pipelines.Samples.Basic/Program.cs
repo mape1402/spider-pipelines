@@ -32,7 +32,7 @@ namespace Spider.Pipelines.Samples.Basic
             services.AddSingleton<SampleEventLog>();
             services
                 .AddSpider()
-                .AddExecutionBoundary<GlobalConsoleBoundary>();
+                .AddExecutionBoundary<OrderRequest, OrderReceipt, GlobalConsoleBoundary>();
 
             var provider = services.BuildServiceProvider();
             var spider = provider.GetRequiredService<ISpider>();
@@ -60,7 +60,6 @@ namespace Spider.Pipelines.Samples.Basic
 
             services.AddSingleton<SampleOrderService>();
             services.AddSingleton<SampleEventLog>();
-            services.AddScoped<FluentConsoleBoundary>();
             services.AddSpider();
 
             var provider = services.BuildServiceProvider();
@@ -73,7 +72,34 @@ namespace Spider.Pipelines.Samples.Basic
                 .InitBridge<SampleOrderService>()
                 .Attach<OrderRequest, OrderReceipt>(builder =>
                 {
-                    builder.AddExecutionBoundary<FluentConsoleBoundary>();
+                    builder.AddExecutionBoundary(boundary =>
+                    {
+                        boundary.OnBegin((ctx, token) =>
+                        {
+                            log.Write($"fluent boundary: begin {ctx.Request.OrderId}");
+                            return ValueTask.CompletedTask;
+                        });
+                        boundary.OnComplete((ctx, token) =>
+                        {
+                            log.Write($"fluent boundary: complete {ctx.Response.ReceiptId}");
+                            return ValueTask.CompletedTask;
+                        });
+                        boundary.OnFault((ctx, ex, token) =>
+                        {
+                            log.Write($"fluent boundary: fault {ex.GetType().Name}");
+                            return ValueTask.CompletedTask;
+                        });
+                        boundary.OnCancel((ctx, token) =>
+                        {
+                            log.Write("fluent boundary: cancel");
+                            return ValueTask.CompletedTask;
+                        });
+                        boundary.OnDispose(ctx =>
+                        {
+                            log.Write("fluent boundary: dispose");
+                            return ValueTask.CompletedTask;
+                        });
+                    });
                     ConfigureOrderPipeline(builder, log);
                 })
                 .ExecuteAsync(

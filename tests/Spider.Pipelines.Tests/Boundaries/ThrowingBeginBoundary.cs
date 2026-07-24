@@ -1,11 +1,12 @@
 using Spider.Pipelines.Boundaries;
+using Spider.Pipelines.Core;
 
 namespace Spider.Pipelines.Tests.Boundaries
 {
     /// <summary>
     /// Provides a boundary that throws while beginning.
     /// </summary>
-    public sealed class ThrowingBeginBoundary : IPipelineExecutionBoundary
+    public sealed class ThrowingBeginBoundary : IPipelineExecutionBoundary<string, int>
     {
         private readonly BoundaryEventLog _log;
 
@@ -19,22 +20,26 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public ValueTask BeginAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
         {
             _log.Add("throw-begin:begin");
             throw new InvalidOperationException("Begin failed.");
         }
 
         /// <inheritdoc/>
-        public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public ValueTask CompleteAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
             => ValueTask.CompletedTask;
 
         /// <inheritdoc/>
-        public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
+        public ValueTask FaultAsync(IReadOnlyContext<string, int> context, Exception exception, CancellationToken cancellationToken)
             => ValueTask.CompletedTask;
 
         /// <inheritdoc/>
-        public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public ValueTask CancelAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
+            => ValueTask.CompletedTask;
+
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync(IReadOnlyContext<string, int> context, CancellationToken cancellationToken)
             => ValueTask.CompletedTask;
     }
 }
