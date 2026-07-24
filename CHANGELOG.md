@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v2.0.0] - 2026-07-24
+
 ### Added
 
 - Explicit cancellation result state.
@@ -16,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Middleware support around target handlers.
 - Concise pipeline builder shortcut methods.
 - Benchmarked pipeline execution scenarios.
+- .NET 8, .NET 9, and .NET 10 target framework support.
 
 ### Changed
 
@@ -23,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parallel execution now has a single clear meaning: parallel steps run concurrently with the target.
 - Override handlers without a condition now apply by default.
 - Pipeline contracts for ordering, boundaries, errors, cancellation, and parallel execution are documented.
+- Execution boundary configuration now lives on the bridge before `Attach`, including DI-resolved and delegate-based boundaries.
 
 ### Fixed
 

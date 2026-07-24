@@ -8,6 +8,8 @@
 
 Spider.Pipelines is a lightweight .NET library for composing service execution pipelines. It lets you attach preprocessors, middleware, override handlers, parallel steps, and postprocessors around existing logic with a clean, dependency-injection-friendly API.
 
+Version 2.0.0 targets .NET 8, .NET 9, and .NET 10.
+
 ## Features
 
 - Modular pipeline stages for preprocessing, middleware, targeting, parallel work, and postprocessing.
@@ -16,6 +18,7 @@ Spider.Pipelines is a lightweight .NET library for composing service execution p
 - Immutable pipeline step snapshots at execution build time.
 - Thread-safe context state for concurrent target and parallel stages.
 - Provider-agnostic execution boundaries for wrapping complete pipeline execution.
+- .NET 8, .NET 9, and .NET 10 support.
 - Tested with xUnit and NSubstitute.
 
 ## Installation
@@ -198,7 +201,7 @@ await typedBridge.ExecuteAsync(
     "World");
 ```
 
-Multiple boundaries begin in this order: global DI, fluent pipeline, bridge-selected. They terminate in reverse order.
+Multiple boundaries begin in this order: global DI, bridge-selected. They terminate in reverse order.
 
 ## Error and Cancellation Behavior
 
