@@ -137,25 +137,7 @@ Terminal and dispose callbacks run in reverse order.
 
 ## Global Registration
 
-Register a global request/response boundary with the Spider builder:
-
-```csharp
-services.AddSpider(spider =>
-{
-    spider.AddExecutionBoundary<OrderBoundary>();
-});
-```
-
-For request-only pipelines, the same registration shape applies:
-
-```csharp
-services.AddSpider(spider =>
-{
-    spider.AddExecutionBoundary<OrderBoundary>();
-});
-```
-
-Spider discovers whether `OrderBoundary` implements `IBoundary<TRequest>` or `IBoundary<TRequest, TResponse>` and registers it against that typed contract. Reusable open-generic boundaries can be registered explicitly by type:
+Register a global request/response boundary with the Spider builder as an open-generic boundary:
 
 ```csharp
 services.AddSpider(spider =>
@@ -163,6 +145,17 @@ services.AddSpider(spider =>
     spider.AddBoundary(typeof(MyBoundary<,>));
 });
 ```
+
+For request-only pipelines, use the open-generic request boundary:
+
+```csharp
+services.AddSpider(spider =>
+{
+    spider.AddBoundary(typeof(MyBoundary<>));
+});
+```
+
+Spider discovers whether the boundary implements `IBoundary<TRequest>` or `IBoundary<TRequest, TResponse>` and registers it against that typed contract.
 
 ## Fluent API
 

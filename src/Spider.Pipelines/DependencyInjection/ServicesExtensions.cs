@@ -40,20 +40,10 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <summary>
         /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
         /// </summary>
-        /// <typeparam name="TBoundary">The concrete boundary implementation type.</typeparam>
-        /// <param name="builder">The Spider builder to configure.</param>
-        /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddExecutionBoundary<TBoundary>(this ISpiderBuilder builder)
-            where TBoundary : class
-            => AddExecutionBoundary(builder, typeof(TBoundary));
-
-        /// <summary>
-        /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
-        /// </summary>
         /// <param name="builder">The Spider builder to configure.</param>
         /// <param name="boundaryType">The boundary implementation type to register.</param>
         /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddExecutionBoundary(this ISpiderBuilder builder, Type boundaryType)
+        public static ISpiderBuilder AddBoundary(this ISpiderBuilder builder, Type boundaryType)
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
@@ -80,15 +70,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return builder;
         }
-
-        /// <summary>
-        /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
-        /// </summary>
-        /// <param name="builder">The Spider builder to configure.</param>
-        /// <param name="boundaryType">The boundary implementation type to register.</param>
-        /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddBoundary(this ISpiderBuilder builder, Type boundaryType)
-            => AddExecutionBoundary(builder, boundaryType);
 
         /// <summary>
         /// Determines whether the specified type is a Spider execution boundary contract.
