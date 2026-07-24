@@ -17,7 +17,7 @@ namespace Spider.Pipelines.Samples.Basic
         {
             await RunGlobalBoundaryExampleAsync();
             await RunFluentBoundaryExampleAsync();
-            await RunInvocationBoundaryExampleAsync();
+            await RunBridgeBoundaryExampleAsync();
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <summary>
-        /// Runs a sample pipeline with a boundary selected through the pipeline fluent API.
+        /// Runs a sample pipeline with delegate callbacks selected through the pipeline fluent API.
         /// </summary>
         /// <returns>A task representing the asynchronous operation.</returns>
         private static async Task RunFluentBoundaryExampleAsync()
@@ -73,7 +73,36 @@ namespace Spider.Pipelines.Samples.Basic
                 .InitBridge<SampleOrderService>()
                 .Attach<OrderRequest, OrderReceipt>(builder =>
                 {
-                    builder.AddExecutionBoundary<ConsoleBoundary>();
+                    builder.AddExecutionBoundary(boundary =>
+                    {
+                        boundary
+                            .OnBegin((ctx, token) =>
+                            {
+                                log.Write($"fluent-boundary: begin {ctx.RequestType.Name}");
+                                return ValueTask.CompletedTask;
+                            })
+                            .OnComplete((ctx, token) =>
+                            {
+                                log.Write($"fluent-boundary: complete {ctx.ResponseType?.Name}");
+                                return ValueTask.CompletedTask;
+                            })
+                            .OnFault((ctx, ex, token) =>
+                            {
+                                log.Write($"fluent-boundary: fault {ex.Message}");
+                                return ValueTask.CompletedTask;
+                            })
+                            .OnCancel((ctx, token) =>
+                            {
+                                log.Write("fluent-boundary: cancel");
+                                return ValueTask.CompletedTask;
+                            })
+                            .OnDispose(ctx =>
+                            {
+                                log.Write("fluent-boundary: dispose");
+                                return ValueTask.CompletedTask;
+                            });
+                    });
+
                     ConfigureOrderPipeline(builder, log);
                 })
                 .ExecuteAsync(
@@ -84,32 +113,34 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <summary>
-        /// Runs a sample pipeline with a boundary selected for a single execution.
+        /// Runs a sample pipeline with boundaries selected from the bridge before attaching the pipeline.
         /// </summary>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task RunInvocationBoundaryExampleAsync()
+        private static async Task RunBridgeBoundaryExampleAsync()
         {
             var services = new ServiceCollection();
 
             services.AddSingleton<SampleOrderService>();
             services.AddSingleton<SampleEventLog>();
             services.AddScoped<ConsoleBoundary>();
+            services.AddScoped<AuditBoundary>();
             services.AddSpider();
 
             var provider = services.BuildServiceProvider();
             var spider = provider.GetRequiredService<ISpider>();
             var log = provider.GetRequiredService<SampleEventLog>();
 
-            log.Write("example: invocation boundary");
+            log.Write("example: bridge boundary");
 
             var bridge = spider
                 .InitBridge<SampleOrderService>()
+                .AddExecutionBoundary<ConsoleBoundary>()
+                .AddExecutionBoundary<AuditBoundary>()
                 .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log));
 
             var receipt = await bridge.ExecuteAsync(
                 service => (request, token) => service.PlaceOrderAsync(request, token),
-                new OrderRequest("SO-1003", 75m),
-                execution => execution.AddExecutionBoundary<ConsoleBoundary>());
+                new OrderRequest("SO-1003", 75m));
 
             log.Write($"done: {receipt.ReceiptId} for {receipt.Total:C}");
         }

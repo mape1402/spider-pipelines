@@ -38,15 +38,15 @@
             if (configureExecution == null)
                 throw new ArgumentNullException(nameof(configureExecution));
 
-            var executionBoundaries = CreateInvocationBoundaries(configureExecution);
+            var executionBoundaries = CreateExecutionBoundaries(configureExecution);
             await RunAsync(request, executionBoundaries, cancellationToken);
         }
 
         /// <summary>
-        /// Runs the pipeline with invocation boundaries that have already been materialized.
+        /// Runs the pipeline with execution boundaries that have already been materialized.
         /// </summary>
         /// <param name="request">The request object to process.</param>
-        /// <param name="executionBoundaries">The boundaries to apply only to this invocation.</param>
+        /// <param name="executionBoundaries">The boundaries to apply to this materialized execution.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         private async Task RunAsync(TRequest request, IReadOnlyCollection<IPipelineExecutionBoundary> executionBoundaries, CancellationToken cancellationToken = default)
@@ -96,11 +96,11 @@
                 : Array.Empty<IPipelineExecutionBoundary>();
 
         /// <summary>
-        /// Creates boundaries configured specifically for the current invocation.
+        /// Creates boundaries configured specifically for the current materialized execution.
         /// </summary>
-        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
-        /// <returns>The invocation-specific boundaries.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary> CreateInvocationBoundaries(Action<IExecutionBoundaryCollection> configureExecution)
+        /// <param name="configureExecution">The action that configures execution-specific boundaries.</param>
+        /// <returns>The execution-specific boundaries.</returns>
+        private IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(Action<IExecutionBoundaryCollection> configureExecution)
         {
             var boundaryCollection = new ExecutionBoundaryCollection();
             configureExecution(boundaryCollection);
@@ -142,15 +142,15 @@
             if (configureExecution == null)
                 throw new ArgumentNullException(nameof(configureExecution));
 
-            var executionBoundaries = CreateInvocationBoundaries(configureExecution);
+            var executionBoundaries = CreateExecutionBoundaries(configureExecution);
             return await RunAsync(request, executionBoundaries, cancellationToken);
         }
 
         /// <summary>
-        /// Runs the pipeline with invocation boundaries that have already been materialized.
+        /// Runs the pipeline with execution boundaries that have already been materialized.
         /// </summary>
         /// <param name="request">The request object to process.</param>
-        /// <param name="executionBoundaries">The boundaries to apply only to this invocation.</param>
+        /// <param name="executionBoundaries">The boundaries to apply to this materialized execution.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task containing the pipeline response.</returns>
         private async Task<TResponse> RunAsync(TRequest request, IReadOnlyCollection<IPipelineExecutionBoundary> executionBoundaries, CancellationToken cancellationToken = default)
@@ -202,11 +202,11 @@
                 : Array.Empty<IPipelineExecutionBoundary>();
 
         /// <summary>
-        /// Creates boundaries configured specifically for the current invocation.
+        /// Creates boundaries configured specifically for the current materialized execution.
         /// </summary>
-        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
-        /// <returns>The invocation-specific boundaries.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary> CreateInvocationBoundaries(Action<IExecutionBoundaryCollection> configureExecution)
+        /// <param name="configureExecution">The action that configures execution-specific boundaries.</param>
+        /// <returns>The execution-specific boundaries.</returns>
+        private IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(Action<IExecutionBoundaryCollection> configureExecution)
         {
             var boundaryCollection = new ExecutionBoundaryCollection();
             configureExecution(boundaryCollection);

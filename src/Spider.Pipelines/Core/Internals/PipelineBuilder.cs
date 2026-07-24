@@ -2,6 +2,7 @@
 {
     using Microsoft.Extensions.DependencyInjection;
     using Spider.Pipelines.Boundaries;
+    using Spider.Pipelines.Boundaries.Internals;
     using Spider.Pipelines.Parallelization;
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
@@ -133,6 +134,18 @@
         }
 
         /// <inheritdoc/>
+        public IPipelineBuilder<TRequest> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            var boundary = new DelegateExecutionBoundary();
+            configure(boundary);
+            _boundaryFactories.Add(_ => boundary);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IPipeline<TRequest> Build(TargetHandler<TRequest> targetHandler)
         {
             if (targetHandler == null)
@@ -248,6 +261,18 @@
                 throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IPipelineExecutionBoundary.");
 
             _boundaryFactories.Add(serviceProvider => (IPipelineExecutionBoundary)serviceProvider.GetRequiredService(boundaryType));
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            var boundary = new DelegateExecutionBoundary();
+            configure(boundary);
+            _boundaryFactories.Add(_ => boundary);
             return this;
         }
 

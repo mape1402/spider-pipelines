@@ -46,5 +46,12 @@ namespace Spider.Pipelines.Boundaries
         ValueTask CancelAsync(
             PipelineExecutionContext context,
             CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Disposes boundary resources after the terminal boundary operation has been attempted.
+        /// </summary>
+        /// <param name="context">The Spider-owned execution metadata for the current pipeline.</param>
+        /// <returns>A task-like value representing the asynchronous operation.</returns>
+        ValueTask DisposeAsync(PipelineExecutionContext context);
     }
 }
