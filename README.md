@@ -165,13 +165,13 @@ Boundary order:
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
 
-For one-off calls, pass boundary instances to `ExecuteAsync`:
+For one-off calls, select DI-registered boundaries through the execution callback:
 
 ```csharp
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    new[] { myBoundary });
+    execution => execution.AddExecutionBoundary<MyBoundary>());
 ```
 
 Multiple boundaries begin in this order: global DI, fluent pipeline, invocation. They terminate in reverse order.

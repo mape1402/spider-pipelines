@@ -17,13 +17,13 @@ namespace Spider.Pipelines.Core
         Task RunAsync(TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Runs the pipeline asynchronously with execution boundaries provided for this invocation.
+        /// Runs the pipeline asynchronously with execution boundaries configured only for this invocation.
         /// </summary>
         /// <param name="request">The request object to process.</param>
-        /// <param name="executionBoundaries">The execution boundaries to apply only to this invocation.</param>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        Task RunAsync(TRequest request, IEnumerable<IPipelineExecutionBoundary> executionBoundaries, CancellationToken cancellationToken = default);
+        Task RunAsync(TRequest request, Action<IExecutionBoundaryCollection> configureExecution, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -42,12 +42,12 @@ namespace Spider.Pipelines.Core
         Task<TResponse> RunAsync(TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Runs the pipeline asynchronously with execution boundaries provided for this invocation.
+        /// Runs the pipeline asynchronously with execution boundaries configured only for this invocation.
         /// </summary>
         /// <param name="request">The request object to process.</param>
-        /// <param name="executionBoundaries">The execution boundaries to apply only to this invocation.</param>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
-        Task<TResponse> RunAsync(TRequest request, IEnumerable<IPipelineExecutionBoundary> executionBoundaries, CancellationToken cancellationToken = default);
+        Task<TResponse> RunAsync(TRequest request, Action<IExecutionBoundaryCollection> configureExecution, CancellationToken cancellationToken = default);
     }
 }

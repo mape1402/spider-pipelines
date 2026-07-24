@@ -112,20 +112,23 @@
         }
 
         /// <inheritdoc/>
-        public IPipelineBuilder<TRequest> AddExecutionBoundary(IPipelineExecutionBoundary boundary)
-        {
-            if (boundary == null)
-                throw new ArgumentNullException(nameof(boundary));
-
-            _boundaryFactories.Add(_ => boundary);
-            return this;
-        }
-
-        /// <inheritdoc/>
         public IPipelineBuilder<TRequest> AddExecutionBoundary<TBoundary>()
             where TBoundary : class, IPipelineExecutionBoundary
         {
             _boundaryFactories.Add(serviceProvider => serviceProvider.GetRequiredService<TBoundary>());
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IPipelineBuilder<TRequest> AddExecutionBoundary(Type boundaryType)
+        {
+            if (boundaryType == null)
+                throw new ArgumentNullException(nameof(boundaryType));
+
+            if (!typeof(IPipelineExecutionBoundary).IsAssignableFrom(boundaryType))
+                throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IPipelineExecutionBoundary.");
+
+            _boundaryFactories.Add(serviceProvider => (IPipelineExecutionBoundary)serviceProvider.GetRequiredService(boundaryType));
             return this;
         }
 
@@ -228,20 +231,23 @@
         }
 
         /// <inheritdoc/>
-        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IPipelineExecutionBoundary boundary)
-        {
-            if (boundary == null)
-                throw new ArgumentNullException(nameof(boundary));
-
-            _boundaryFactories.Add(_ => boundary);
-            return this;
-        }
-
-        /// <inheritdoc/>
         public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
             where TBoundary : class, IPipelineExecutionBoundary
         {
             _boundaryFactories.Add(serviceProvider => serviceProvider.GetRequiredService<TBoundary>());
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Type boundaryType)
+        {
+            if (boundaryType == null)
+                throw new ArgumentNullException(nameof(boundaryType));
+
+            if (!typeof(IPipelineExecutionBoundary).IsAssignableFrom(boundaryType))
+                throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IPipelineExecutionBoundary.");
+
+            _boundaryFactories.Add(serviceProvider => (IPipelineExecutionBoundary)serviceProvider.GetRequiredService(boundaryType));
             return this;
         }
 

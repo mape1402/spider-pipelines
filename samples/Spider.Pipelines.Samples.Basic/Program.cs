@@ -15,6 +15,47 @@ namespace Spider.Pipelines.Samples.Basic
         /// <returns>A task representing the asynchronous operation.</returns>
         private static async Task Main()
         {
+            await RunGlobalBoundaryExampleAsync();
+            await RunFluentBoundaryExampleAsync();
+            await RunInvocationBoundaryExampleAsync();
+        }
+
+        /// <summary>
+        /// Runs a sample pipeline with a globally registered execution boundary.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task RunGlobalBoundaryExampleAsync()
+        {
+            var services = new ServiceCollection();
+
+            services.AddSingleton<SampleOrderService>();
+            services.AddSingleton<SampleEventLog>();
+            services
+                .AddSpider()
+                .AddExecutionBoundary<ConsoleBoundary>();
+
+            var provider = services.BuildServiceProvider();
+            var spider = provider.GetRequiredService<ISpider>();
+            var log = provider.GetRequiredService<SampleEventLog>();
+
+            log.Write("example: global boundary");
+
+            var receipt = await spider
+                .InitBridge<SampleOrderService>()
+                .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log))
+                .ExecuteAsync(
+                    service => (request, token) => service.PlaceOrderAsync(request, token),
+                    new OrderRequest("SO-1001", 125.50m));
+
+            log.Write($"done: {receipt.ReceiptId} for {receipt.Total:C}");
+        }
+
+        /// <summary>
+        /// Runs a sample pipeline with a boundary selected through the pipeline fluent API.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task RunFluentBoundaryExampleAsync()
+        {
             var services = new ServiceCollection();
 
             services.AddSingleton<SampleOrderService>();
@@ -26,46 +67,88 @@ namespace Spider.Pipelines.Samples.Basic
             var spider = provider.GetRequiredService<ISpider>();
             var log = provider.GetRequiredService<SampleEventLog>();
 
-            var bridge = spider
+            log.Write("example: fluent boundary");
+
+            var receipt = await spider
                 .InitBridge<SampleOrderService>()
                 .Attach<OrderRequest, OrderReceipt>(builder =>
                 {
-                    builder
-                        .AddExecutionBoundary<ConsoleBoundary>()
-                        .PreProcess((ctx, args) =>
-                        {
-                            log.Write($"preprocess: validating order {ctx.Request.OrderId}");
-                            return Task.CompletedTask;
-                        })
-                        .UseMiddleware(async (ctx, next) =>
-                        {
-                            log.Write("middleware: before handler");
-                            var response = await next();
-                            log.Write("middleware: after handler");
-                            return response;
-                        })
-                        .Parallel((ctx, args) =>
-                        {
-                            log.Write("parallel: notifying read model");
-                            return Task.CompletedTask;
-                        })
-                        .OnSuccess((ctx, args) =>
-                        {
-                            log.Write($"postprocess: receipt {ctx.Response.ReceiptId}");
-                            return Task.CompletedTask;
-                        })
-                        .OnFailure((ctx, args) =>
-                        {
-                            log.Write($"postprocess: failure {ctx.Exception?.Message}");
-                            return Task.CompletedTask;
-                        });
-                });
+                    builder.AddExecutionBoundary<ConsoleBoundary>();
+                    ConfigureOrderPipeline(builder, log);
+                })
+                .ExecuteAsync(
+                    service => (request, token) => service.PlaceOrderAsync(request, token),
+                    new OrderRequest("SO-1002", 210m));
+
+            log.Write($"done: {receipt.ReceiptId} for {receipt.Total:C}");
+        }
+
+        /// <summary>
+        /// Runs a sample pipeline with a boundary selected for a single execution.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task RunInvocationBoundaryExampleAsync()
+        {
+            var services = new ServiceCollection();
+
+            services.AddSingleton<SampleOrderService>();
+            services.AddSingleton<SampleEventLog>();
+            services.AddScoped<ConsoleBoundary>();
+            services.AddSpider();
+
+            var provider = services.BuildServiceProvider();
+            var spider = provider.GetRequiredService<ISpider>();
+            var log = provider.GetRequiredService<SampleEventLog>();
+
+            log.Write("example: invocation boundary");
+
+            var bridge = spider
+                .InitBridge<SampleOrderService>()
+                .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log));
 
             var receipt = await bridge.ExecuteAsync(
                 service => (request, token) => service.PlaceOrderAsync(request, token),
-                new OrderRequest("SO-1001", 125.50m));
+                new OrderRequest("SO-1003", 75m),
+                execution => execution.AddExecutionBoundary<ConsoleBoundary>());
 
             log.Write($"done: {receipt.ReceiptId} for {receipt.Total:C}");
+        }
+
+        /// <summary>
+        /// Configures the shared order pipeline stages used by the sample executions.
+        /// </summary>
+        /// <param name="builder">The pipeline builder to configure.</param>
+        /// <param name="log">The sample event log.</param>
+        private static void ConfigureOrderPipeline(IPipelineBuilder<OrderRequest, OrderReceipt> builder, SampleEventLog log)
+        {
+            builder
+                .PreProcess((ctx, args) =>
+                {
+                    log.Write($"preprocess: validating order {ctx.Request.OrderId}");
+                    return Task.CompletedTask;
+                })
+                .UseMiddleware(async (ctx, next) =>
+                {
+                    log.Write("middleware: before handler");
+                    var response = await next();
+                    log.Write("middleware: after handler");
+                    return response;
+                })
+                .Parallel((ctx, args) =>
+                {
+                    log.Write("parallel: notifying read model");
+                    return Task.CompletedTask;
+                })
+                .OnSuccess((ctx, args) =>
+                {
+                    log.Write($"postprocess: receipt {ctx.Response.ReceiptId}");
+                    return Task.CompletedTask;
+                })
+                .OnFailure((ctx, args) =>
+                {
+                    log.Write($"postprocess: failure {ctx.Exception?.Message}");
+                    return Task.CompletedTask;
+                });
         }
     }
 }

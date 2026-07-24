@@ -56,50 +56,48 @@
 
         /// <inheritdoc/>
         public Task ExecuteAsync<TRequest>(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default)
-            => ExecuteAsync(targetHandler, request, Array.Empty<IPipelineExecutionBoundary>(), cancellationToken);
+            => ExecuteAsync(targetHandler, request, null, cancellationToken);
 
         /// <inheritdoc/>
         public Task ExecuteAsync<TRequest>(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            Action<IExecutionBoundaryCollection> configureExecution,
             CancellationToken cancellationToken = default)
         {
             if (targetHandler == null)
                 throw new ArgumentNullException(nameof(targetHandler));
-
-            if (executionBoundaries == null)
-                throw new ArgumentNullException(nameof(executionBoundaries));
 
             var serviceMethod = targetHandler.Compile();
             var targetMethod = serviceMethod.Invoke(Service);
 
             var pipeline = _pipelineBuilder.Typed<TRequest>().Build(targetMethod);
-            return pipeline.RunAsync(request, executionBoundaries, cancellationToken);
+            return configureExecution == null
+                ? pipeline.RunAsync(request, cancellationToken)
+                : pipeline.RunAsync(request, configureExecution, cancellationToken);
         }
 
         /// <inheritdoc/>
         public Task<TResponse> ExecuteAsync<TRequest, TResponse>(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default)
-            => ExecuteAsync(targetHandler, request, Array.Empty<IPipelineExecutionBoundary>(), cancellationToken);
+            => ExecuteAsync(targetHandler, request, null, cancellationToken);
 
         /// <inheritdoc/>
         public Task<TResponse> ExecuteAsync<TRequest, TResponse>(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            Action<IExecutionBoundaryCollection> configureExecution,
             CancellationToken cancellationToken = default)
         {
             if (targetHandler == null)
                 throw new ArgumentNullException(nameof(targetHandler));
 
-            if (executionBoundaries == null)
-                throw new ArgumentNullException(nameof(executionBoundaries));
-
             var serviceMethod = targetHandler.Compile();
             var targetMethod = serviceMethod.Invoke(Service);
 
             var pipeline = _pipelineBuilder.Typed<TRequest, TResponse>().Build(targetMethod);
-            return pipeline.RunAsync(request, executionBoundaries, cancellationToken);
+            return configureExecution == null
+                ? pipeline.RunAsync(request, cancellationToken)
+                : pipeline.RunAsync(request, configureExecution, cancellationToken);
         }
     }
 
@@ -129,9 +127,9 @@
         public Task ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            Action<IExecutionBoundaryCollection> configureExecution,
             CancellationToken cancellationToken = default)
-            => ExecuteAsync<TRequest>(targetHandler, request, executionBoundaries, cancellationToken);
+            => ExecuteAsync<TRequest>(targetHandler, request, configureExecution, cancellationToken);
     }
 
     /// <summary>
@@ -161,8 +159,8 @@
         public Task<TResponse> ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            Action<IExecutionBoundaryCollection> configureExecution,
             CancellationToken cancellationToken = default)
-            => ExecuteAsync<TRequest, TResponse>(targetHandler, request, executionBoundaries, cancellationToken);
+            => ExecuteAsync<TRequest, TResponse>(targetHandler, request, configureExecution, cancellationToken);
     }
 }
