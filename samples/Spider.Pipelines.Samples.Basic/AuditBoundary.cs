@@ -5,7 +5,7 @@ namespace Spider.Pipelines.Samples.Basic
     /// <summary>
     /// Provides a sample audit execution boundary.
     /// </summary>
-    public sealed class AuditBoundary : IPipelineExecutionBoundary
+    public sealed class AuditBoundary : PipelineExecutionBoundary
     {
         private readonly SampleEventLog _log;
 
@@ -19,30 +19,16 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public override ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         {
             _log.Write($"audit: begin {context.RequestType.Name}");
             return ValueTask.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public override ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         {
             _log.Write("audit: complete");
-            return ValueTask.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
-        {
-            _log.Write($"audit: fault {exception.GetType().Name}");
-            return ValueTask.CompletedTask;
-        }
-
-        /// <inheritdoc/>
-        public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
-        {
-            _log.Write("audit: cancel");
             return ValueTask.CompletedTask;
         }
 

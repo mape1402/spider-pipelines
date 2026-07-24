@@ -154,26 +154,24 @@ Context state is synchronized while target and parallel steps run concurrently, 
 
 Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves the boundary from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`.
 
+Use `PipelineExecutionBoundary` when a boundary only needs some callbacks. It provides no-op defaults for every operation:
+
 ```csharp
-public sealed class MyBoundary : IPipelineExecutionBoundary
+public sealed class MyBoundary : PipelineExecutionBoundary
 {
-    public ValueTask BeginAsync(
+    public override ValueTask BeginAsync(
         PipelineExecutionContext context,
         CancellationToken cancellationToken)
     {
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+    public override ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         => ValueTask.CompletedTask;
 }
 ```
+
+Implement `IPipelineExecutionBoundary` directly when a boundary intentionally owns all four operations.
 
 Boundary order:
 

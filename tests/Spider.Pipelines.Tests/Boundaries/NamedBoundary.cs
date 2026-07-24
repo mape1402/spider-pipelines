@@ -5,7 +5,7 @@ namespace Spider.Pipelines.Tests.Boundaries
     /// <summary>
     /// Provides a named test boundary.
     /// </summary>
-    public abstract class NamedBoundary : IPipelineExecutionBoundary
+    public abstract class NamedBoundary : PipelineExecutionBoundary
     {
         private readonly string _name;
         private readonly BoundaryEventLog _log;
@@ -22,7 +22,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public override ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:begin");
             _log.Activate();
@@ -30,7 +30,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public override ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:complete");
             _log.Deactivate();
@@ -38,7 +38,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
+        public override ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:fault:{exception.GetType().Name}");
             _log.Deactivate();
@@ -46,7 +46,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public virtual ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public override ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         {
             _log.Add($"{_name}:cancel");
             _log.Deactivate();

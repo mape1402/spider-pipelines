@@ -5,7 +5,7 @@ namespace Spider.Pipelines.Tests.Boundaries
     /// <summary>
     /// Provides a boundary that throws while beginning.
     /// </summary>
-    public sealed class ThrowingBeginBoundary : IPipelineExecutionBoundary
+    public sealed class ThrowingBeginBoundary : PipelineExecutionBoundary
     {
         private readonly BoundaryEventLog _log;
 
@@ -19,23 +19,11 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <inheritdoc/>
-        public ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        public override ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
         {
             _log.Add("throw-begin:begin");
             throw new InvalidOperationException("Begin failed.");
         }
-
-        /// <inheritdoc/>
-        public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
-            => ValueTask.CompletedTask;
-
-        /// <inheritdoc/>
-        public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
-            => ValueTask.CompletedTask;
-
-        /// <inheritdoc/>
-        public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
-            => ValueTask.CompletedTask;
 
     }
 }

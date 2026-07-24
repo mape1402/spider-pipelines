@@ -5,7 +5,7 @@ namespace Spider.Pipelines.Samples.Basic
     /// <summary>
     /// Provides a sample provider-agnostic execution boundary.
     /// </summary>
-    public sealed class ConsoleBoundary : IPipelineExecutionBoundary
+    public sealed class ConsoleBoundary : PipelineExecutionBoundary
     {
         private readonly SampleEventLog _log;
 
@@ -19,7 +19,7 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask BeginAsync(
+        public override ValueTask BeginAsync(
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
@@ -28,7 +28,7 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask CompleteAsync(
+        public override ValueTask CompleteAsync(
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask FaultAsync(
+        public override ValueTask FaultAsync(
             PipelineExecutionContext context,
             Exception exception,
             CancellationToken cancellationToken)
@@ -47,7 +47,7 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <inheritdoc/>
-        public ValueTask CancelAsync(
+        public override ValueTask CancelAsync(
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
