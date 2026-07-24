@@ -27,8 +27,6 @@ public interface IPipelineExecutionBoundary
     ValueTask CancelAsync(
         PipelineExecutionContext context,
         CancellationToken cancellationToken);
-
-    ValueTask DisposeAsync(PipelineExecutionContext context);
 }
 ```
 
@@ -130,7 +128,6 @@ var bridge = spider
         boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
         boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
         boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnDispose(ctx => ValueTask.CompletedTask);
     })
     .Attach<MyRequest, MyResponse>(builder => { });
 ```

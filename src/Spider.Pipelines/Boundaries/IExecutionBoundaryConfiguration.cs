@@ -33,11 +33,5 @@ namespace Spider.Pipelines.Boundaries
         /// <returns>The current boundary configuration.</returns>
         IExecutionBoundaryConfiguration OnCancel(Func<PipelineExecutionContext, CancellationToken, ValueTask> handler);
 
-        /// <summary>
-        /// Configures the callback invoked after the terminal boundary operation has been attempted.
-        /// </summary>
-        /// <param name="handler">The dispose callback.</param>
-        /// <returns>The current boundary configuration.</returns>
-        IExecutionBoundaryConfiguration OnDispose(Func<PipelineExecutionContext, ValueTask> handler);
     }
 }

@@ -9,7 +9,6 @@ namespace Spider.Pipelines.Boundaries.Internals
         private Func<PipelineExecutionContext, CancellationToken, ValueTask> _onComplete;
         private Func<PipelineExecutionContext, Exception, CancellationToken, ValueTask> _onFault;
         private Func<PipelineExecutionContext, CancellationToken, ValueTask> _onCancel;
-        private Func<PipelineExecutionContext, ValueTask> _onDispose;
 
         /// <inheritdoc/>
         public IExecutionBoundaryConfiguration OnBegin(Func<PipelineExecutionContext, CancellationToken, ValueTask> handler)
@@ -40,13 +39,6 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <inheritdoc/>
-        public IExecutionBoundaryConfiguration OnDispose(Func<PipelineExecutionContext, ValueTask> handler)
-        {
-            _onDispose = handler ?? throw new ArgumentNullException(nameof(handler));
-            return this;
-        }
-
-        /// <inheritdoc/>
         public ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
             => _onBegin == null ? ValueTask.CompletedTask : _onBegin(context, cancellationToken);
 
@@ -61,9 +53,5 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <inheritdoc/>
         public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
             => _onCancel == null ? ValueTask.CompletedTask : _onCancel(context, cancellationToken);
-
-        /// <inheritdoc/>
-        public ValueTask DisposeAsync(PipelineExecutionContext context)
-            => _onDispose == null ? ValueTask.CompletedTask : _onDispose(context);
     }
 }

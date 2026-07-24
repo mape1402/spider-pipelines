@@ -55,11 +55,5 @@ namespace Spider.Pipelines.Samples.Basic
             return ValueTask.CompletedTask;
         }
 
-        /// <inheritdoc/>
-        public ValueTask DisposeAsync(PipelineExecutionContext context)
-        {
-            _log.Write("boundary: dispose");
-            return ValueTask.CompletedTask;
-        }
     }
 }

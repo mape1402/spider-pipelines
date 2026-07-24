@@ -74,7 +74,6 @@ var typedBridge = spider
         boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
         boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
         boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
-        boundary.OnDispose(ctx => ValueTask.CompletedTask);
     })
     .Attach<string, string>(builder => { });
 ```
@@ -172,9 +171,6 @@ public sealed class MyBoundary : IPipelineExecutionBoundary
         => ValueTask.CompletedTask;
 
     public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
-        => ValueTask.CompletedTask;
-
-    public ValueTask DisposeAsync(PipelineExecutionContext context)
         => ValueTask.CompletedTask;
 }
 ```
