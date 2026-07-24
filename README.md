@@ -24,6 +24,14 @@ Spider.Pipelines is a lightweight .NET library for composing service execution p
 dotnet add package Spider.Pipelines
 ```
 
+## Samples
+
+Run the basic sample with:
+
+```bash
+dotnet run --project samples/Spider.Pipelines.Samples.Basic/Spider.Pipelines.Samples.Basic.csproj
+```
+
 ## Quick Start
 
 ### 1. Register Spider
@@ -115,18 +123,26 @@ Context state is synchronized while target and parallel steps run concurrently, 
 
 ## Execution Boundaries
 
-Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider only calls `BeginAsync`, `CompleteAsync`, `FaultAsync`, `CancelAsync`, and `DisposeAsync`; application code decides what those operations mean.
+Boundaries wrap the full pipeline execution and stay provider-agnostic. Spider resolves the boundary from DI and calls `BeginAsync`, then exactly one terminal operation: `CompleteAsync`, `FaultAsync`, or `CancelAsync`.
 
 ```csharp
 public sealed class MyBoundary : IPipelineExecutionBoundary
 {
-    public ValueTask<IPipelineExecutionBoundaryScope> BeginAsync(
+    public ValueTask BeginAsync(
         PipelineExecutionContext context,
         CancellationToken cancellationToken)
     {
-        return ValueTask.FromResult<IPipelineExecutionBoundaryScope>(
-            new MyBoundaryScope());
+        return ValueTask.CompletedTask;
     }
+
+    public ValueTask CompleteAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask FaultAsync(PipelineExecutionContext context, Exception exception, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
+
+    public ValueTask CancelAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+        => ValueTask.CompletedTask;
 }
 ```
 
@@ -137,9 +153,8 @@ Boundary order:
 3. Middleware, target/override, and parallel work.
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
-6. Boundary dispose.
 
-Multiple boundaries nest in registration order and dispose in reverse order.
+Multiple boundaries begin in registration order and terminate in reverse order.
 
 ## Error and Cancellation Behavior
 
