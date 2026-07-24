@@ -32,7 +32,7 @@ namespace Spider.Pipelines.Samples.Basic
             services.AddSingleton<SampleEventLog>();
             services
                 .AddSpider()
-                .AddExecutionBoundary<OrderRequest, OrderReceipt, GlobalConsoleBoundary>();
+                .AddExecutionBoundary<GlobalConsoleBoundary>();
 
             var provider = services.BuildServiceProvider();
             var spider = provider.GetRequiredService<ISpider>();
@@ -134,7 +134,7 @@ namespace Spider.Pipelines.Samples.Basic
             var receipt = await bridge.ExecuteAsync(
                 service => (request, token) => service.PlaceOrderAsync(request, token),
                 new OrderRequest("SO-1003", 75m),
-                new[] { new InvocationConsoleBoundary(log) });
+                execution => execution.AddExecutionBoundary(new InvocationConsoleBoundary(log)));
 
             log.Write($"done: {receipt.ReceiptId} for {receipt.Total:C}");
         }

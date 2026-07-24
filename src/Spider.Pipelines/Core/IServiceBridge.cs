@@ -42,18 +42,18 @@ namespace Spider.Pipelines.Core
         Task ExecuteAsync<TRequest>(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Executes the specified service delegate asynchronously with invocation-specific typed execution boundaries.
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <param name="targetHandler">The service delegate expression to execute.</param>
         /// <param name="request">The request object.</param>
-        /// <param name="executionBoundaries">The typed execution boundaries to apply only to this invocation.</param>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         Task ExecuteAsync<TRequest>(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IBoundary<TRequest>> executionBoundaries,
+            Action<IExecutionBoundaryCollection<TRequest>> configureExecution,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -68,19 +68,19 @@ namespace Spider.Pipelines.Core
         Task<TResponse> ExecuteAsync<TRequest, TResponse>(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Executes the specified service delegate asynchronously with invocation-specific typed execution boundaries.
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="targetHandler">The service delegate expression to execute.</param>
         /// <param name="request">The request object.</param>
-        /// <param name="executionBoundaries">The typed execution boundaries to apply only to this invocation.</param>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
         Task<TResponse> ExecuteAsync<TRequest, TResponse>(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
+            Action<IExecutionBoundaryCollection<TRequest, TResponse>> configureExecution,
             CancellationToken cancellationToken = default);
     }
 
@@ -101,17 +101,17 @@ namespace Spider.Pipelines.Core
         Task ExecuteAsync(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Executes the specified service delegate asynchronously with invocation-specific typed execution boundaries.
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
         /// </summary>
         /// <param name="targetHandler">The service delegate expression to execute.</param>
         /// <param name="request">The request object.</param>
-        /// <param name="executionBoundaries">The typed execution boundaries to apply only to this invocation.</param>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         Task ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
             TRequest request,
-            IEnumerable<IBoundary<TRequest>> executionBoundaries,
+            Action<IExecutionBoundaryCollection<TRequest>> configureExecution,
             CancellationToken cancellationToken = default);
     }
 
@@ -133,17 +133,17 @@ namespace Spider.Pipelines.Core
         Task<TResponse> ExecuteAsync(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Executes the specified service delegate asynchronously with invocation-specific typed execution boundaries.
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
         /// </summary>
         /// <param name="targetHandler">The service delegate expression to execute.</param>
         /// <param name="request">The request object.</param>
-        /// <param name="executionBoundaries">The typed execution boundaries to apply only to this invocation.</param>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
         Task<TResponse> ExecuteAsync(
             Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
             TRequest request,
-            IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries,
+            Action<IExecutionBoundaryCollection<TRequest, TResponse>> configureExecution,
             CancellationToken cancellationToken = default);
     }
 }

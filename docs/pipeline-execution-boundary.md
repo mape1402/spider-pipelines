@@ -2,7 +2,7 @@
 
 ## Objective
 
-Spider provides typed execution boundaries that wrap a complete pipeline execution. Boundaries can be registered globally, selected per fluent pipeline configuration, or passed to a single invocation.
+Spider provides typed execution boundaries that wrap a complete pipeline execution. Boundaries can be registered globally, selected per fluent pipeline configuration, or configured for a single invocation.
 
 ## Boundary Contract
 
@@ -142,16 +142,25 @@ Register a global request/response boundary with the Spider builder:
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<OrderRequest, OrderReceipt, OrderBoundary>();
+    spider.AddExecutionBoundary<OrderBoundary>();
 });
 ```
 
-For request-only pipelines:
+For request-only pipelines, the same registration shape applies:
 
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<OrderRequest, OrderBoundary>();
+    spider.AddExecutionBoundary<OrderBoundary>();
+});
+```
+
+Spider discovers whether `OrderBoundary` implements `IBoundary<TRequest>` or `IBoundary<TRequest, TResponse>` and registers it against that typed contract. Reusable open-generic boundaries can be registered explicitly by type:
+
+```csharp
+services.AddSpider(spider =>
+{
+    spider.AddExecutionBoundary(typeof(OrderBoundary<,>));
 });
 ```
 
@@ -190,13 +199,38 @@ builder.AddExecutionBoundary(myBoundary);
 
 ## Invocation Boundaries
 
-Pass typed boundary instances to a single `ExecuteAsync` call:
+Configure typed boundaries for a single `ExecuteAsync` call:
 
 ```csharp
 await bridge.ExecuteAsync(
     service => (request, token) => service.HandleAsync(request, token),
     request,
-    new[] { myBoundary });
+    execution => execution.AddExecutionBoundary(myBoundary));
+```
+
+Invocation boundaries can also be resolved from DI:
+
+```csharp
+await bridge.ExecuteAsync(
+    service => (request, token) => service.HandleAsync(request, token),
+    request,
+    execution => execution.AddExecutionBoundary<OrderBoundary>());
+```
+
+Or configured inline with callbacks:
+
+```csharp
+await bridge.ExecuteAsync(
+    service => (request, token) => service.HandleAsync(request, token),
+    request,
+    execution => execution.AddExecutionBoundary(boundary =>
+    {
+        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnDispose(ctx => ValueTask.CompletedTask);
+    }));
 ```
 
 ## Context

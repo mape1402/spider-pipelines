@@ -33,7 +33,23 @@ namespace Spider.Pipelines.Core.Internals
             => await RunAsync(request, Array.Empty<IBoundary<TRequest>>(), cancellationToken);
 
         /// <inheritdoc/>
-        public async Task RunAsync(TRequest request, IEnumerable<IBoundary<TRequest>> executionBoundaries, CancellationToken cancellationToken = default)
+        public async Task RunAsync(TRequest request, Action<IExecutionBoundaryCollection<TRequest>> configureExecution, CancellationToken cancellationToken = default)
+        {
+            if (configureExecution == null)
+                throw new ArgumentNullException(nameof(configureExecution));
+
+            var executionBoundaries = CreateInvocationBoundaries(configureExecution);
+            await RunAsync(request, executionBoundaries, cancellationToken);
+        }
+
+        /// <summary>
+        /// Runs the pipeline with invocation boundaries that have already been materialized.
+        /// </summary>
+        /// <param name="request">The request object to process.</param>
+        /// <param name="executionBoundaries">The boundaries to apply only to this invocation.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private async Task RunAsync(TRequest request, IReadOnlyCollection<IBoundary<TRequest>> executionBoundaries, CancellationToken cancellationToken = default)
         {
             if (executionBoundaries == null)
                 throw new ArgumentNullException(nameof(executionBoundaries));
@@ -41,12 +57,11 @@ namespace Spider.Pipelines.Core.Internals
             var context = new Context<TRequest>(request, _serviceProvider, cancellationToken);
             var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
             var pipelineBoundaries = CreatePipelineBoundaries();
-            var invocationBoundaries = executionBoundaries.ToArray();
 
             await boundaryRunner.RunAsync(
                 context,
                 () => RunCoreAsync(context),
-                pipelineBoundaries.Concat(invocationBoundaries),
+                pipelineBoundaries.Concat(executionBoundaries),
                 cancellationToken);
         }
 
@@ -79,6 +94,18 @@ namespace Spider.Pipelines.Core.Internals
             => _executionPlan is IExecutionBoundaryPlan<TRequest> boundaryPlan
                 ? boundaryPlan.CreateExecutionBoundaries(_serviceProvider)
                 : Array.Empty<IBoundary<TRequest>>();
+
+        /// <summary>
+        /// Creates boundaries configured specifically for the current invocation.
+        /// </summary>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
+        /// <returns>The invocation-specific boundaries.</returns>
+        private IReadOnlyCollection<IBoundary<TRequest>> CreateInvocationBoundaries(Action<IExecutionBoundaryCollection<TRequest>> configureExecution)
+        {
+            var boundaryCollection = new ExecutionBoundaryCollection<TRequest>();
+            configureExecution(boundaryCollection);
+            return boundaryCollection.CreateExecutionBoundaries(_serviceProvider);
+        }
     }
 
     /// <summary>
@@ -110,7 +137,23 @@ namespace Spider.Pipelines.Core.Internals
             => await RunAsync(request, Array.Empty<IBoundary<TRequest, TResponse>>(), cancellationToken);
 
         /// <inheritdoc/>
-        public async Task<TResponse> RunAsync(TRequest request, IEnumerable<IBoundary<TRequest, TResponse>> executionBoundaries, CancellationToken cancellationToken = default)
+        public async Task<TResponse> RunAsync(TRequest request, Action<IExecutionBoundaryCollection<TRequest, TResponse>> configureExecution, CancellationToken cancellationToken = default)
+        {
+            if (configureExecution == null)
+                throw new ArgumentNullException(nameof(configureExecution));
+
+            var executionBoundaries = CreateInvocationBoundaries(configureExecution);
+            return await RunAsync(request, executionBoundaries, cancellationToken);
+        }
+
+        /// <summary>
+        /// Runs the pipeline with invocation boundaries that have already been materialized.
+        /// </summary>
+        /// <param name="request">The request object to process.</param>
+        /// <param name="executionBoundaries">The boundaries to apply only to this invocation.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task containing the pipeline response.</returns>
+        private async Task<TResponse> RunAsync(TRequest request, IReadOnlyCollection<IBoundary<TRequest, TResponse>> executionBoundaries, CancellationToken cancellationToken = default)
         {
             if (executionBoundaries == null)
                 throw new ArgumentNullException(nameof(executionBoundaries));
@@ -118,12 +161,11 @@ namespace Spider.Pipelines.Core.Internals
             var context = new Context<TRequest, TResponse>(request, _serviceProvider, cancellationToken);
             var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
             var pipelineBoundaries = CreatePipelineBoundaries();
-            var invocationBoundaries = executionBoundaries.ToArray();
 
             return await boundaryRunner.RunAsync(
                 context,
                 () => RunCoreAsync(context),
-                pipelineBoundaries.Concat(invocationBoundaries),
+                pipelineBoundaries.Concat(executionBoundaries),
                 cancellationToken);
         }
 
@@ -158,5 +200,17 @@ namespace Spider.Pipelines.Core.Internals
             => _executionPlan is IExecutionBoundaryPlan<TRequest, TResponse> boundaryPlan
                 ? boundaryPlan.CreateExecutionBoundaries(_serviceProvider)
                 : Array.Empty<IBoundary<TRequest, TResponse>>();
+
+        /// <summary>
+        /// Creates boundaries configured specifically for the current invocation.
+        /// </summary>
+        /// <param name="configureExecution">The action that configures invocation-specific boundaries.</param>
+        /// <returns>The invocation-specific boundaries.</returns>
+        private IReadOnlyCollection<IBoundary<TRequest, TResponse>> CreateInvocationBoundaries(Action<IExecutionBoundaryCollection<TRequest, TResponse>> configureExecution)
+        {
+            var boundaryCollection = new ExecutionBoundaryCollection<TRequest, TResponse>();
+            configureExecution(boundaryCollection);
+            return boundaryCollection.CreateExecutionBoundaries(_serviceProvider);
+        }
     }
 }
