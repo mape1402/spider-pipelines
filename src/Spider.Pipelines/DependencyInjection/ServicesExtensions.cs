@@ -38,38 +38,59 @@ namespace Microsoft.Extensions.DependencyInjection
         }
 
         /// <summary>
-        /// Registers a typed request-only execution boundary that wraps matching Spider pipeline executions.
+        /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <typeparam name="TBoundary">The concrete boundary implementation type.</typeparam>
         /// <param name="builder">The Spider builder to configure.</param>
         /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddExecutionBoundary<TRequest, TBoundary>(this ISpiderBuilder builder)
-            where TBoundary : class, IBoundary<TRequest>
+        public static ISpiderBuilder AddExecutionBoundary<TBoundary>(this ISpiderBuilder builder)
+            where TBoundary : class
+            => AddExecutionBoundary(builder, typeof(TBoundary));
+
+        /// <summary>
+        /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
+        /// </summary>
+        /// <param name="builder">The Spider builder to configure.</param>
+        /// <param name="boundaryType">The boundary implementation type to register.</param>
+        /// <returns>The current Spider builder instance.</returns>
+        public static ISpiderBuilder AddExecutionBoundary(this ISpiderBuilder builder, Type boundaryType)
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
 
-            builder.Services.AddScoped<IBoundary<TRequest>, TBoundary>();
+            if (boundaryType == null)
+                throw new ArgumentNullException(nameof(boundaryType));
+
+            var registered = false;
+
+            foreach (var contractType in boundaryType.GetInterfaces().Where(IsBoundaryContract))
+            {
+                var serviceType = contractType.ContainsGenericParameters
+                    ? contractType.GetGenericTypeDefinition()
+                    : contractType;
+
+                builder.Services.AddScoped(serviceType, boundaryType);
+                registered = true;
+            }
+
+            if (!registered)
+                throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IBoundary<TRequest> or IBoundary<TRequest, TResponse>.");
+
             return builder;
         }
 
         /// <summary>
-        /// Registers a typed request/response execution boundary that wraps matching Spider pipeline executions.
+        /// Determines whether the specified type is a Spider execution boundary contract.
         /// </summary>
-        /// <typeparam name="TRequest">The type of the request object.</typeparam>
-        /// <typeparam name="TResponse">The type of the response object.</typeparam>
-        /// <typeparam name="TBoundary">The concrete boundary implementation type.</typeparam>
-        /// <param name="builder">The Spider builder to configure.</param>
-        /// <returns>The current Spider builder instance.</returns>
-        public static ISpiderBuilder AddExecutionBoundary<TRequest, TResponse, TBoundary>(this ISpiderBuilder builder)
-            where TBoundary : class, IBoundary<TRequest, TResponse>
+        /// <param name="contractType">The contract type to inspect.</param>
+        /// <returns><c>true</c> when the type is a boundary contract; otherwise, <c>false</c>.</returns>
+        private static bool IsBoundaryContract(Type contractType)
         {
-            if (builder == null)
-                throw new ArgumentNullException(nameof(builder));
+            if (!contractType.IsGenericType)
+                return false;
 
-            builder.Services.AddScoped<IBoundary<TRequest, TResponse>, TBoundary>();
-            return builder;
+            var definition = contractType.GetGenericTypeDefinition();
+            return definition == typeof(IBoundary<>) || definition == typeof(IBoundary<,>);
         }
     }
 }

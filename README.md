@@ -45,7 +45,7 @@ Execution boundaries can be registered globally through the Spider builder:
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<string, string, MyBoundary>();
+    spider.AddExecutionBoundary<MyBoundary>();
 });
 ```
 
@@ -78,13 +78,13 @@ bridge.Attach<string, string>(builder =>
 });
 ```
 
-For a single execution, pass boundary instances directly to `ExecuteAsync`:
+For a single execution, configure invocation boundaries directly on `ExecuteAsync`:
 
 ```csharp
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    new[] { myBoundary });
+    execution => execution.AddExecutionBoundary(myBoundary));
 ```
 
 ### 2. Define a Service
@@ -225,8 +225,17 @@ Global boundaries are registered once and wrap every pipeline execution from the
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<OrderRequest, OrderReceipt, AuditBoundary>();
-    spider.AddExecutionBoundary<OrderRequest, OrderReceipt, TransactionBoundary>();
+    spider.AddExecutionBoundary<AuditBoundary>();
+    spider.AddExecutionBoundary<TransactionBoundary>();
+});
+```
+
+Reusable open-generic boundaries can be registered explicitly by type:
+
+```csharp
+services.AddSpider(spider =>
+{
+    spider.AddExecutionBoundary(typeof(AuditBoundary<,>));
 });
 ```
 
@@ -288,7 +297,23 @@ Invocation boundaries apply only to one `ExecuteAsync` call:
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    new[] { myBoundary });
+    execution => execution.AddExecutionBoundary(myBoundary));
+```
+
+They can also be configured inline with callbacks:
+
+```csharp
+await typedBridge.ExecuteAsync(
+    svc => (input, token) => svc.Handle(input, token),
+    "World",
+    execution => execution.AddExecutionBoundary(boundary =>
+    {
+        boundary.OnBegin((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnComplete((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnFault((ctx, ex, token) => ValueTask.CompletedTask);
+        boundary.OnCancel((ctx, token) => ValueTask.CompletedTask);
+        boundary.OnDispose(ctx => ValueTask.CompletedTask);
+    }));
 ```
 
 Multiple boundaries begin in this order: global DI, fluent pipeline, invocation. They terminate in reverse order.
