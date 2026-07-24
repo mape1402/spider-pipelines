@@ -76,8 +76,19 @@ namespace Microsoft.Extensions.DependencyInjection
             if (!registered)
                 throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IBoundary<TRequest> or IBoundary<TRequest, TResponse>.");
 
+            builder.Services.AddScoped(boundaryType, boundaryType);
+
             return builder;
         }
+
+        /// <summary>
+        /// Registers an execution boundary by discovering the typed boundary contracts implemented by the boundary type.
+        /// </summary>
+        /// <param name="builder">The Spider builder to configure.</param>
+        /// <param name="boundaryType">The boundary implementation type to register.</param>
+        /// <returns>The current Spider builder instance.</returns>
+        public static ISpiderBuilder AddBoundary(this ISpiderBuilder builder, Type boundaryType)
+            => AddExecutionBoundary(builder, boundaryType);
 
         /// <summary>
         /// Determines whether the specified type is a Spider execution boundary contract.

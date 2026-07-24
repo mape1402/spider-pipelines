@@ -160,7 +160,7 @@ Spider discovers whether `OrderBoundary` implements `IBoundary<TRequest>` or `IB
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary(typeof(OrderBoundary<,>));
+    spider.AddBoundary(typeof(MyBoundary<,>));
 });
 ```
 
@@ -191,30 +191,32 @@ builder.AddExecutionBoundary(boundary =>
 });
 ```
 
-You can also provide an already-created typed boundary instance:
+Open-generic boundaries can also be selected for one attached pipeline by runtime type:
 
 ```csharp
-builder.AddExecutionBoundary(myBoundary);
+services.AddScoped(typeof(MyBoundary<,>));
+
+builder.AddBoundary(typeof(MyBoundary<,>));
 ```
 
 ## Invocation Boundaries
 
-Configure typed boundaries for a single `ExecuteAsync` call:
-
-```csharp
-await bridge.ExecuteAsync(
-    service => (request, token) => service.HandleAsync(request, token),
-    request,
-    execution => execution.AddExecutionBoundary(myBoundary));
-```
-
-Invocation boundaries can also be resolved from DI:
+Configure DI-resolved typed boundaries for a single `ExecuteAsync` call:
 
 ```csharp
 await bridge.ExecuteAsync(
     service => (request, token) => service.HandleAsync(request, token),
     request,
     execution => execution.AddExecutionBoundary<OrderBoundary>());
+```
+
+Open-generic invocation boundaries can be selected by runtime type:
+
+```csharp
+await bridge.ExecuteAsync(
+    service => (request, token) => service.HandleAsync(request, token),
+    request,
+    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
 ```
 
 Or configured inline with callbacks:

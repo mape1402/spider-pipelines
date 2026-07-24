@@ -78,13 +78,13 @@ bridge.Attach<string, string>(builder =>
 });
 ```
 
-For a single execution, configure invocation boundaries directly on `ExecuteAsync`:
+For a single execution, configure DI-resolved invocation boundaries directly on `ExecuteAsync`:
 
 ```csharp
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    execution => execution.AddExecutionBoundary(myBoundary));
+    execution => execution.AddExecutionBoundary<MyBoundary>());
 ```
 
 ### 2. Define a Service
@@ -235,7 +235,7 @@ Reusable open-generic boundaries can be registered explicitly by type:
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary(typeof(AuditBoundary<,>));
+    spider.AddBoundary(typeof(MyBoundary<,>));
 });
 ```
 
@@ -276,16 +276,16 @@ var bridge = spider
     });
 ```
 
-You can also pass an already-created boundary instance to the builder:
+Open-generic boundaries can also be selected for one attached pipeline by runtime type, as long as the implementation is registered in DI:
 
 ```csharp
-var boundary = new CorrelationBoundary(correlationId);
+services.AddScoped(typeof(MyBoundary<,>));
 
 var bridge = spider
     .InitBridge<OrderService>()
     .Attach<OrderRequest, OrderReceipt>(builder =>
     {
-        builder.AddExecutionBoundary(boundary);
+        builder.AddBoundary(typeof(MyBoundary<,>));
     });
 ```
 
@@ -297,7 +297,16 @@ Invocation boundaries apply only to one `ExecuteAsync` call:
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    execution => execution.AddExecutionBoundary(myBoundary));
+    execution => execution.AddExecutionBoundary<MyBoundary>());
+```
+
+Open-generic boundary types can be selected for one execution too:
+
+```csharp
+await typedBridge.ExecuteAsync(
+    svc => (input, token) => svc.Handle(input, token),
+    "World",
+    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
 ```
 
 They can also be configured inline with callbacks:

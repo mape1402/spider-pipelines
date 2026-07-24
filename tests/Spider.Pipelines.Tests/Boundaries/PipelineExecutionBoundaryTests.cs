@@ -204,6 +204,27 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
+        /// Verifies that global open-generic boundary types are registered and resolved from DI.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenOpenGenericBoundaryIsRegisteredGloballyByTypeObject_ShouldResolveBoundaryFromDi()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddSpider().AddBoundary(typeof(OpenRecordingBoundary<,>));
+            });
+
+            await bridge
+                .Attach<string, int>(builder => { })
+                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
+
+            Assert.Equal(new[] { "open:begin", "open:complete", "open:dispose" }, log.Events);
+        }
+
+        /// <summary>
         /// Verifies that fluent-configured DI boundary types apply only to the configured pipeline.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
@@ -226,24 +247,47 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
-        /// Verifies that fluent-configured boundary instances apply only to the configured pipeline.
+        /// Verifies that fluent-configured boundary types can be selected by runtime type.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
-        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentInstance_ShouldUseBoundaryInstance()
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentTypeObject_ShouldResolveBoundaryFromDi()
         {
             var log = new BoundaryEventLog();
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
             await bridge
-                .Attach<string, int>(builder => builder.AddExecutionBoundary(new RecordingBoundary(log)))
+                .Attach<string, int>(builder => builder.AddExecutionBoundary(typeof(RecordingBoundary)))
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
             Assert.Equal(new[] { "boundary:begin", "boundary:complete", "boundary:dispose" }, log.Events);
+        }
+
+        /// <summary>
+        /// Verifies that fluent-configured open-generic boundary types are closed and resolved from DI.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenOpenGenericBoundaryIsConfiguredByFluentTypeObject_ShouldResolveBoundaryFromDi()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddScoped(typeof(OpenRecordingBoundary<,>));
+                services.AddSpider();
+            });
+
+            await bridge
+                .Attach<string, int>(builder => builder.AddBoundary(typeof(OpenRecordingBoundary<,>)))
+                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
+
+            Assert.Equal(new[] { "open:begin", "open:complete", "open:dispose" }, log.Events);
         }
 
         /// <summary>
@@ -257,6 +301,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
@@ -308,6 +353,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
@@ -316,9 +362,34 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider",
-                    execution => execution.AddExecutionBoundary(new RecordingBoundary(log)));
+                    execution => execution.AddExecutionBoundary<RecordingBoundary>());
 
             Assert.Equal(new[] { "boundary:begin", "boundary:complete", "boundary:dispose" }, log.Events);
+        }
+
+        /// <summary>
+        /// Verifies that invocation-specific open-generic boundary types are closed and resolved from DI.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenOpenGenericBoundaryIsProvidedAtInvocation_ShouldResolveBoundaryFromDi()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddScoped(typeof(OpenRecordingBoundary<,>));
+                services.AddSpider();
+            });
+
+            await bridge
+                .Attach<string, int>(builder => { })
+                .ExecuteAsync(
+                    service => (request, token) => service.HandleAsync(request, token),
+                    "spider",
+                    execution => execution.AddBoundary(typeof(OpenRecordingBoundary<,>)));
+
+            Assert.Equal(new[] { "open:begin", "open:complete", "open:dispose" }, log.Events);
         }
 
         /// <summary>
@@ -374,6 +445,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             {
                 services.AddSingleton(log);
                 services.AddScoped<SecondRecordingBoundary>();
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider().AddExecutionBoundary<FirstRecordingBoundary>();
             });
 
@@ -382,7 +454,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider",
-                    execution => execution.AddExecutionBoundary(new RecordingBoundary(log)));
+                    execution => execution.AddExecutionBoundary(typeof(RecordingBoundary)));
 
             Assert.Equal(
                 new[] { "first:begin", "second:begin", "boundary:begin", "boundary:complete", "second:complete", "first:complete", "boundary:dispose", "second:dispose", "first:dispose" },
