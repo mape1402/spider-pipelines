@@ -109,19 +109,28 @@ spider.InitBridge<MyService>()
     });
 ```
 
-You can also provide an already-created boundary instance through the fluent API:
+You can also select a DI-registered boundary by runtime type through the fluent API:
 
 ```csharp
-builder.AddExecutionBoundary(myBoundary);
+builder.AddExecutionBoundary(typeof(MyBoundary));
 ```
 
-For a single invocation, pass boundary instances to `ExecuteAsync`:
+For a single invocation, select DI-registered boundaries through the execution callback:
 
 ```csharp
 await bridge.ExecuteAsync(
     service => (request, token) => service.HandleAsync(request, token),
     request,
-    new[] { myBoundary });
+    execution => execution.AddExecutionBoundary<MyBoundary>());
+```
+
+The execution callback can also select a DI-registered boundary by runtime type:
+
+```csharp
+await bridge.ExecuteAsync(
+    service => (request, token) => service.HandleAsync(request, token),
+    request,
+    execution => execution.AddExecutionBoundary(typeof(MyBoundary)));
 ```
 
 When boundaries are provided from multiple levels, Spider begins them in this order:

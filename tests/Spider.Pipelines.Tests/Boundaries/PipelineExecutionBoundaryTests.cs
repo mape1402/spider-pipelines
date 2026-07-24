@@ -225,21 +225,22 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
-        /// Verifies that fluent-configured boundary instances apply only to the configured pipeline.
+        /// Verifies that fluent-configured boundary types can be selected by runtime type.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
-        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentInstance_ShouldUseBoundaryInstance()
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentTypeObject_ShouldResolveBoundaryFromDi()
         {
             var log = new BoundaryEventLog();
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
             await bridge
-                .Attach<string, int>(builder => builder.AddExecutionBoundary(new RecordingBoundary(log)))
+                .Attach<string, int>(builder => builder.AddExecutionBoundary(typeof(RecordingBoundary)))
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
             Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
@@ -256,6 +257,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             var bridge = CreateBridge(services =>
             {
                 services.AddSingleton(log);
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider();
             });
 
@@ -264,7 +266,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider",
-                    new[] { new RecordingBoundary(log) });
+                    execution => execution.AddExecutionBoundary<RecordingBoundary>());
 
             Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
         }
@@ -281,6 +283,7 @@ namespace Spider.Pipelines.Tests.Boundaries
             {
                 services.AddSingleton(log);
                 services.AddScoped<SecondRecordingBoundary>();
+                services.AddScoped<RecordingBoundary>();
                 services.AddSpider().AddExecutionBoundary<FirstRecordingBoundary>();
             });
 
@@ -289,7 +292,7 @@ namespace Spider.Pipelines.Tests.Boundaries
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider",
-                    new[] { new RecordingBoundary(log) });
+                    execution => execution.AddExecutionBoundary(typeof(RecordingBoundary)));
 
             Assert.Equal(
                 new[] { "first:begin", "second:begin", "boundary:begin", "boundary:complete", "second:complete", "first:complete" },

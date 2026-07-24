@@ -70,19 +70,19 @@
         IPipelineBuilder<TRequest> OnMiddleware(Action<IMiddlewareConfiguration<TRequest>> middleware);
 
         /// <summary>
-        /// Adds an execution boundary instance to this pipeline configuration.
-        /// </summary>
-        /// <param name="boundary">The boundary instance to use when this pipeline executes.</param>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest> AddExecutionBoundary(IPipelineExecutionBoundary boundary);
-
-        /// <summary>
         /// Adds a DI-resolved execution boundary type to this pipeline configuration.
         /// </summary>
         /// <typeparam name="TBoundary">The boundary implementation type to resolve from DI.</typeparam>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest> AddExecutionBoundary<TBoundary>()
             where TBoundary : class, IPipelineExecutionBoundary;
+
+        /// <summary>
+        /// Adds a DI-resolved execution boundary type to this pipeline configuration.
+        /// </summary>
+        /// <param name="boundaryType">The boundary implementation type to resolve from DI.</param>
+        /// <returns>The current pipeline builder instance.</returns>
+        IPipelineBuilder<TRequest> AddExecutionBoundary(Type boundaryType);
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.
@@ -135,19 +135,19 @@
         IPipelineBuilder<TRequest, TResponse> OnMiddleware(Action<IMiddlewareConfiguration<TRequest, TResponse>> middleware);
 
         /// <summary>
-        /// Adds an execution boundary instance to this pipeline configuration.
-        /// </summary>
-        /// <param name="boundary">The boundary instance to use when this pipeline executes.</param>
-        /// <returns>The current pipeline builder instance.</returns>
-        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(IPipelineExecutionBoundary boundary);
-
-        /// <summary>
         /// Adds a DI-resolved execution boundary type to this pipeline configuration.
         /// </summary>
         /// <typeparam name="TBoundary">The boundary implementation type to resolve from DI.</typeparam>
         /// <returns>The current pipeline builder instance.</returns>
         IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary<TBoundary>()
             where TBoundary : class, IPipelineExecutionBoundary;
+
+        /// <summary>
+        /// Adds a DI-resolved execution boundary type to this pipeline configuration.
+        /// </summary>
+        /// <param name="boundaryType">The boundary implementation type to resolve from DI.</param>
+        /// <returns>The current pipeline builder instance.</returns>
+        IPipelineBuilder<TRequest, TResponse> AddExecutionBoundary(Type boundaryType);
 
         /// <summary>
         /// Builds the pipeline with the specified target handler.
