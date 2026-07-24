@@ -1,6 +1,7 @@
-﻿namespace Spider.Pipelines.Core
+namespace Spider.Pipelines.Core
 {
     using System.Linq.Expressions;
+    using Spider.Pipelines.Boundaries;
 
     /// <summary>
     /// Defines a contract for bridging a service to pipeline execution and configuration.
@@ -41,6 +42,21 @@
         Task ExecuteAsync<TRequest>(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
+        /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
+        /// <param name="targetHandler">The service delegate expression to execute.</param>
+        /// <param name="request">The request object.</param>
+        /// <param name="executionBoundaries">The execution boundaries to apply only to this invocation.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        Task ExecuteAsync<TRequest>(
+            Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
+            TRequest request,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Executes the specified service delegate asynchronously with the given request and returns a response.
         /// </summary>
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
@@ -50,6 +66,22 @@
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
         Task<TResponse> ExecuteAsync<TRequest, TResponse>(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
+        /// </summary>
+        /// <typeparam name="TRequest">The type of the request object.</typeparam>
+        /// <typeparam name="TResponse">The type of the response object.</typeparam>
+        /// <param name="targetHandler">The service delegate expression to execute.</param>
+        /// <param name="request">The request object.</param>
+        /// <param name="executionBoundaries">The execution boundaries to apply only to this invocation.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
+        Task<TResponse> ExecuteAsync<TRequest, TResponse>(
+            Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
+            TRequest request,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -57,7 +89,7 @@
     /// </summary>
     /// <typeparam name="TService">The type of the service being bridged.</typeparam>
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
-    public interface IServiceBridge<TService, TRequest> 
+    public interface IServiceBridge<TService, TRequest>
     {
         /// <summary>
         /// Executes the specified service delegate asynchronously with the given request.
@@ -67,6 +99,20 @@
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         Task ExecuteAsync(Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
+        /// </summary>
+        /// <param name="targetHandler">The service delegate expression to execute.</param>
+        /// <param name="request">The request object.</param>
+        /// <param name="executionBoundaries">The execution boundaries to apply only to this invocation.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        Task ExecuteAsync(
+            Expression<ServiceInvokeDelegate<TService, TRequest>> targetHandler,
+            TRequest request,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -75,7 +121,7 @@
     /// <typeparam name="TService">The type of the service being bridged.</typeparam>
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
-    public interface IServiceBridge<TService, TRequest, TResponse> 
+    public interface IServiceBridge<TService, TRequest, TResponse>
     {
         /// <summary>
         /// Executes the specified service delegate asynchronously with the given request and returns a response.
@@ -85,5 +131,19 @@
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
         Task<TResponse> ExecuteAsync(Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler, TRequest request, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Executes the specified service delegate asynchronously with invocation-specific execution boundaries.
+        /// </summary>
+        /// <param name="targetHandler">The service delegate expression to execute.</param>
+        /// <param name="request">The request object.</param>
+        /// <param name="executionBoundaries">The execution boundaries to apply only to this invocation.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation, with the response as its result.</returns>
+        Task<TResponse> ExecuteAsync(
+            Expression<ServiceInvokeDelegate<TService, TRequest, TResponse>> targetHandler,
+            TRequest request,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -19,9 +19,8 @@ namespace Spider.Pipelines.Samples.Basic
 
             services.AddSingleton<SampleOrderService>();
             services.AddSingleton<SampleEventLog>();
-            services
-                .AddSpider()
-                .AddExecutionBoundary<ConsoleBoundary>();
+            services.AddScoped<ConsoleBoundary>();
+            services.AddSpider();
 
             var provider = services.BuildServiceProvider();
             var spider = provider.GetRequiredService<ISpider>();
@@ -32,6 +31,7 @@ namespace Spider.Pipelines.Samples.Basic
                 .Attach<OrderRequest, OrderReceipt>(builder =>
                 {
                     builder
+                        .AddExecutionBoundary<ConsoleBoundary>()
                         .PreProcess((ctx, args) =>
                         {
                             log.Write($"preprocess: validating order {ctx.Request.OrderId}");

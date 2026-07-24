@@ -80,7 +80,7 @@ BoundaryA.Complete
 
 ## Registration
 
-Use the Spider builder to register boundaries:
+Register global boundaries with the Spider builder:
 
 ```csharp
 services.AddSpider(spider =>
@@ -96,6 +96,43 @@ services
     .AddSpider()
     .AddExecutionBoundary<MyBoundary>();
 ```
+
+Configure boundaries for a single pipeline with the pipeline fluent API. The boundary implementation must be registered as a normal DI service; this fluent call only selects it for that pipeline:
+
+```csharp
+services.AddScoped<MyBoundary>();
+
+spider.InitBridge<MyService>()
+    .Attach<MyRequest, MyResponse>(builder =>
+    {
+        builder.AddExecutionBoundary<MyBoundary>();
+    });
+```
+
+You can also provide an already-created boundary instance through the fluent API:
+
+```csharp
+builder.AddExecutionBoundary(myBoundary);
+```
+
+For a single invocation, pass boundary instances to `ExecuteAsync`:
+
+```csharp
+await bridge.ExecuteAsync(
+    service => (request, token) => service.HandleAsync(request, token),
+    request,
+    new[] { myBoundary });
+```
+
+When boundaries are provided from multiple levels, Spider begins them in this order:
+
+```txt
+Global DI boundaries
+Pipeline fluent boundaries
+Invocation boundaries
+```
+
+Termination still runs in reverse order.
 
 ## Context
 

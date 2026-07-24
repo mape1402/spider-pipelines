@@ -49,6 +49,17 @@ services.AddSpider(spider =>
 });
 ```
 
+They can also be selected for a single attached pipeline through the fluent API. Register the implementation as a normal service, then add it to the pipeline:
+
+```csharp
+services.AddScoped<MyBoundary>();
+
+bridge.Attach<string, string>(builder =>
+{
+    builder.AddExecutionBoundary<MyBoundary>();
+});
+```
+
 ### 2. Define a Service
 
 ```csharp
@@ -154,7 +165,16 @@ Boundary order:
 4. Postprocessors.
 5. Boundary complete, fault, or cancel.
 
-Multiple boundaries begin in registration order and terminate in reverse order.
+For one-off calls, pass boundary instances to `ExecuteAsync`:
+
+```csharp
+await typedBridge.ExecuteAsync(
+    svc => (input, token) => svc.Handle(input, token),
+    "World",
+    new[] { myBoundary });
+```
+
+Multiple boundaries begin in this order: global DI, fluent pipeline, invocation. They terminate in reverse order.
 
 ## Error and Cancellation Behavior
 

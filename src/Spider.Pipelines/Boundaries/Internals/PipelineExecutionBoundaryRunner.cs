@@ -25,11 +25,13 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <typeparam name="TRequest">The type of the request object.</typeparam>
         /// <param name="context">The current pipeline context.</param>
         /// <param name="runCoreAsync">The pipeline core operation to execute.</param>
+        /// <param name="executionBoundaries">The execution boundaries to append after globally registered boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         public async Task RunAsync<TRequest>(
             IReadOnlyContext<TRequest> context,
             Func<Task> runCoreAsync,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
             CancellationToken cancellationToken)
         {
             if (context == null)
@@ -38,8 +40,11 @@ namespace Spider.Pipelines.Boundaries.Internals
             if (runCoreAsync == null)
                 throw new ArgumentNullException(nameof(runCoreAsync));
 
+            if (executionBoundaries == null)
+                throw new ArgumentNullException(nameof(executionBoundaries));
+
             var executionContext = CreateExecutionContext<TRequest>(context);
-            var boundaries = ResolveBoundaries();
+            var boundaries = ResolveBoundaries(executionBoundaries);
             var outcome = BoundaryOutcome.Pending();
             Exception terminalException = null;
 
@@ -57,11 +62,13 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <typeparam name="TResponse">The type of the response object.</typeparam>
         /// <param name="context">The current pipeline context.</param>
         /// <param name="runCoreAsync">The pipeline core operation to execute.</param>
+        /// <param name="executionBoundaries">The execution boundaries to append after globally registered boundaries.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task containing the pipeline response.</returns>
         public async Task<TResponse> RunAsync<TRequest, TResponse>(
             IReadOnlyContext<TRequest, TResponse> context,
             Func<Task<TResponse>> runCoreAsync,
+            IEnumerable<IPipelineExecutionBoundary> executionBoundaries,
             CancellationToken cancellationToken)
         {
             if (context == null)
@@ -70,8 +77,11 @@ namespace Spider.Pipelines.Boundaries.Internals
             if (runCoreAsync == null)
                 throw new ArgumentNullException(nameof(runCoreAsync));
 
+            if (executionBoundaries == null)
+                throw new ArgumentNullException(nameof(executionBoundaries));
+
             var executionContext = CreateExecutionContext<TRequest, TResponse>(context);
-            var boundaries = ResolveBoundaries();
+            var boundaries = ResolveBoundaries(executionBoundaries);
             var outcome = BoundaryOutcome.Pending();
             var response = default(TResponse);
             Exception terminalException = null;
@@ -292,13 +302,18 @@ namespace Spider.Pipelines.Boundaries.Internals
         }
 
         /// <summary>
-        /// Resolves registered boundaries, returning an empty collection when none are registered.
+        /// Resolves registered boundaries and appends invocation-specific boundaries.
         /// </summary>
+        /// <param name="executionBoundaries">The execution boundaries to append after globally registered boundaries.</param>
         /// <returns>The registered execution boundaries.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary> ResolveBoundaries()
-            => _serviceProvider.GetService(typeof(IEnumerable<IPipelineExecutionBoundary>)) is IEnumerable<IPipelineExecutionBoundary> boundaries
-                ? boundaries.ToArray()
+        private IReadOnlyCollection<IPipelineExecutionBoundary> ResolveBoundaries(IEnumerable<IPipelineExecutionBoundary> executionBoundaries)
+        {
+            var globalBoundaries = _serviceProvider.GetService(typeof(IEnumerable<IPipelineExecutionBoundary>)) is IEnumerable<IPipelineExecutionBoundary> boundaries
+                ? boundaries
                 : Array.Empty<IPipelineExecutionBoundary>();
+
+            return globalBoundaries.Concat(executionBoundaries).ToArray();
+        }
 
         /// <summary>
         /// Creates boundary metadata for a request-only pipeline.
