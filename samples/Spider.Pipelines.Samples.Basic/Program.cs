@@ -32,7 +32,7 @@ namespace Spider.Pipelines.Samples.Basic
             services.AddSingleton<SampleEventLog>();
             services
                 .AddSpider()
-                .AddExecutionBoundary<GlobalConsoleBoundary>();
+                .AddBoundary(typeof(GlobalConsoleBoundary<,>));
 
             var provider = services.BuildServiceProvider();
             var spider = provider.GetRequiredService<ISpider>();

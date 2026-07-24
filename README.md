@@ -45,7 +45,7 @@ Execution boundaries can be registered globally through the Spider builder:
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<MyBoundary>();
+    spider.AddBoundary(typeof(MyBoundary<,>));
 });
 ```
 
@@ -54,11 +54,11 @@ Global boundaries wrap every Spider pipeline execution resolved from that contai
 They can also be selected for a single attached pipeline through the fluent API. Register the implementation as a normal service, then add it to the pipeline:
 
 ```csharp
-services.AddScoped<MyBoundary>();
+services.AddScoped<OrderBoundary>();
 
 bridge.Attach<string, string>(builder =>
 {
-    builder.AddExecutionBoundary<MyBoundary>();
+    builder.AddExecutionBoundary<OrderBoundary>();
 });
 ```
 
@@ -84,7 +84,7 @@ For a single execution, configure DI-resolved invocation boundaries directly on 
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    execution => execution.AddExecutionBoundary<MyBoundary>());
+    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
 ```
 
 ### 2. Define a Service
@@ -225,12 +225,12 @@ Global boundaries are registered once and wrap every pipeline execution from the
 ```csharp
 services.AddSpider(spider =>
 {
-    spider.AddExecutionBoundary<AuditBoundary>();
-    spider.AddExecutionBoundary<TransactionBoundary>();
+    spider.AddBoundary(typeof(AuditBoundary<,>));
+    spider.AddBoundary(typeof(TransactionBoundary<,>));
 });
 ```
 
-Reusable open-generic boundaries can be registered explicitly by type:
+Global boundaries should usually be open-generic so the registration is reusable across request/response models:
 
 ```csharp
 services.AddSpider(spider =>
@@ -297,7 +297,7 @@ Invocation boundaries apply only to one `ExecuteAsync` call:
 await typedBridge.ExecuteAsync(
     svc => (input, token) => svc.Handle(input, token),
     "World",
-    execution => execution.AddExecutionBoundary<MyBoundary>());
+    execution => execution.AddBoundary(typeof(MyBoundary<,>)));
 ```
 
 Open-generic boundary types can be selected for one execution too:
