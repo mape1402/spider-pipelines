@@ -1,6 +1,5 @@
 ﻿namespace Spider.Pipelines.Core.Internals
 {
-    using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Extensions;
     using Spider.Pipelines.Parallelization;
     using Spider.Pipelines.PostProcessing;
@@ -12,14 +11,13 @@
     /// Represents the execution plan for a pipeline with a single request type, coordinating preprocessing, targeting, parallel, and postprocessing steps.
     /// </summary>
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
-    internal sealed class ExecutionPlan<TRequest> : IExecutionPlan<TRequest>, IExecutionBoundaryPlan
+    internal sealed class ExecutionPlan<TRequest> : IExecutionPlan<TRequest>
     {
         private readonly IPreProcessExecution<TRequest> _preProcessExecution;
         private readonly ITargetExecution<TRequest> _targetExecution;
         private readonly IParallelExecution<TRequest> _parallelExecution;
         private readonly IMiddlewareExecution<TRequest> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest> _postProcessExecution;
-        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> _boundaryFactories;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest}"/> class.
@@ -34,37 +32,13 @@
                              IParallelExecution<TRequest> parallelExecution,
                              IMiddlewareExecution<TRequest> middlewareExecution,
                              IPostProcessExecution<TRequest> postProcessExecution)
-            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary>>())
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest}"/> class.
-        /// </summary>
-        /// <param name="preProcessExecution">The preprocessing execution logic.</param>
-        /// <param name="targetExecution">The target execution logic.</param>
-        /// <param name="parallelExecution">The parallel execution logic.</param>
-        /// <param name="middlewareExecution">The middleware execution logic.</param>
-        /// <param name="postProcessExecution">The postprocessing execution logic.</param>
-        /// <param name="boundaryFactories">The factories that resolve fluent-configured execution boundaries.</param>
-        public ExecutionPlan(IPreProcessExecution<TRequest> preProcessExecution,
-                             ITargetExecution<TRequest> targetExecution,
-                             IParallelExecution<TRequest> parallelExecution,
-                             IMiddlewareExecution<TRequest> middlewareExecution,
-                             IPostProcessExecution<TRequest> postProcessExecution,
-                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> boundaryFactories)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
             _parallelExecution = parallelExecution ?? throw new ArgumentNullException(nameof(parallelExecution));
             _middlewareExecution = middlewareExecution ?? throw new ArgumentNullException(nameof(middlewareExecution));
             _postProcessExecution = postProcessExecution ?? throw new ArgumentNullException(nameof(postProcessExecution));
-            _boundaryFactories = boundaryFactories ?? throw new ArgumentNullException(nameof(boundaryFactories));
         }
-
-        /// <inheritdoc/>
-        public IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(IServiceProvider serviceProvider)
-            => _boundaryFactories.Select(factory => factory(serviceProvider)).ToArray();
 
         /// <inheritdoc/>
         public Task OnPreProcessAsync(IReadOnlyContext<TRequest> context)
@@ -126,14 +100,13 @@
     /// </summary>
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
-    internal sealed class ExecutionPlan<TRequest, TResponse> : IExecutionPlan<TRequest, TResponse>, IExecutionBoundaryPlan
+    internal sealed class ExecutionPlan<TRequest, TResponse> : IExecutionPlan<TRequest, TResponse>
     {
         private readonly IPreProcessExecution<TRequest> _preProcessExecution;
         private readonly ITargetExecution<TRequest, TResponse> _targetExecution;
         private readonly IParallelExecution<TRequest, TResponse> _parallelExecution;
         private readonly IMiddlewareExecution<TRequest, TResponse> _middlewareExecution;
         private readonly IPostProcessExecution<TRequest, TResponse> _postProcessExecution;
-        private readonly IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> _boundaryFactories;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest, TResponse}"/> class.
@@ -148,37 +121,13 @@
                              IParallelExecution<TRequest, TResponse> parallelExecution,
                              IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
                              IPostProcessExecution<TRequest, TResponse> postProcessExecution)
-            : this(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution, Array.Empty<Func<IServiceProvider, IPipelineExecutionBoundary>>())
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ExecutionPlan{TRequest, TResponse}"/> class.
-        /// </summary>
-        /// <param name="preProcessExecution">The preprocessing execution logic.</param>
-        /// <param name="targetExecution">The target execution logic.</param>
-        /// <param name="parallelExecution">The parallel execution logic.</param>
-        /// <param name="middlewareExecution">The middleware execution logic.</param>
-        /// <param name="postProcessExecution">The postprocessing execution logic.</param>
-        /// <param name="boundaryFactories">The factories that resolve fluent-configured execution boundaries.</param>
-        public ExecutionPlan(IPreProcessExecution<TRequest> preProcessExecution,
-                             ITargetExecution<TRequest, TResponse> targetExecution,
-                             IParallelExecution<TRequest, TResponse> parallelExecution,
-                             IMiddlewareExecution<TRequest, TResponse> middlewareExecution,
-                             IPostProcessExecution<TRequest, TResponse> postProcessExecution,
-                             IReadOnlyCollection<Func<IServiceProvider, IPipelineExecutionBoundary>> boundaryFactories)
         {
             _preProcessExecution = preProcessExecution ?? throw new ArgumentNullException(nameof(preProcessExecution));
             _targetExecution = targetExecution ?? throw new ArgumentNullException(nameof(targetExecution));
             _parallelExecution = parallelExecution ?? throw new ArgumentNullException(nameof(parallelExecution));
             _middlewareExecution = middlewareExecution ?? throw new ArgumentNullException(nameof(middlewareExecution));
             _postProcessExecution = postProcessExecution ?? throw new ArgumentNullException(nameof(postProcessExecution));
-            _boundaryFactories = boundaryFactories ?? throw new ArgumentNullException(nameof(boundaryFactories));
         }
-
-        /// <inheritdoc/>
-        public IReadOnlyCollection<IPipelineExecutionBoundary> CreateExecutionBoundaries(IServiceProvider serviceProvider)
-            => _boundaryFactories.Select(factory => factory(serviceProvider)).ToArray();
 
         /// <inheritdoc/>
         public Task OnPreProcessAsync(IReadOnlyContext<TRequest, TResponse> context)

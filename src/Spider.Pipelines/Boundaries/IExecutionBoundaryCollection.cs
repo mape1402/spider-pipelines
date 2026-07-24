@@ -19,5 +19,12 @@ namespace Spider.Pipelines.Boundaries
         /// <param name="boundaryType">The boundary implementation type to resolve from DI.</param>
         /// <returns>The current execution boundary collection.</returns>
         IExecutionBoundaryCollection AddExecutionBoundary(Type boundaryType);
+
+        /// <summary>
+        /// Adds a delegate execution boundary to the current materialized execution.
+        /// </summary>
+        /// <param name="configure">The boundary callback configuration.</param>
+        /// <returns>The current execution boundary collection.</returns>
+        IExecutionBoundaryCollection AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure);
     }
 }

@@ -203,11 +203,11 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
-        /// Verifies that fluent-configured DI boundary types apply only to the configured pipeline.
+        /// Verifies that bridge-configured DI boundary types apply to the configured bridge.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
-        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentType_ShouldResolveBoundaryFromDi()
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByBridgeType_ShouldResolveBoundaryFromDi()
         {
             var log = new BoundaryEventLog();
             var bridge = CreateBridge(services =>
@@ -218,18 +218,19 @@ namespace Spider.Pipelines.Tests.Boundaries
             });
 
             await bridge
-                .Attach<string, int>(builder => builder.AddExecutionBoundary<SecondRecordingBoundary>())
+                .AddExecutionBoundary<SecondRecordingBoundary>()
+                .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
             Assert.Equal(new[] { "second:begin", "second:complete" }, log.Events);
         }
 
         /// <summary>
-        /// Verifies that fluent-configured boundary types can be selected by runtime type.
+        /// Verifies that bridge-configured boundary types can be selected by runtime type.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
-        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByFluentTypeObject_ShouldResolveBoundaryFromDi()
+        public async Task ExecuteAsync_WhenBoundaryIsConfiguredByBridgeTypeObject_ShouldResolveBoundaryFromDi()
         {
             var log = new BoundaryEventLog();
             var bridge = CreateBridge(services =>
@@ -240,7 +241,8 @@ namespace Spider.Pipelines.Tests.Boundaries
             });
 
             await bridge
-                .Attach<string, int>(builder => builder.AddExecutionBoundary(typeof(RecordingBoundary)))
+                .AddExecutionBoundary(typeof(RecordingBoundary))
+                .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
             Assert.Equal(new[] { "boundary:begin", "boundary:complete" }, log.Events);
@@ -272,7 +274,7 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
-        /// Verifies that fluent delegate boundary callbacks are executed for the configured pipeline.
+        /// Verifies that bridge delegate boundary callbacks are executed for the configured bridge.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
@@ -286,45 +288,43 @@ namespace Spider.Pipelines.Tests.Boundaries
             });
 
             await bridge
-                .Attach<string, int>(builder =>
+                .AddExecutionBoundary(boundary =>
                 {
-                    builder.AddExecutionBoundary(boundary =>
-                    {
-                        boundary
-                            .OnBegin((ctx, token) =>
-                            {
-                                log.Add($"delegate:begin:{ctx.RequestType.Name}");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnComplete((ctx, token) =>
-                            {
-                                log.Add($"delegate:complete:{ctx.ResponseType?.Name}");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnFault((ctx, ex, token) =>
-                            {
-                                log.Add($"delegate:fault:{ex.GetType().Name}");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnCancel((ctx, token) =>
-                            {
-                                log.Add("delegate:cancel");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnDispose(ctx =>
-                            {
-                                log.Add("delegate:dispose");
-                                return ValueTask.CompletedTask;
-                            });
-                    });
+                    boundary
+                        .OnBegin((ctx, token) =>
+                        {
+                            log.Add($"delegate:begin:{ctx.RequestType.Name}");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnComplete((ctx, token) =>
+                        {
+                            log.Add($"delegate:complete:{ctx.ResponseType?.Name}");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnFault((ctx, ex, token) =>
+                        {
+                            log.Add($"delegate:fault:{ex.GetType().Name}");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnCancel((ctx, token) =>
+                        {
+                            log.Add("delegate:cancel");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnDispose(ctx =>
+                        {
+                            log.Add("delegate:dispose");
+                            return ValueTask.CompletedTask;
+                        });
                 })
+                .Attach<string, int>(builder => { })
                 .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider");
 
             Assert.Equal(new[] { "delegate:begin:String", "delegate:complete:Int32", "delegate:dispose" }, log.Events);
         }
 
         /// <summary>
-        /// Verifies that global, fluent, and bridge-selected boundaries compose in deterministic order.
+        /// Verifies that global and bridge-selected boundaries compose in deterministic order.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
         [Fact]
@@ -340,8 +340,9 @@ namespace Spider.Pipelines.Tests.Boundaries
             });
 
             await bridge
+                .AddExecutionBoundary<SecondRecordingBoundary>()
                 .AddExecutionBoundary(typeof(RecordingBoundary))
-                .Attach<string, int>(builder => builder.AddExecutionBoundary<SecondRecordingBoundary>())
+                .Attach<string, int>(builder => { })
                 .ExecuteAsync(
                     service => (request, token) => service.HandleAsync(request, token),
                     "spider");

@@ -51,7 +51,7 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <summary>
-        /// Runs a sample pipeline with delegate callbacks selected through the pipeline fluent API.
+        /// Runs a sample pipeline with delegate callbacks selected through the bridge fluent API.
         /// </summary>
         /// <returns>A task representing the asynchronous operation.</returns>
         private static async Task RunFluentBoundaryExampleAsync()
@@ -71,40 +71,36 @@ namespace Spider.Pipelines.Samples.Basic
 
             var receipt = await spider
                 .InitBridge<SampleOrderService>()
-                .Attach<OrderRequest, OrderReceipt>(builder =>
+                .AddExecutionBoundary(boundary =>
                 {
-                    builder.AddExecutionBoundary(boundary =>
-                    {
-                        boundary
-                            .OnBegin((ctx, token) =>
-                            {
-                                log.Write($"fluent-boundary: begin {ctx.RequestType.Name}");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnComplete((ctx, token) =>
-                            {
-                                log.Write($"fluent-boundary: complete {ctx.ResponseType?.Name}");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnFault((ctx, ex, token) =>
-                            {
-                                log.Write($"fluent-boundary: fault {ex.Message}");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnCancel((ctx, token) =>
-                            {
-                                log.Write("fluent-boundary: cancel");
-                                return ValueTask.CompletedTask;
-                            })
-                            .OnDispose(ctx =>
-                            {
-                                log.Write("fluent-boundary: dispose");
-                                return ValueTask.CompletedTask;
-                            });
-                    });
-
-                    ConfigureOrderPipeline(builder, log);
+                    boundary
+                        .OnBegin((ctx, token) =>
+                        {
+                            log.Write($"fluent-boundary: begin {ctx.RequestType.Name}");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnComplete((ctx, token) =>
+                        {
+                            log.Write($"fluent-boundary: complete {ctx.ResponseType?.Name}");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnFault((ctx, ex, token) =>
+                        {
+                            log.Write($"fluent-boundary: fault {ex.Message}");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnCancel((ctx, token) =>
+                        {
+                            log.Write("fluent-boundary: cancel");
+                            return ValueTask.CompletedTask;
+                        })
+                        .OnDispose(ctx =>
+                        {
+                            log.Write("fluent-boundary: dispose");
+                            return ValueTask.CompletedTask;
+                        });
                 })
+                .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log))
                 .ExecuteAsync(
                     service => (request, token) => service.PlaceOrderAsync(request, token),
                     new OrderRequest("SO-1002", 210m));

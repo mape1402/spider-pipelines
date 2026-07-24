@@ -10,7 +10,7 @@
     internal class ServiceBridge<TService> : IServiceBridge<TService>
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly IList<Type> _executionBoundaryTypes;
+        private readonly IList<Action<IExecutionBoundaryCollection>> _executionBoundaryConfigurations;
         protected IPipelineBuilder _pipelineBuilder;
 
         /// <summary>
@@ -19,7 +19,7 @@
         /// <param name="serviceProvider">The service provider for dependency resolution.</param>
         /// <param name="service">The service instance to bridge.</param>
         public ServiceBridge(IServiceProvider serviceProvider, TService service)
-            : this(serviceProvider, service, Array.Empty<Type>())
+            : this(serviceProvider, service, Array.Empty<Action<IExecutionBoundaryCollection>>())
         {
         }
 
@@ -28,12 +28,12 @@
         /// </summary>
         /// <param name="serviceProvider">The service provider for dependency resolution.</param>
         /// <param name="service">The service instance to bridge.</param>
-        /// <param name="executionBoundaryTypes">The bridge-level execution boundary types.</param>
-        protected ServiceBridge(IServiceProvider serviceProvider, TService service, IEnumerable<Type> executionBoundaryTypes)
+        /// <param name="executionBoundaryConfigurations">The bridge-level execution boundary configurations.</param>
+        protected ServiceBridge(IServiceProvider serviceProvider, TService service, IEnumerable<Action<IExecutionBoundaryCollection>> executionBoundaryConfigurations)
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             Service = service ?? throw new ArgumentNullException(nameof(service));
-            _executionBoundaryTypes = executionBoundaryTypes?.ToList() ?? throw new ArgumentNullException(nameof(executionBoundaryTypes));
+            _executionBoundaryConfigurations = executionBoundaryConfigurations?.ToList() ?? throw new ArgumentNullException(nameof(executionBoundaryConfigurations));
         }
 
         /// <inheritdoc/>
@@ -43,7 +43,7 @@
         public IServiceBridge<TService> AddExecutionBoundary<TBoundary>()
             where TBoundary : class, IPipelineExecutionBoundary
         {
-            _executionBoundaryTypes.Add(typeof(TBoundary));
+            _executionBoundaryConfigurations.Add(execution => execution.AddExecutionBoundary<TBoundary>());
             return this;
         }
 
@@ -56,7 +56,17 @@
             if (!typeof(IPipelineExecutionBoundary).IsAssignableFrom(boundaryType))
                 throw new InvalidOperationException($"Boundary type '{boundaryType.FullName}' must implement IPipelineExecutionBoundary.");
 
-            _executionBoundaryTypes.Add(boundaryType);
+            _executionBoundaryConfigurations.Add(execution => execution.AddExecutionBoundary(boundaryType));
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IServiceBridge<TService> AddExecutionBoundary(Action<IExecutionBoundaryConfiguration> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            _executionBoundaryConfigurations.Add(execution => execution.AddExecutionBoundary(configure));
             return this;
         }
 
@@ -71,7 +81,7 @@
 
             _pipelineBuilder = builder;
 
-            return new ServiceBridge<TService, TRequest>(_serviceProvider, Service, _pipelineBuilder, _executionBoundaryTypes);
+            return new ServiceBridge<TService, TRequest>(_serviceProvider, Service, _pipelineBuilder, _executionBoundaryConfigurations);
         }
 
         /// <inheritdoc/>
@@ -85,7 +95,7 @@
 
             _pipelineBuilder = builder;
 
-            return new ServiceBridge<TService, TRequest, TResponse>(_serviceProvider, Service, _pipelineBuilder, _executionBoundaryTypes);
+            return new ServiceBridge<TService, TRequest, TResponse>(_serviceProvider, Service, _pipelineBuilder, _executionBoundaryConfigurations);
         }
 
         /// <inheritdoc/>
@@ -121,19 +131,19 @@
         }
 
         /// <summary>
-        /// Creates execution boundary configuration from the bridge-level boundary types.
+        /// Creates execution boundary configuration from the bridge-level boundary configuration actions.
         /// </summary>
         /// <returns>The execution boundary configuration, or <c>null</c> when none were configured.</returns>
         private Action<IExecutionBoundaryCollection> CreateExecutionBoundaryConfiguration()
         {
-            if (_executionBoundaryTypes.Count == 0)
+            if (_executionBoundaryConfigurations.Count == 0)
                 return null;
 
-            var boundaryTypes = _executionBoundaryTypes.ToArray();
+            var boundaryConfigurations = _executionBoundaryConfigurations.ToArray();
             return execution =>
             {
-                foreach (var boundaryType in boundaryTypes)
-                    execution.AddExecutionBoundary(boundaryType);
+                foreach (var configureBoundary in boundaryConfigurations)
+                    configureBoundary(execution);
             };
         }
     }
@@ -151,8 +161,8 @@
         /// <param name="serviceProvider">The service provider for dependency resolution.</param>
         /// <param name="service">The service instance to bridge.</param>
         /// <param name="pipelineBuilder">The pipeline builder instance.</param>
-        /// <param name="executionBoundaryTypes">The bridge-level execution boundary types.</param>
-        public ServiceBridge(IServiceProvider serviceProvider, TService service, IPipelineBuilder pipelineBuilder, IEnumerable<Type> executionBoundaryTypes) : base(serviceProvider, service, executionBoundaryTypes)
+        /// <param name="executionBoundaryConfigurations">The bridge-level execution boundary configurations.</param>
+        public ServiceBridge(IServiceProvider serviceProvider, TService service, IPipelineBuilder pipelineBuilder, IEnumerable<Action<IExecutionBoundaryCollection>> executionBoundaryConfigurations) : base(serviceProvider, service, executionBoundaryConfigurations)
         {
             _pipelineBuilder = pipelineBuilder ?? throw new ArgumentNullException(nameof(pipelineBuilder));
         }
@@ -177,8 +187,8 @@
         /// <param name="serviceProvider">The service provider for dependency resolution.</param>
         /// <param name="service">The service instance to bridge.</param>
         /// <param name="pipelineBuilder">The pipeline builder instance.</param>
-        /// <param name="executionBoundaryTypes">The bridge-level execution boundary types.</param>
-        public ServiceBridge(IServiceProvider serviceProvider, TService service, IPipelineBuilder pipelineBuilder, IEnumerable<Type> executionBoundaryTypes) : base(serviceProvider, service, executionBoundaryTypes)
+        /// <param name="executionBoundaryConfigurations">The bridge-level execution boundary configurations.</param>
+        public ServiceBridge(IServiceProvider serviceProvider, TService service, IPipelineBuilder pipelineBuilder, IEnumerable<Action<IExecutionBoundaryCollection>> executionBoundaryConfigurations) : base(serviceProvider, service, executionBoundaryConfigurations)
         {
             _pipelineBuilder = pipelineBuilder ?? throw new ArgumentNullException(nameof(pipelineBuilder));
         }

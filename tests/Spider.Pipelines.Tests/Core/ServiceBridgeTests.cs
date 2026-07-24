@@ -1,5 +1,6 @@
 using Spider.Pipelines.Core;
 using Spider.Pipelines.Core.Internals;
+using Spider.Pipelines.Boundaries;
 
 namespace Spider.Pipelines.Tests.Core
 {
@@ -18,7 +19,7 @@ namespace Spider.Pipelines.Tests.Core
         [Fact]
         public void Constructor_ShouldInitialize()
         {
-            var bridge = new ServiceBridge<object, string>(new ServiceProviderStub(), new object(), new PipelineBuilderStub(), Array.Empty<Type>());
+            var bridge = new ServiceBridge<object, string>(new ServiceProviderStub(), new object(), new PipelineBuilderStub(), Array.Empty<Action<IExecutionBoundaryCollection>>());
             Assert.NotNull(bridge);
         }
     }
@@ -28,7 +29,7 @@ namespace Spider.Pipelines.Tests.Core
         [Fact]
         public void Constructor_ShouldInitialize()
         {
-            var bridge = new ServiceBridge<object, string, int>(new ServiceProviderStub(), new object(), new PipelineBuilderStub(), Array.Empty<Type>());
+            var bridge = new ServiceBridge<object, string, int>(new ServiceProviderStub(), new object(), new PipelineBuilderStub(), Array.Empty<Action<IExecutionBoundaryCollection>>());
             Assert.NotNull(bridge);
         }
     }

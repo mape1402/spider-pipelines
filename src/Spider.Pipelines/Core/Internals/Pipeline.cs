@@ -56,12 +56,11 @@
 
             var context = new Context<TRequest>(request, _serviceProvider, cancellationToken);
             var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
-            var pipelineBoundaries = CreatePipelineBoundaries();
 
             await boundaryRunner.RunAsync(
                 context,
                 () => RunCoreAsync(context),
-                pipelineBoundaries.Concat(executionBoundaries),
+                executionBoundaries,
                 cancellationToken);
         }
 
@@ -85,15 +84,6 @@
             if (context.IsFailure())
                 throw context.Exception;
         }
-
-        /// <summary>
-        /// Resolves boundaries configured through the fluent pipeline builder.
-        /// </summary>
-        /// <returns>The execution boundaries configured for this pipeline.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary> CreatePipelineBoundaries()
-            => _executionPlan is IExecutionBoundaryPlan boundaryPlan
-                ? boundaryPlan.CreateExecutionBoundaries(_serviceProvider)
-                : Array.Empty<IPipelineExecutionBoundary>();
 
         /// <summary>
         /// Creates boundaries configured specifically for the current materialized execution.
@@ -160,12 +150,11 @@
 
             var context = new Context<TRequest, TResponse>(request, _serviceProvider, cancellationToken);
             var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
-            var pipelineBoundaries = CreatePipelineBoundaries();
 
             return await boundaryRunner.RunAsync(
                 context,
                 () => RunCoreAsync(context),
-                pipelineBoundaries.Concat(executionBoundaries),
+                executionBoundaries,
                 cancellationToken);
         }
 
@@ -191,15 +180,6 @@
 
             return response;
         }
-
-        /// <summary>
-        /// Resolves boundaries configured through the fluent pipeline builder.
-        /// </summary>
-        /// <returns>The execution boundaries configured for this pipeline.</returns>
-        private IReadOnlyCollection<IPipelineExecutionBoundary> CreatePipelineBoundaries()
-            => _executionPlan is IExecutionBoundaryPlan boundaryPlan
-                ? boundaryPlan.CreateExecutionBoundaries(_serviceProvider)
-                : Array.Empty<IPipelineExecutionBoundary>();
 
         /// <summary>
         /// Creates boundaries configured specifically for the current materialized execution.
