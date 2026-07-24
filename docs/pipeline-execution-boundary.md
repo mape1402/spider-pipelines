@@ -11,22 +11,22 @@ Boundaries implement `IPipelineExecutionBoundary`:
 ```csharp
 public interface IPipelineExecutionBoundary
 {
-    ValueTask<IPipelineExecutionBoundaryScope> BeginAsync(
+    ValueTask BeginAsync(
         PipelineExecutionContext context,
         CancellationToken cancellationToken);
-}
-```
 
-Each boundary opens an `IPipelineExecutionBoundaryScope`:
+    ValueTask CompleteAsync(
+        PipelineExecutionContext context,
+        CancellationToken cancellationToken);
 
-```csharp
-public interface IPipelineExecutionBoundaryScope : IAsyncDisposable
-{
-    ValueTask CompleteAsync(CancellationToken cancellationToken);
+    ValueTask FaultAsync(
+        PipelineExecutionContext context,
+        Exception exception,
+        CancellationToken cancellationToken);
 
-    ValueTask FaultAsync(Exception exception, CancellationToken cancellationToken);
-
-    ValueTask CancelAsync(CancellationToken cancellationToken);
+    ValueTask CancelAsync(
+        PipelineExecutionContext context,
+        CancellationToken cancellationToken);
 }
 ```
 
@@ -40,7 +40,6 @@ Boundary.Begin
   Middleware / Target / Parallel work
   Post-processors
 Boundary.Complete
-Boundary.Dispose
 ```
 
 For a faulted pipeline:
@@ -49,7 +48,6 @@ For a faulted pipeline:
 Boundary.Begin
   Pipeline throws
 Boundary.Fault
-Boundary.Dispose
 ```
 
 For a cooperatively cancelled pipeline:
@@ -58,12 +56,11 @@ For a cooperatively cancelled pipeline:
 Boundary.Begin
   Pipeline cancels
 Boundary.Cancel
-Boundary.Dispose
 ```
 
 ## Multiple Boundaries
 
-Boundaries begin in registration order and terminate/dispose in reverse order:
+Boundaries begin in registration order and terminate in reverse order:
 
 ```txt
 BoundaryA.Begin
@@ -71,17 +68,15 @@ BoundaryA.Begin
     Pipeline
   BoundaryB.Complete
 BoundaryA.Complete
-BoundaryB.Dispose
-BoundaryA.Dispose
 ```
 
 ## Exception Rules
 
 - If the pipeline throws, Spider calls `FaultAsync` and rethrows the original exception.
 - If the pipeline is cancelled through `CancelOperation`, Spider calls `CancelAsync`.
-- If `BeginAsync` fails, already opened scopes are faulted and disposed.
-- If `CompleteAsync`, `FaultAsync`, `CancelAsync`, or `DisposeAsync` fails after the pipeline already threw, the original pipeline exception is preserved.
-- If the pipeline succeeded and `CompleteAsync` or `DisposeAsync` fails, the boundary exception is surfaced.
+- If `BeginAsync` fails, already opened boundaries are faulted.
+- If `CompleteAsync`, `FaultAsync`, or `CancelAsync` fails after the pipeline already threw, the original pipeline exception is preserved.
+- If the pipeline succeeded and `CompleteAsync` fails, the boundary exception is surfaced.
 
 ## Registration
 
