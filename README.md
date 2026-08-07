@@ -18,6 +18,7 @@ Version 2.0.0 targets .NET 8, .NET 9, and .NET 10.
 - Immutable pipeline step snapshots at execution build time.
 - Thread-safe context state for concurrent target and parallel stages.
 - Provider-agnostic execution boundaries for wrapping complete pipeline execution.
+- Testing helpers for boundary traces, execution ordering, transaction assertions, and failure simulation.
 - .NET 8, .NET 9, and .NET 10 support.
 - Tested with xUnit and NSubstitute.
 
@@ -33,6 +34,46 @@ Run the basic sample with:
 
 ```bash
 dotnet run --project samples/Spider.Pipelines.Samples.Basic/Spider.Pipelines.Samples.Basic.csproj
+```
+
+## Testing Package
+
+`Spider.Testing` provides a small test host for executing requests through discovered handlers and boundaries without hand-writing mocks for every pipeline dependency.
+
+Register the package from one or more assemblies:
+
+```csharp
+services.AddSpiderTesting(typeof(CustomerBoundary).Assembly);
+```
+
+Execute a request and inspect the trace:
+
+```csharp
+var spider = provider.GetRequiredService<ISpiderTesting>();
+
+var result = await spider.ExecuteAsync(command);
+var trace = spider.Trace;
+```
+
+Assert boundary presence and execution order:
+
+```csharp
+trace.ShouldContain("TransactionBoundary");
+trace.ShouldContain("ExceptionBoundary");
+trace.ShouldRunBefore("TransactionBoundary", "HandlerExecution");
+```
+
+Assert transaction behavior:
+
+```csharp
+trace.Transaction.ShouldBegin();
+trace.Transaction.ShouldCommit();
+```
+
+Simulate failures inside a specific boundary:
+
+```csharp
+spider.FailInside<SomeBoundary>(new InvalidOperationException());
 ```
 
 ## Quick Start
