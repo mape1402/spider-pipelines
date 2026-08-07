@@ -8,7 +8,7 @@
 
 Spider.Pipelines is a lightweight .NET library for composing service execution pipelines. It lets you attach preprocessors, middleware, override handlers, parallel steps, and postprocessors around existing logic with a clean, dependency-injection-friendly API.
 
-Version 2.0.0 targets .NET 8, .NET 9, and .NET 10.
+Version 2.1.0 targets .NET 8, .NET 9, and .NET 10.
 
 ## Features
 
@@ -26,6 +26,12 @@ Version 2.0.0 targets .NET 8, .NET 9, and .NET 10.
 
 ```bash
 dotnet add package Spider.Pipelines
+```
+
+For testing helpers:
+
+```bash
+dotnet add package Spider.Testing
 ```
 
 ## Samples
