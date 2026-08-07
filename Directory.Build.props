@@ -17,9 +17,9 @@
 
   <PropertyGroup>
     <Version Condition="'$(MinVerVersion)' != ''">$(MinVerVersion)</Version>
-    <Version Condition="'$(MinVerVersion)' == ''">2.0.0</Version>
+    <Version Condition="'$(MinVerVersion)' == ''">2.1.0</Version>
     <MinVerTagPrefix>v</MinVerTagPrefix>
-    <MinVerMinimumMajorMinor>2.0</MinVerMinimumMajorMinor>
+    <MinVerMinimumMajorMinor>2.1</MinVerMinimumMajorMinor>
     <MinVerBuildMetadata>build.{DateTime:yyyyMMddHHmmss}</MinVerBuildMetadata>
     <MinVerIsRelease>false</MinVerIsRelease>
   </PropertyGroup>
