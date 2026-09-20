@@ -12,6 +12,13 @@ namespace Spider.Pipelines.Web.Tests
             var html = renderer.Render(CreateManifest());
 
             Assert.Contains("spider-architecture-app", html);
+            Assert.Contains("spider-view-overview", html);
+            Assert.Contains("Architecture Overview", html);
+            Assert.Contains("Business Flows", html);
+            Assert.Contains("Execution Pipelines", html);
+            Assert.Contains("spider-process-card", html);
+            Assert.Contains("spider-step-number", html);
+            Assert.Contains("spider-stage-strip", html);
             Assert.Contains("spider-architecture-graph", html);
             Assert.Contains("spider-node", html);
             Assert.Contains("spider-edge", html);
