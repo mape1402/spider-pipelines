@@ -1085,6 +1085,469 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
+## Plan Para Generar Metadata
+
+La metadata debe generarse en build time, no en runtime. Runtime queda reservado para telemetria.
+
+La salida de metadata debe poder alimentar KnOwl sin que KnOwl conozca internals de Spider. Spider actua como producer semantico y publica un manifest compatible con el protocolo de arquitectura.
+
+### Objetivo Del Primer Corte
+
+Generar un manifest estatico con:
+
+- flows declarados con `ComposeFlow`;
+- steps agregados con `Then`;
+- steps agregados con `ThenWith`;
+- conditions agregadas con `ContinueIf`;
+- branches agregados con `Branch`, `When` y `Otherwise`;
+- profiles usados con `UsingProfile`;
+- evidence de archivo, linea, tipo CLR y metodo;
+- diagnostics cuando el flow no puede documentarse bien.
+
+No intentar generar telemetria desde el source generator. Eso pertenece a RavenTracer/runtime.
+
+### Proyecto Sugerido
+
+Crear un proyecto analyzer/source generator:
+
+```txt
+src/Spider.Pipelines.Analyzers
+```
+
+Este proyecto debe empacarse como analyzer del paquete `Spider.Pipelines` o como paquete complementario. Decision recomendada para v1:
+
+```txt
+Empacarlo dentro de Spider.Pipelines como analyzer incluido.
+```
+
+Razon:
+
+- el usuario obtiene diagnostics sin instalar otro paquete;
+- el manifest se genera automaticamente;
+- la funcionalidad se siente parte de Spider;
+- no agrega dependencias runtime al paquete principal.
+
+El runtime de Spider no debe depender del analyzer.
+
+### Contratos De Metadata
+
+Para no bloquearse esperando los paquetes finales de Elysium Architecture, Spider puede iniciar con contratos internos estables y mapearlos despues.
+
+Namespace sugerido:
+
+```txt
+Spider.Pipelines.Architecture
+```
+
+Tipos internos o publicos iniciales:
+
+```csharp
+SpiderArchitectureManifest
+SpiderComponentDescriptor
+SpiderOperationDescriptor
+SpiderRelationDescriptor
+SpiderEvidenceDescriptor
+SpiderDiagnosticDescriptor
+SpiderMetadataBag
+```
+
+Cuando existan:
+
+```txt
+Elysium.Architecture.Abstractions
+```
+
+se agrega adapter:
+
+```txt
+SpiderArchitectureManifest -> ArchitectureManifest
+```
+
+No acoplar la primera version del runtime a KnOwl directamente.
+
+### IDs Estables
+
+El source generator debe crear IDs logicos. El CLR es evidencia, no identidad primaria.
+
+Formato recomendado:
+
+```txt
+spider.flow:{normalized-flow-name}
+spider.flow-step:{normalized-flow-name}.{step-name-or-index}
+spider.flow-branch:{normalized-flow-name}.{branch-index}
+spider.flow-condition:{normalized-flow-name}.{condition-name-or-index}
+spider.flow-profile:{profile-name}
+```
+
+Ejemplo:
+
+```txt
+spider.flow:create-customer
+spider.flow-step:create-customer.validate
+spider.flow-step:create-customer.map
+spider.flow-step:create-customer.save
+spider.flow-step:create-customer.return-response
+spider.flow-profile:business
+```
+
+Si el mismo nombre aparece mas de una vez en el mismo scope, agregar sufijo estable por posicion:
+
+```txt
+spider.flow-step:create-customer.validate-2
+```
+
+No usar line number como parte del ID, porque rompe estabilidad con cambios de formato. Line number solo va en evidence.
+
+### Evidence
+
+Cada descriptor debe incluir evidence cuando sea posible:
+
+```txt
+SourceKind: source-generator
+RepositoryPath
+ProjectName
+AssemblyName
+ClrTypeName
+MemberName
+FilePath
+LineNumber
+DiscoveryMethod: source-generator
+```
+
+Para method groups:
+
+```csharp
+.Then(Validate)
+```
+
+Evidence:
+
+```txt
+MemberName: Validate
+ClrTypeName: CreateCustomerService
+FilePath: ...
+LineNumber: ...
+```
+
+Para lambdas:
+
+```csharp
+.Then(request => ...)
+```
+
+Evidence:
+
+```txt
+MemberName: <lambda>
+FilePath: ...
+LineNumber: ...
+Diagnostic: lambda has limited metadata
+```
+
+### Component Kinds
+
+```txt
+spider.flow
+spider.flow-step
+spider.flow-branch
+spider.flow-condition
+spider.flow-profile
+```
+
+### Operation Kinds
+
+```txt
+spider.execute-flow
+spider.execute-step
+spider.evaluate-condition
+spider.evaluate-branch
+```
+
+### Relation Kinds
+
+```txt
+contains
+next
+uses
+uses-profile
+branches-to
+otherwise
+returns
+throws
+calls-flow
+```
+
+### Descriptor Shape
+
+Ejemplo conceptual:
+
+```json
+{
+  "producer": "Spider.Pipelines",
+  "manifestVersion": "1.0",
+  "components": [
+    {
+      "id": "spider.flow:create-customer",
+      "kind": "spider.flow",
+      "displayName": "Create customer",
+      "metadata": {
+        "input": "CreateCustomerRequest",
+        "output": "CustomerResponse",
+        "profile": "Business"
+      }
+    },
+    {
+      "id": "spider.flow-step:create-customer.save",
+      "kind": "spider.flow-step",
+      "displayName": "Save",
+      "metadata": {
+        "uses": [
+          "CreateCustomerRequest",
+          "Customer"
+        ],
+        "output": "Customer",
+        "preservesActiveValue": true
+      }
+    }
+  ],
+  "relations": [
+    {
+      "sourceId": "spider.flow:create-customer",
+      "targetId": "spider.flow-step:create-customer.save",
+      "kind": "contains",
+      "confidence": "explicit"
+    }
+  ]
+}
+```
+
+### Source Generator Output
+
+El generator debe emitir un archivo parecido a:
+
+```csharp
+// <auto-generated />
+namespace Spider.Pipelines.Generated
+{
+    internal static partial class SpiderGeneratedArchitecture
+    {
+        public static SpiderArchitectureManifest BuildManifest()
+        {
+            ...
+        }
+    }
+}
+```
+
+Tambien puede emitir descriptors por assembly:
+
+```csharp
+internal static partial class SpiderGeneratedArchitecture_AssemblyName
+```
+
+El host de KnOwl o el provider de Spider puede buscar estos tipos por reflection.
+
+### Provider Para KnOwl
+
+Crear un provider en Spider:
+
+```csharp
+public interface ISpiderArchitectureProvider
+{
+    SpiderArchitectureManifest GetManifest();
+}
+```
+
+Implementacion:
+
+```csharp
+GeneratedSpiderArchitectureProvider
+```
+
+Responsabilidad:
+
+- cargar manifest generado;
+- agregar metadata runtime/config si aplica;
+- exponerlo a KnOwl adapter.
+
+Cuando existan abstracciones comunes:
+
+```csharp
+public sealed class SpiderArchitectureProvider : IArchitectureManifestProvider
+```
+
+### Analyzer Diagnostics
+
+Diagnostics recomendados:
+
+```txt
+SPF001 Flow name is required.
+SPF002 Flow response contract is not satisfied.
+SPF003 Then cannot bind to the active type.
+SPF004 ThenWith references a type that is not available in history.
+SPF005 ThenWith is ambiguous because multiple values match.
+SPF006 Branch requires Otherwise.
+SPF007 Branch routes do not converge.
+SPF008 ContinueIf requires an outcome compatible with the flow contract.
+SPF009 Flow.Stop cannot be used in a flow with TResponse.
+SPF010 Lambda step has limited documentation metadata.
+SPF011 Flow profile is not known.
+SPF012 Unsupported ComposeFlow shape.
+```
+
+Severity inicial:
+
+- errores de contrato: error;
+- metadata incompleta: warning;
+- perfil desconocido: warning al principio, error si se habilita politica estricta.
+
+### Como Analizar La Fluent API
+
+El analyzer debe encontrar invocations a:
+
+```csharp
+ComposeFlow(...)
+```
+
+Despues debe caminar la cadena fluent:
+
+```txt
+ComposeFlow
+  -> UsingProfile?
+  -> Then*
+  -> ThenWith*
+  -> ContinueIf*
+  -> Branch*
+  -> RunAsync
+```
+
+Debe resolver semanticamente:
+
+- generic arguments;
+- receiver type despues de cada metodo;
+- method group symbol;
+- lambda syntax;
+- return type;
+- CancellationToken parameter;
+- branch route chains.
+
+No debe ejecutar codigo.
+
+### Estrategia Por Fases
+
+#### Metadata Fase 1: Lineal
+
+Soportar:
+
+- `ComposeFlow<TRequest>`;
+- `ComposeFlow<TRequest, TResponse>`;
+- `UsingProfile`;
+- `Then`;
+- `ThenWith`;
+- `RunAsync`.
+
+Generar:
+
+- flow component;
+- step components;
+- contains relations;
+- next relations;
+- uses-profile relation;
+- input/output metadata.
+
+#### Metadata Fase 2: ContinueIf
+
+Soportar:
+
+- `ContinueIf(..., Flow.Return(...))`;
+- `ContinueIf(..., Flow.Throw(...))`;
+- `ContinueIf(..., Flow.Stop())`.
+
+Generar:
+
+- condition component;
+- relation `next` hacia condition;
+- relation `returns` o `throws`;
+- metadata de early exit.
+
+#### Metadata Fase 3: Branch
+
+Soportar:
+
+- `Branch`;
+- `When`;
+- `Otherwise`;
+- nested route chains lineales.
+
+Generar:
+
+- branch component;
+- condition components;
+- `branches-to`;
+- `otherwise`;
+- convergence metadata.
+
+#### Metadata Fase 4: Nested Flows
+
+Detectar si un step llama otro metodo que contiene `ComposeFlow`.
+
+Primera version:
+
+- solo cuando el source generator puede ver el metodo llamado en el mismo compilation.
+
+Generar:
+
+```txt
+calls-flow
+```
+
+Si no puede resolver:
+
+```txt
+unresolved reference warning
+```
+
+#### Metadata Fase 5: Elysium Protocol Adapter
+
+Mapear:
+
+```txt
+SpiderArchitectureManifest -> ArchitectureManifest
+SpiderComponentDescriptor -> ComponentDescriptor
+SpiderRelationDescriptor -> RelationDescriptor
+SpiderEvidenceDescriptor -> EvidenceDescriptor
+```
+
+Exponer provider compatible con KnOwl.
+
+### Criterios De Aceptacion
+
+Primer corte listo cuando:
+
+- un proyecto consumidor que usa `ComposeFlow` genera manifest en build;
+- el manifest contiene flow, steps y relations;
+- los method groups tienen evidence CLR/source;
+- lambdas generan warning de metadata limitada;
+- `ThenWith` invalido produce diagnostic;
+- flow con `TResponse` insatisfecho produce diagnostic;
+- se puede leer el manifest desde tests sin ejecutar el flow;
+- el runtime sigue funcionando sin el analyzer.
+
+### Pruebas Necesarias
+
+Crear tests de analyzer/source generator con `Microsoft.CodeAnalysis.CSharp.Testing`.
+
+Casos:
+
+- flow lineal con respuesta genera manifest correcto;
+- flow sin respuesta genera manifest correcto;
+- `ThenWith` genera uses metadata;
+- `UsingProfile` genera relation `uses-profile`;
+- lambda genera warning;
+- branch genera branch descriptors;
+- flow invalido genera diagnostic;
+- generated manifest compila.
+
 ## Orden De Implementacion
 
 ### Fase 1: API Y Runtime Basico
