@@ -18,8 +18,6 @@ namespace Spider.Pipelines.Middleware
             _middlewares = new List<PipelineMiddlewareDelegate<TRequest>>();
         }
 
-        internal int Count => _middlewares.Count;
-
         /// <inheritdoc/>
         public IMiddlewareConfiguration<TRequest> Use(PipelineMiddlewareDelegate<TRequest> middleware)
         {
@@ -51,8 +49,6 @@ namespace Spider.Pipelines.Middleware
         {
             _middlewares = new List<PipelineMiddlewareDelegate<TRequest, TResponse>>();
         }
-
-        internal int Count => _middlewares.Count;
 
         /// <inheritdoc/>
         public IMiddlewareConfiguration<TRequest, TResponse> Use(PipelineMiddlewareDelegate<TRequest, TResponse> middleware)

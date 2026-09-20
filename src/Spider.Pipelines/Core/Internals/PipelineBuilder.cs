@@ -1,7 +1,5 @@
 ﻿namespace Spider.Pipelines.Core.Internals
 {
-    using Microsoft.Extensions.DependencyInjection;
-    using Spider.Pipelines.Architecture.Internals;
     using Spider.Pipelines.Parallelization;
     using Spider.Pipelines.PostProcessing;
     using Spider.Pipelines.PreProcessing;
@@ -38,11 +36,11 @@
     /// <typeparam name="TRequest">The type of the request object.</typeparam>
     internal sealed class PipelineBuilder<TRequest> : PipelineBuilder, IPipelineBuilder<TRequest>
     {
-        private readonly PreProcessConfiguration<TRequest> _preProcessConfiguration;
-        private readonly PostProcessConfiguration<TRequest> _postProcessConfiguration;
-        private readonly TargetConfiguration<TRequest> _targetConfiguration;
-        private readonly ParallelConfiguration<TRequest> _parallelConfiguration;
-        private readonly MiddlewareConfiguration<TRequest> _middlewareConfiguration;
+        private readonly IPreProcessConfiguration<TRequest> _preProcessConfiguration;
+        private readonly IPostProcessConfiguration<TRequest> _postProcessConfiguration;
+        private readonly ITargetConfiguration<TRequest> _targetConfiguration;
+        private readonly IParallelConfiguration<TRequest> _parallelConfiguration;
+        private readonly IMiddlewareConfiguration<TRequest> _middlewareConfiguration;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -122,24 +120,8 @@
             var postProcessExecution = _postProcessConfiguration.BuildExecution();
 
             var executionPlan = new ExecutionPlan<TRequest>(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution);
-            RegisterArchitectureMetadata();
 
             return new Pipeline<TRequest>(targetHandler, executionPlan, _serviceProvider);
-        }
-
-        internal void RegisterArchitectureMetadata()
-        {
-            var architectureRegistry = _serviceProvider.GetService<SpiderArchitectureRegistry>();
-            if (architectureRegistry == null)
-                return;
-
-            PipelineArchitectureRegistrar.Register(
-                architectureRegistry,
-                _preProcessConfiguration,
-                _middlewareConfiguration,
-                _targetConfiguration,
-                _parallelConfiguration,
-                _postProcessConfiguration);
         }
     }
 
@@ -150,11 +132,11 @@
     /// <typeparam name="TResponse">The type of the response object.</typeparam>
     internal sealed class PipelineBuilder<TRequest, TResponse> : PipelineBuilder, IPipelineBuilder<TRequest, TResponse>
     {
-        private readonly PreProcessConfiguration<TRequest> _preProcessConfiguration;
-        private readonly PostProcessConfiguration<TRequest, TResponse> _postProcessConfiguration;
-        private readonly TargetConfiguration<TRequest, TResponse> _targetConfiguration;
-        private readonly ParallelConfiguration<TRequest, TResponse> _parallelConfiguration;
-        private readonly MiddlewareConfiguration<TRequest, TResponse> _middlewareConfiguration;
+        private readonly IPreProcessConfiguration<TRequest> _preProcessConfiguration;
+        private readonly IPostProcessConfiguration<TRequest, TResponse> _postProcessConfiguration;
+        private readonly ITargetConfiguration<TRequest, TResponse> _targetConfiguration;
+        private readonly IParallelConfiguration<TRequest, TResponse> _parallelConfiguration;
+        private readonly IMiddlewareConfiguration<TRequest, TResponse> _middlewareConfiguration;
         private readonly IServiceProvider _serviceProvider;
 
         /// <summary>
@@ -234,24 +216,8 @@
             var postProcessExecution = _postProcessConfiguration.BuildExecution();
 
             var executionPlan = new ExecutionPlan<TRequest, TResponse>(preProcessExecution, targetExecution, parallelExecution, middlewareExecution, postProcessExecution);
-            RegisterArchitectureMetadata();
 
             return new Pipeline<TRequest, TResponse>(targetHandler, executionPlan, _serviceProvider);
-        }
-
-        internal void RegisterArchitectureMetadata()
-        {
-            var architectureRegistry = _serviceProvider.GetService<SpiderArchitectureRegistry>();
-            if (architectureRegistry == null)
-                return;
-
-            PipelineArchitectureRegistrar.Register(
-                architectureRegistry,
-                _preProcessConfiguration,
-                _middlewareConfiguration,
-                _targetConfiguration,
-                _parallelConfiguration,
-                _postProcessConfiguration);
         }
     }
 }

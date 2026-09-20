@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Architecture metadata manifest for configured pipelines and composed flows through `ISpiderArchitectureProvider`.
-- Runtime composition descriptors for pipeline stages, flow steps, flow conditions, flow branches, and flow profiles.
+- Compile-time architecture manifest source generator for configured pipelines and composed flows.
+- Manifest descriptors for pipeline stages, flow steps, flow conditions, flow branches, flow profiles, relations, and source evidence.
 
 ## [v2.1.0] - 2026-08-07
 

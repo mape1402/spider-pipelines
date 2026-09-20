@@ -1,10 +1,10 @@
 namespace Spider.Pipelines.Samples.Basic
 {
     using Microsoft.Extensions.DependencyInjection;
-    using Spider.Pipelines.Architecture;
     using Spider.Pipelines.Core;
     using Spider.Pipelines.Extensions;
     using Spider.Pipelines.Flows;
+    using Spider.Pipelines.Generated;
 
     /// <summary>
     /// Runs a basic Spider.Pipelines sample.
@@ -23,7 +23,7 @@ namespace Spider.Pipelines.Samples.Basic
             await RunComposeFlowExampleAsync();
             await RunComposeFlowBranchExampleAsync();
             await RunComposeFlowWithoutResponseExampleAsync();
-            await RunArchitectureMetadataExampleAsync();
+            PrintGeneratedArchitectureManifest();
         }
 
         /// <summary>
@@ -295,48 +295,15 @@ namespace Spider.Pipelines.Samples.Basic
         }
 
         /// <summary>
-        /// Runs a sample that reads architecture metadata generated from flows and pipelines.
+        /// Prints architecture metadata generated at compilation time by the Spider analyzer.
         /// </summary>
-        /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task RunArchitectureMetadataExampleAsync()
+        private static void PrintGeneratedArchitectureManifest()
         {
-            var services = new ServiceCollection();
-
-            services.AddSingleton<SampleOrderService>();
-            services.AddSingleton<SampleEventLog>();
-            services.AddSpider(builder =>
-            {
-                builder.AddFlowProfile("Business", profile =>
-                {
-                    profile.TelemetryEnabled = true;
-                    profile.MetricsEnabled = true;
-                });
-            });
-
-            var provider = services.BuildServiceProvider();
-            var spider = provider.GetRequiredService<ISpider>();
-            var log = provider.GetRequiredService<SampleEventLog>();
-
-            log.Write("example: architecture metadata");
-
-            spider
-                .InitBridge<SampleOrderService>()
-                .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log));
-
-            var receipt = await spider
-                .ComposeFlow<OrderRequest, OrderReceipt>("Documented order flow")
-                .UsingProfile("Business")
-                .Then(MapOrder)
-                .Then(ReturnReceipt)
-                .RunAsync(new OrderRequest("SO-3001", 330m));
-
-            var manifest = provider.GetRequiredService<ISpiderArchitectureProvider>().GetManifest();
-
-            log.Write($"metadata: {manifest.Components.Count} components, {manifest.Relations.Count} relations");
-            log.Write($"metadata: documented receipt {receipt.ReceiptId}");
+            var manifest = SpiderGeneratedArchitecture.BuildManifest();
+            Console.WriteLine($"generated metadata: {manifest.Components.Count} components, {manifest.Relations.Count} relations");
 
             foreach (var component in manifest.Components.Take(5))
-                log.Write($"metadata-component: {component.Kind} {component.Id}");
+                Console.WriteLine($"generated-component: {component.Kind} {component.Id}");
         }
 
         /// <summary>

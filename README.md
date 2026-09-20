@@ -19,7 +19,7 @@ Version 2.1.0 targets .NET 8, .NET 9, and .NET 10.
 - Thread-safe context state for concurrent target and parallel stages.
 - Provider-agnostic execution boundaries for wrapping complete pipeline execution.
 - Method-level `ComposeFlow` for describing local business processes with `Then`, `ThenWith`, `ContinueIf`, and `Branch`.
-- Architecture metadata manifest generated from configured pipelines and composed flows.
+- Compile-time architecture metadata manifest generated from pipelines and composed flows.
 - Testing helpers for boundary traces, execution ordering, transaction assertions, and failure simulation.
 - .NET 8, .NET 9, and .NET 10 support.
 - Tested with xUnit and NSubstitute.
@@ -84,43 +84,27 @@ var receipt = await spider
 
 ## Architecture Metadata
 
-Spider records architecture metadata while you configure pipelines and compose flows. This gives external consumers such as KnOwl a provider-agnostic manifest with components and relations.
+Spider includes a source generator that reads `ComposeFlow` and pipeline `Attach` fluent chains during compilation. It generates a typed manifest without executing the application.
 
 ```csharp
-var spider = provider.GetRequiredService<ISpider>();
+using Spider.Pipelines.Generated;
 
-spider
-    .InitBridge<OrderService>()
-    .Attach<OrderRequest, OrderReceipt>(builder => builder
-        .PreProcess(Validate)
-        .UseMiddleware(LogExecution)
-        .Parallel(SyncReadModel)
-        .OnSuccess(AuditSuccess)
-        .OnFailure(AuditFailure));
-
-await spider
-    .ComposeFlow<OrderRequest, OrderReceipt>("Create order receipt")
-    .UsingProfile("Business")
-    .Then(Map)
-    .Then(ReturnReceipt)
-    .RunAsync(request, cancellationToken);
-
-var manifest = provider
-    .GetRequiredService<ISpiderArchitectureProvider>()
-    .GetManifest();
+var manifest = SpiderGeneratedArchitecture.BuildManifest();
 ```
 
-The manifest includes:
+The generated manifest includes:
 
 - `spider.pipeline` components for attached pipelines.
 - `spider.pipeline-stage` components for preprocess, middleware, target, parallel, success postprocess, and failure postprocess stages.
-- `spider.flow` components for composed method-level flows.
+- `spider.flow` components for method-level flows.
 - `spider.flow-step`, `spider.flow-condition`, and `spider.flow-branch` components for flow steps.
+- `spider.flow-profile` components for profiles selected with `UsingProfile`.
 - `contains`, `next`, and `uses-profile` relations.
+- source evidence with file, line, containing type, and member name when the compiler can resolve it.
 
-This metadata describes the configured architecture and pseudocode-level process map. Runtime tracing and telemetry can build on top of it later without changing the flow/pipeline API.
+This metadata describes the configured architecture and pseudocode-level process map at build time. Runtime execution stays focused on running pipelines and flows.
 
-See [docs/compose-flow-design.md](docs/compose-flow-design.md) for the design direction behind flows and KnOwl integration.
+See [docs/compose-flow-design.md](docs/compose-flow-design.md) for the broader design direction behind flows and metadata generation.
 
 ## Testing Package
 

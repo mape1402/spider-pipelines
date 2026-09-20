@@ -2,11 +2,11 @@
 
 ## Estado
 
-Arquitectura de `ComposeFlow` dentro de Spider y plan evolutivo para integrarse despues con KnOwl y RavenTracer.
+Arquitectura de `ComposeFlow` dentro de Spider y metadata de arquitectura generada en compilation time.
 
-El corte actual ya implementa metadata por composicion runtime para flows y pipelines a traves de `ISpiderArchitectureProvider`. El analyzer/source generator sigue siendo la ruta recomendada para metadata build-time con evidence de archivo/linea y diagnosticos estaticos.
+El corte actual implementa un source generator en `Spider.Pipelines.Analyzers`. El generator extrae flows y pipelines durante compilacion y produce `SpiderGeneratedArchitecture.BuildManifest()` sin ejecutar la aplicacion.
 
-Este documento reemplaza la discusion previa de nombres sueltos. La meta ya no es solo tener un builder bonito. La meta es que Spider pueda describir procesos de negocio locales, generar metadata estatica para KnOwl y emitir telemetria runtime para RavenTracer sin mezclar eso con los pipelines globales que ya existen.
+Este documento reemplaza la discusion previa de nombres sueltos. La meta ya no es solo tener un builder bonito. La meta es que Spider pueda describir procesos de negocio locales y generar metadata estatica sin mezclar eso con los pipelines globales que ya existen.
 
 ## Problema A Resolver
 
@@ -38,28 +38,22 @@ Ese flujo local no debe vivir como pipeline global. Es logica de negocio del met
 - tipada;
 - simple de adoptar;
 - documentable con analyzers/source generators;
-- observable en runtime;
-- correlacionable con KnOwl/RavenTracer.
+- observable en runtime en una fase posterior.
 
-## Relacion Con KnOwl Y RavenTracer
+## Metadata Y Telemetria
 
-La arquitectura objetivo separa tres planos:
+La arquitectura separa dos planos:
 
 ```txt
 Definition plane:
-  KnOwl
   manifests
   components
-  operations
   relations
   evidence
 
 Execution plane:
-  RavenTracer
   runtime events
   traces
-  spans
-  attempts
   failures
   branch decisions
 
@@ -74,7 +68,7 @@ Producer:
 
 `ComposeFlow` debe producir dos tipos de informacion.
 
-### Metadata Para KnOwl
+### Metadata Estatica
 
 Build-time, mediante analyzer/source generator.
 
@@ -89,7 +83,7 @@ Debe publicar un manifest semantico con:
 
 ### Telemetria Para RavenTracer
 
-Runtime, cuando el flow se ejecuta.
+Runtime, cuando el flow se ejecuta, en una fase posterior.
 
 Debe emitir eventos semanticos:
 
@@ -149,7 +143,7 @@ POST /loan/evaluation
         ReturnReport
 ```
 
-KnOwl debe poder ver el mapa estatico. RavenTracer debe poder ver la ejecucion real.
+El manifest debe poder representar el mapa estatico. La telemetria runtime debe poder representar la ejecucion real en una fase posterior.
 
 ## Principios De API
 
@@ -752,7 +746,7 @@ Responsabilidades:
 
 Debe existir un proyecto de analyzer/source generator dentro de la solucion de Spider.
 
-No debe ser necesario para ejecutar en runtime, pero si para generar metadata de KnOwl y diagnosticos tempranos.
+No debe ser necesario para ejecutar en runtime, pero si para generar metadata estatica y diagnosticos tempranos.
 
 Paquete candidato:
 
@@ -788,7 +782,7 @@ Validar:
 
 ### Responsabilidades Del Source Generator
 
-Generar descriptors estaticos para KnOwl.
+Generar descriptors estaticos de arquitectura.
 
 Salida conceptual:
 
@@ -813,9 +807,9 @@ Debe usar:
 - attributes;
 - source location.
 
-## Metadata Para KnOwl
+## Metadata Estatica
 
-Spider debe publicar manifests usando el protocolo comun.
+Spider debe publicar manifests usando modelos tipados propios.
 
 ### Component Kinds
 
@@ -1089,11 +1083,11 @@ return spider
 
 ## Plan Para Generar Metadata
 
-La metadata completa para documentacion debe generarse en build time. Runtime queda reservado para telemetria y para el manifiesto de composicion disponible hoy.
+La metadata completa para documentacion debe generarse en build time. Runtime queda reservado para telemetria.
 
 ### Estado Implementado
 
-Spider ya publica un manifest de arquitectura desde runtime composition:
+Spider ya publica un manifest de arquitectura desde compilation time:
 
 - `spider.pipeline` para pipelines configurados con `Attach`;
 - `spider.pipeline-stage` para preprocess, middleware, target, parallel, success postprocess y failure postprocess;
@@ -1101,11 +1095,10 @@ Spider ya publica un manifest de arquitectura desde runtime composition:
 - `spider.flow-step`, `spider.flow-condition` y `spider.flow-branch` para pasos de flow;
 - `spider.flow-profile` para perfiles usados con `UsingProfile`;
 - relaciones `contains`, `next` y `uses-profile`;
-- `ISpiderArchitectureProvider.GetManifest()` como API publica de lectura.
+- evidence de archivo, linea, tipo y miembro cuando el compilador puede resolverlo;
+- `SpiderGeneratedArchitecture.BuildManifest()` como API generada de lectura.
 
-Este corte permite integracion temprana con KnOwl para mapas de proceso/pseudocodigo sin esperar al analyzer. No incluye evidence source-level ni diagnosticos de compilacion.
-
-La salida de metadata debe poder alimentar KnOwl sin que KnOwl conozca internals de Spider. Spider actua como producer semantico y publica un manifest compatible con el protocolo de arquitectura.
+No existe discovery runtime para documentacion. Si un flow existe en codigo fuente, el generator debe poder verlo aunque no se ejecute.
 
 ### Objetivo Del Primer Corte
 
@@ -1147,7 +1140,7 @@ El runtime de Spider no debe depender del analyzer.
 
 ### Contratos De Metadata
 
-Para no bloquearse esperando los paquetes finales de Elysium Architecture, Spider puede iniciar con contratos internos estables y mapearlos despues.
+Spider publica contratos propios estables para no acoplar la metadata a ningun consumidor externo.
 
 Namespace sugerido:
 
@@ -1167,19 +1160,7 @@ SpiderDiagnosticDescriptor
 SpiderMetadataBag
 ```
 
-Cuando existan:
-
-```txt
-Elysium.Architecture.Abstractions
-```
-
-se agrega adapter:
-
-```txt
-SpiderArchitectureManifest -> ArchitectureManifest
-```
-
-No acoplar la primera version del runtime a KnOwl directamente.
+No acoplar el runtime a estos contratos mas alla de los modelos publicos necesarios para leer el manifest generado.
 
 ### IDs Estables
 
@@ -1361,35 +1342,10 @@ Tambien puede emitir descriptors por assembly:
 internal static partial class SpiderGeneratedArchitecture_AssemblyName
 ```
 
-El host de KnOwl o el provider de Spider puede buscar estos tipos por reflection.
-
-### Provider Para KnOwl
-
-Crear un provider en Spider:
+El proyecto consumidor puede leer el manifest generado directamente:
 
 ```csharp
-public interface ISpiderArchitectureProvider
-{
-    SpiderArchitectureManifest GetManifest();
-}
-```
-
-Implementacion:
-
-```csharp
-GeneratedSpiderArchitectureProvider
-```
-
-Responsabilidad:
-
-- cargar manifest generado;
-- agregar metadata runtime/config si aplica;
-- exponerlo a KnOwl adapter.
-
-Cuando existan abstracciones comunes:
-
-```csharp
-public sealed class SpiderArchitectureProvider : IArchitectureManifestProvider
+var manifest = SpiderGeneratedArchitecture.BuildManifest();
 ```
 
 ### Analyzer Diagnostics
@@ -1534,7 +1490,7 @@ SpiderRelationDescriptor -> RelationDescriptor
 SpiderEvidenceDescriptor -> EvidenceDescriptor
 ```
 
-Exponer provider compatible con KnOwl.
+Exponer modelos que puedan ser adaptados por consumidores externos.
 
 ### Criterios De Aceptacion
 
@@ -1598,19 +1554,19 @@ Casos:
 - Agregar options de telemetry/metrics/logging/redaction/boundaries.
 - Mantener semantica de negocio sin cambios.
 
-### Fase 5: Metadata Interna
+### Fase 5: Metadata Estatica
 
-- Crear descriptors runtime de flow/step/branch/condition.
+- Crear descriptors de flow/step/branch/condition.
 - Crear ids estables.
-- Agregar evidence basica.
-- Preparar shape compatible con KnOwl.
+- Agregar evidence de compilacion.
+- Preparar shape compatible con consumidores externos.
 
 ### Fase 6: Analyzer/Source Generator
 
 - Implementar diagnostics.
 - Generar manifest estatico.
 - Generar ids/relations/evidence.
-- Exponer extension para que KnOwl ingiera manifests.
+- Exponer manifest generado desde `SpiderGeneratedArchitecture.BuildManifest()`.
 
 ### Fase 7: Telemetry Adapter
 
@@ -1619,9 +1575,8 @@ Casos:
 - Correlacionar flow dentro de pipeline.
 - Exponer adapter para RavenTracer.
 
-### Fase 8: Integracion KnOwl/RavenTracer
+### Fase 8: Integracion Externa
 
-- Crear `SpiderArchitectureProvider`.
 - Crear `SpiderTelemetryAdapter`.
 - Probar primer vertical:
 
@@ -1646,7 +1601,7 @@ Pigeon Consumer
 - Branch debe tener `Otherwise` en v1.
 - Branch debe converger o ser terminal.
 - Runtime no genera documentacion.
-- Source generator/analyzer genera metadata para KnOwl.
+- Source generator/analyzer genera metadata estatica.
 - Runtime events alimentan RavenTracer.
 
 ## Riesgos
@@ -1693,7 +1648,7 @@ Mitigacion:
 
 ## Resultado Esperado
 
-Con `ComposeFlow`, Spider podra publicar a KnOwl algo como:
+Con `ComposeFlow`, Spider podra publicar un manifest como:
 
 ```txt
 spider.flow:create-customer
