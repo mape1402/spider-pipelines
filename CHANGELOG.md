@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Compile-time architecture manifest source generator for configured pipelines and composed flows.
 - Manifest descriptors for pipeline stages, flow steps, flow conditions, flow branches, flow profiles, relations, and source evidence.
+- `Spider.Pipelines.Web` package for graphical architecture documentation from generated manifests.
+- Web sample project that serves the graphical Spider architecture documentation UI.
 
 ## [v2.1.0] - 2026-08-07
 
