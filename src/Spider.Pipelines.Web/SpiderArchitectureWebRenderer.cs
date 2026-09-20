@@ -78,6 +78,7 @@ namespace Spider.Pipelines.Web
             builder.AppendLine("        </div>");
             builder.AppendLine("      </header>");
             builder.AppendLine("      <section id=\"spider-view-overview\" class=\"spider-view is-active\" aria-label=\"Architecture overview\"></section>");
+            builder.AppendLine("      <section id=\"spider-view-detail\" class=\"spider-view\" aria-label=\"Selected process detail\"></section>");
             builder.AppendLine("      <section id=\"spider-view-graph\" class=\"spider-view\" aria-label=\"Architecture graph\">");
             builder.AppendLine("        <div class=\"spider-graph-frame\">");
             builder.AppendLine("          <svg id=\"spider-architecture-graph\" class=\"spider-graph\" role=\"img\" aria-label=\"Spider architecture graph\"></svg>");
@@ -132,7 +133,7 @@ namespace Spider.Pipelines.Web
   font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--spider-bg); color: var(--spider-ink); }
+body { margin: 0; background: var(--spider-bg); color: var(--spider-ink); overflow-x: hidden; }
 button, input { font: inherit; }
 .spider-shell {
   min-height: 100vh;
@@ -185,27 +186,60 @@ button, input { font: inherit; }
 .spider-actions { display: flex; gap: 8px; align-items: center; }
 .spider-actions input { width: min(340px, 34vw); padding: 10px 11px; border: 1px solid var(--spider-line); border-radius: var(--spider-radius); }
 .spider-actions button { padding: 10px 12px; }
-.spider-view { display: none; padding: 20px; min-height: calc(100vh - 88px); }
+.spider-view { display: none; padding: 20px; min-height: calc(100vh - 88px); min-width: 0; overflow-x: hidden; }
 .spider-view.is-active { display: block; }
-.spider-overview { display: grid; gap: 20px; }
+.spider-overview { display: grid; gap: 20px; min-width: 0; }
 .spider-group { display: grid; gap: 12px; }
 .spider-group-title { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
 .spider-group-title h2 { margin: 0; font-size: 18px; }
 .spider-group-title span { color: var(--spider-muted); font-size: 13px; }
 .spider-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; align-items: start; }
+.spider-catalog { display: grid; gap: 10px; }
+.spider-catalog-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--spider-line);
+  border-radius: var(--spider-radius);
+  padding: 14px;
+}
+.spider-catalog-card h3 { margin: 0; font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
+.spider-catalog-card p { margin: 5px 0 0; color: var(--spider-muted); font-size: 13px; }
+.spider-catalog-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.spider-open-button {
+  border: 1px solid #bfd4ff;
+  color: var(--spider-blue);
+  background: #eef4ff;
+  border-radius: var(--spider-radius);
+  padding: 9px 12px;
+  cursor: pointer;
+  font-weight: 650;
+}
+.spider-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.spider-detail-main { display: grid; gap: 16px; min-width: 0; }
+.spider-detail-title { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+.spider-detail-title h2 { margin: 0; font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
+.spider-detail-title p { margin: 6px 0 0; color: var(--spider-muted); }
+.spider-local-graph-frame { width: 100%; height: 360px; max-width: 100%; border: 1px solid var(--spider-line); background: #fff; border-radius: var(--spider-radius); overflow: auto; }
+.spider-local-graph { display: block; min-width: 100%; min-height: 100%; }
+.spider-detail-empty-state { display: grid; place-items: center; min-height: calc(100vh - 180px); text-align: center; color: var(--spider-muted); }
+.spider-detail-empty-state h2 { margin: 0 0 8px; color: var(--spider-ink); }
 .spider-section, .spider-process-card {
   background: #fff;
   border: 1px solid var(--spider-line);
   border-radius: var(--spider-radius);
   padding: 16px;
+  min-width: 0;
 }
 .spider-process-card { display: grid; gap: 14px; }
 .spider-card-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
 .spider-card-header h3, .spider-section h2, .spider-detail h2 { margin: 0; font-size: 18px; line-height: 1.25; }
 .spider-card-header p { margin: 5px 0 0; color: var(--spider-muted); font-size: 13px; }
 .spider-card-meta { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.spider-timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.spider-timeline li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; }
+.spider-timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.spider-timeline li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; }
 .spider-step-number {
   width: 28px;
   height: 28px;
@@ -226,11 +260,13 @@ button, input { font: inherit; }
   text-align: left;
   cursor: pointer;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 .spider-step strong, .spider-stage strong { display: block; overflow-wrap: anywhere; }
 .spider-step span, .spider-stage span { display: block; color: var(--spider-muted); font-size: 12px; margin-top: 2px; }
 .spider-step:hover, .spider-stage:hover { border-color: #9db7ff; background: #f2f6ff; }
-.spider-stage-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.spider-stage-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
 .spider-empty { border: 1px dashed var(--spider-line); border-radius: var(--spider-radius); padding: 16px; color: var(--spider-muted); background: #fff; }
 .spider-graph-frame { height: calc(100vh - 128px); border: 1px solid var(--spider-line); background: #fff; border-radius: var(--spider-radius); overflow: auto; }
 .spider-graph { display: block; min-width: 100%; min-height: 100%; touch-action: none; }
@@ -275,6 +311,8 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
   .spider-actions { align-items: stretch; flex-direction: column; }
   .spider-actions input { width: 100%; }
   .spider-card-grid { grid-template-columns: 1fr; }
+  .spider-catalog-card { grid-template-columns: 1fr; }
+  .spider-open-button { width: 100%; }
 }
 """;
 
@@ -441,7 +479,36 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
   function selectComponent(id) {
     state.selectedId = id;
     renderDetail();
+    renderProcessDetail();
     if (state.view === 'graph') renderGraph();
+  }
+
+  function openProcess(id) {
+    state.selectedId = id;
+    showView('detail');
+    renderDetail();
+    renderProcessDetail();
+  }
+
+  function showView(viewName) {
+    state.view = viewName;
+    if (viewName === 'overview' || viewName === 'flows' || viewName === 'pipelines') {
+      state.selectedId = null;
+    }
+    const navButton = document.querySelector(`.spider-tabs button[data-view='${viewName}']`);
+    document.querySelectorAll('.spider-tabs button').forEach(tab => tab.classList.toggle('is-active', tab === navButton));
+    document.querySelectorAll('.spider-view').forEach(view => view.classList.toggle('is-active', view.id === `spider-view-${viewName}`));
+    const selected = byId.get(state.selectedId);
+    if (viewName === 'detail' && selected) {
+      title.textContent = selected.displayName;
+      subtitle.textContent = `${friendlyKind(selected)} detail`;
+    } else if (navButton) {
+      title.textContent = navButton.dataset.title || navButton.textContent;
+      subtitle.textContent = navButton.dataset.subtitle || '';
+    }
+    fitButton.hidden = viewName !== 'graph';
+    renderDetail();
+    if (viewName === 'graph') renderGraph();
   }
 
   function renderSummary() {
@@ -481,8 +548,8 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
 
     container.innerHTML = `
       <div class='spider-overview'>
-        ${renderOverviewGroup('Business Flows', 'Method-level processes, in the order they execute.', flows, renderFlowCard)}
-        ${renderOverviewGroup('Execution Pipelines', 'Cross-cutting behavior around service calls.', pipelines, renderPipelineCard)}
+        ${renderOverviewGroup('Business Flows', 'Select a flow to inspect its steps, graph, source evidence, and metadata.', flows, renderFlowCard)}
+        ${renderOverviewGroup('Execution Pipelines', 'Select a pipeline to inspect the cross-cutting stages around execution.', pipelines, renderPipelineCard)}
       </div>`;
     bindSelectableCards(container);
   }
@@ -502,7 +569,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
           <div><h2>${escapeHtml(groupTitle)}</h2><span>${escapeHtml(description)}</span></div>
           <span>${items.length} item${items.length === 1 ? '' : 's'}</span>
         </div>
-        <div class='spider-card-grid'>${items.map(renderer).join('')}</div>
+        <div class='spider-catalog'>${items.map(renderer).join('')}</div>
       </section>`;
   }
 
@@ -514,18 +581,17 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
     const signature = response ? `${request} -> ${response}` : request;
 
     return `
-      <article class='spider-process-card'>
-        <header class='spider-card-header'>
-          <div>
-            <h3>${escapeHtml(flow.displayName)}</h3>
-            <p>${escapeHtml(signature)}</p>
-          </div>
-          <div class='spider-card-meta'>
+      <article class='spider-catalog-card spider-process-card' data-id='${escapeHtml(flow.id)}'>
+        <div>
+          <h3>${escapeHtml(flow.displayName)}</h3>
+          <p>${escapeHtml(signature || 'No request metadata')}</p>
+          <div class='spider-catalog-meta'>
             <span class='spider-chip is-flow'>Flow</span>
+            <span class='spider-chip'>${steps.length} step${steps.length === 1 ? '' : 's'}</span>
             ${profiles.map(profile => `<span class='spider-chip is-profile'>${escapeHtml(profile.displayName)}</span>`).join('')}
           </div>
-        </header>
-        ${renderTimeline(steps)}
+        </div>
+        <button type='button' class='spider-open-button' data-open-id='${escapeHtml(flow.id)}'>Open</button>
       </article>`;
   }
 
@@ -536,15 +602,16 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
     const signature = response ? `${request} -> ${response}` : request;
 
     return `
-      <article class='spider-process-card'>
-        <header class='spider-card-header'>
-          <div>
-            <h3>${escapeHtml(pipeline.displayName)}</h3>
-            <p>${escapeHtml(signature)}</p>
+      <article class='spider-catalog-card spider-process-card' data-id='${escapeHtml(pipeline.id)}'>
+        <div>
+          <h3>${escapeHtml(pipeline.displayName)}</h3>
+          <p>${escapeHtml(signature || 'No request metadata')}</p>
+          <div class='spider-catalog-meta'>
+            <span class='spider-chip is-pipeline'>Pipeline</span>
+            <span class='spider-chip'>${stages.length} stage${stages.length === 1 ? '' : 's'}</span>
           </div>
-          <div class='spider-card-meta'><span class='spider-chip is-pipeline'>Pipeline</span></div>
-        </header>
-        <div class='spider-stage-strip'>${stages.map(renderStageButton).join('')}</div>
+        </div>
+        <button type='button' class='spider-open-button' data-open-id='${escapeHtml(pipeline.id)}'>Open</button>
       </article>`;
   }
 
@@ -593,15 +660,138 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
   function renderFlows() {
     const container = document.getElementById('spider-view-flows');
     const flows = components.filter(component => component.kind === 'spider.flow' && sequenceMatches(component));
-    container.innerHTML = `<div class='spider-list'>${flows.map(flow => renderSequenceSection(flow)).join('') || `<div class='spider-empty'>No matching flows.</div>`}</div>`;
+    container.innerHTML = `<div class='spider-catalog'>${flows.map(renderFlowCard).join('') || `<div class='spider-empty'>No matching flows.</div>`}</div>`;
     bindSelectableCards(container);
   }
 
   function renderPipelines() {
     const container = document.getElementById('spider-view-pipelines');
     const pipelines = components.filter(component => component.kind === 'spider.pipeline' && sequenceMatches(component));
-    container.innerHTML = `<div class='spider-list'>${pipelines.map(pipeline => renderSequenceSection(pipeline)).join('') || `<div class='spider-empty'>No matching pipelines.</div>`}</div>`;
+    container.innerHTML = `<div class='spider-catalog'>${pipelines.map(renderPipelineCard).join('') || `<div class='spider-empty'>No matching pipelines.</div>`}</div>`;
     bindSelectableCards(container);
+  }
+
+  function renderProcessDetail() {
+    const container = document.getElementById('spider-view-detail');
+    const selected = byId.get(state.selectedId);
+    const parent = selected ? findProcessForComponent(selected) : null;
+
+    if (!parent) {
+      container.innerHTML = `
+        <div class='spider-detail-empty-state'>
+          <div>
+            <h2>Select a flow or pipeline</h2>
+            <p>Open an item from Overview, Flows, or Pipelines to inspect its process detail.</p>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const children = orderChildren(getChildren(parent));
+    const profiles = parent.kind === 'spider.flow' ? getProfiles(parent) : [];
+    const request = shortType(metadata(parent, 'request'));
+    const response = shortType(metadata(parent, 'response'));
+    const signature = response ? `${request} -> ${response}` : request;
+
+    container.innerHTML = `
+      <div class='spider-detail-layout'>
+        <article class='spider-section spider-detail-main'>
+          <header class='spider-detail-title'>
+            <div>
+              <h2>${escapeHtml(parent.displayName)}</h2>
+              <p>${escapeHtml(signature || friendlyKind(parent))}</p>
+            </div>
+            <div class='spider-card-meta'>
+              <span class='spider-chip${chipClass(parent)}'>${escapeHtml(friendlyKind(parent))}</span>
+              ${profiles.map(profile => `<span class='spider-chip is-profile'>${escapeHtml(profile.displayName)}</span>`).join('')}
+            </div>
+          </header>
+          <section>
+            <h2>${parent.kind === 'spider.pipeline' ? 'Stages' : 'Steps'}</h2>
+            ${parent.kind === 'spider.pipeline' ? `<div class='spider-stage-strip'>${children.map(renderStageButton).join('')}</div>` : renderTimeline(children)}
+          </section>
+          <section>
+            <h2>Graph</h2>
+            <div class='spider-local-graph-frame'>
+              ${renderProcessGraph(parent, children, profiles)}
+            </div>
+          </section>
+        </article>
+      </div>`;
+    bindSelectableCards(container);
+  }
+
+  function findProcessForComponent(component) {
+    if (!component) return null;
+    if (component.kind === 'spider.flow' || component.kind === 'spider.pipeline') return component;
+    const parentRelation = containsRelations.find(relation => relation.targetId === component.id);
+    const parent = parentRelation ? byId.get(parentRelation.sourceId) : null;
+    if (parent && (parent.kind === 'spider.flow' || parent.kind === 'spider.pipeline')) return parent;
+    return null;
+  }
+
+  function renderProcessGraph(parent, children, profiles) {
+    const nodes = [parent].concat(children).concat(profiles);
+    const positions = new Map();
+    const y = 80;
+    positions.set(parent.id, { x: 40, y, w: 230, h: 68 });
+    children.forEach((child, index) => {
+      positions.set(child.id, { x: 330 + index * 260, y, w: 230, h: 68 });
+    });
+    profiles.forEach((profile, index) => {
+      positions.set(profile.id, { x: 40 + index * 260, y: 210, w: 230, h: 58 });
+    });
+
+    const ids = new Set(nodes.map(node => node.id));
+    const graphRelations = [];
+    if (children.length) {
+      graphRelations.push({ sourceId: parent.id, targetId: children[0].id, kind: 'contains' });
+      children.slice(1).forEach((child, index) => {
+        graphRelations.push({ sourceId: children[index].id, targetId: child.id, kind: 'next' });
+      });
+    }
+    relations
+      .filter(relation => relation.kind === 'uses-profile' && ids.has(relation.sourceId) && ids.has(relation.targetId))
+      .forEach(relation => graphRelations.push(relation));
+    const maxX = Math.max(780, ...Array.from(positions.values()).map(position => position.x + position.w + 60));
+    const maxY = profiles.length ? 330 : 210;
+
+    return `
+      <svg class='spider-local-graph' viewBox='0 0 ${maxX} ${maxY}' style='width:${maxX}px;height:${maxY}px' role='img' aria-label='Selected process graph'>
+        <defs>
+          <marker id='spider-local-arrow' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>
+            <path d='M 0 0 L 10 5 L 0 10 z' fill='#98a2b3'></path>
+          </marker>
+        </defs>
+        <text class='spider-lane-title' x='40' y='36'>${escapeHtml(parent.kind === 'spider.pipeline' ? 'Pipeline stages' : 'Flow steps')}</text>
+        ${graphRelations.map(relation => renderProcessEdge(relation, positions)).join('')}
+        ${nodes.map(node => renderProcessNode(node, positions.get(node.id))).join('')}
+      </svg>`;
+  }
+
+  function renderProcessEdge(relation, positions) {
+    const source = positions.get(relation.sourceId);
+    const target = positions.get(relation.targetId);
+    if (!source || !target) return '';
+    const x1 = source.x + source.w;
+    const y1 = source.y + source.h / 2;
+    const x2 = target.x;
+    const y2 = target.y + target.h / 2;
+    const mid = Math.max(x1 + 44, (x1 + x2) / 2);
+    return `<path class='spider-edge ${escapeHtml(relation.kind)}' marker-end='url(#spider-local-arrow)' d='M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}'><title>${escapeHtml(relation.kind)}</title></path>`;
+  }
+
+  function renderProcessNode(component, position) {
+    if (!position) return '';
+    const selected = component.id === state.selectedId ? ' is-selected' : '';
+    const lines = splitLabel(component.displayName || component.id, 26);
+    return `
+      <g class='spider-node${selected}' data-id='${escapeHtml(component.id)}' data-kind='${escapeHtml(component.kind)}' transform='translate(${position.x}, ${position.y})'>
+        <rect width='${position.w}' height='${position.h}'></rect>
+        <text x='13' y='24'>${escapeHtml(lines[0] || '')}</text>
+        ${lines[1] ? `<text x='13' y='41'>${escapeHtml(lines[1])}</text>` : ''}
+        <text class='kind' x='13' y='58'>${escapeHtml(friendlyKind(component))}</text>
+      </g>`;
   }
 
   function renderSequenceSection(parent) {
@@ -664,13 +854,14 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
 
   function renderDetail() {
     const detail = document.getElementById('spider-detail');
-    const component = byId.get(state.selectedId)
-      || components.find(item => item.kind === 'spider.flow')
-      || components.find(item => item.kind === 'spider.pipeline')
-      || components[0];
+    const component = byId.get(state.selectedId);
 
     if (!component) {
-      detail.innerHTML = `<p class='spider-detail-empty'>No components found.</p>`;
+      detail.innerHTML = `
+        <div class='spider-detail-empty'>
+          <h2>Select an item</h2>
+          <p>Choose a flow or pipeline from the catalog to inspect metadata, source evidence, steps, and graph.</p>
+        </div>`;
       return;
     }
 
@@ -841,8 +1032,20 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
   }
 
   function bindSelectableCards(scope) {
-    scope.querySelectorAll('[data-id]').forEach(item => {
-      item.addEventListener('click', () => selectComponent(item.dataset.id));
+    scope.querySelectorAll('[data-open-id]').forEach(item => {
+      item.addEventListener('click', event => {
+        event.stopPropagation();
+        openProcess(item.dataset.openId);
+      });
+    });
+    scope.querySelectorAll('.spider-catalog-card[data-id]').forEach(item => {
+      item.addEventListener('click', () => openProcess(item.dataset.id));
+    });
+    scope.querySelectorAll('.spider-step[data-id], .spider-stage[data-id], .spider-node[data-id]').forEach(item => {
+      item.addEventListener('click', event => {
+        event.stopPropagation();
+        selectComponent(item.dataset.id);
+      });
     });
   }
 
@@ -851,13 +1054,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
       if (button.dataset.view === 'json' && root.dataset.showJson !== 'true') button.hidden = true;
       if (button.dataset.view === 'graph' && root.dataset.showGraph !== 'true') button.hidden = true;
       button.addEventListener('click', () => {
-        state.view = button.dataset.view;
-        title.textContent = button.dataset.title || button.textContent;
-        subtitle.textContent = button.dataset.subtitle || '';
-        document.querySelectorAll('.spider-tabs button').forEach(tab => tab.classList.toggle('is-active', tab === button));
-        document.querySelectorAll('.spider-view').forEach(view => view.classList.toggle('is-active', view.id === `spider-view-${state.view}`));
-        fitButton.hidden = state.view !== 'graph';
-        if (state.view === 'graph') renderGraph();
+        showView(button.dataset.view);
       });
     });
 
@@ -887,6 +1084,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f1
     renderPipelines();
     renderEvidence();
     renderJson();
+    renderProcessDetail();
     renderDetail();
     renderGraph();
   }

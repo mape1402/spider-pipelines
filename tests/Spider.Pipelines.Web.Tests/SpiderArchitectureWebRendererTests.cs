@@ -17,6 +17,10 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("Business Flows", html);
             Assert.Contains("Execution Pipelines", html);
             Assert.Contains("spider-process-card", html);
+            Assert.Contains("spider-catalog-card", html);
+            Assert.Contains("spider-view-detail", html);
+            Assert.Contains("data-open-id", html);
+            Assert.Contains("Selected process graph", html);
             Assert.Contains("spider-step-number", html);
             Assert.Contains("spider-stage-strip", html);
             Assert.Contains("spider-architecture-graph", html);
