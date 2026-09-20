@@ -20,6 +20,7 @@ Version 2.1.0 targets .NET 8, .NET 9, and .NET 10.
 - Provider-agnostic execution boundaries for wrapping complete pipeline execution.
 - Method-level `ComposeFlow` for describing local business processes with `Then`, `ThenWith`, `ContinueIf`, and `Branch`.
 - Compile-time architecture metadata manifest generated from pipelines and composed flows.
+- Graphical web documentation renderer for architecture manifests through `Spider.Pipelines.Web`.
 - Testing helpers for boundary traces, execution ordering, transaction assertions, and failure simulation.
 - .NET 8, .NET 9, and .NET 10 support.
 - Tested with xUnit and NSubstitute.
@@ -36,6 +37,12 @@ For testing helpers:
 dotnet add package Spider.Testing
 ```
 
+For graphical architecture documentation:
+
+```bash
+dotnet add package Spider.Pipelines.Web
+```
+
 ## Samples
 
 Run the basic sample with:
@@ -43,6 +50,14 @@ Run the basic sample with:
 ```bash
 dotnet run --project samples/Spider.Pipelines.Samples.Basic/Spider.Pipelines.Samples.Basic.csproj
 ```
+
+Run the web documentation sample with:
+
+```bash
+dotnet run --project samples/Spider.Pipelines.Samples.Web/Spider.Pipelines.Samples.Web.csproj
+```
+
+Open `http://localhost:5000` or the URL printed by ASP.NET Core.
 
 ## ComposeFlow
 
@@ -105,6 +120,24 @@ The generated manifest includes:
 This metadata describes the configured architecture and pseudocode-level process map at build time. Runtime execution stays focused on running pipelines and flows.
 
 See [docs/compose-flow-design.md](docs/compose-flow-design.md) for the broader design direction behind flows and metadata generation.
+
+## Web Documentation
+
+`Spider.Pipelines.Web` renders a graphical architecture page from a `SpiderArchitectureManifest`. The package is UI-only: it does not scan the application at runtime and it does not require Minimal API endpoints. Host applications can serve the generated HTML through middleware, MVC, Razor Pages, static file generation, or a future REST adapter.
+
+```csharp
+using Spider.Pipelines.Generated;
+using Spider.Pipelines.Web;
+
+var manifest = SpiderGeneratedArchitecture.BuildManifest();
+var renderer = new SpiderArchitectureWebRenderer();
+var html = renderer.Render(manifest, new SpiderArchitectureWebOptions
+{
+    Title = "Service Architecture"
+});
+```
+
+The rendered UI includes an SVG graph, flow and pipeline views, source evidence, filters, search, details, and raw JSON inspection. The web sample shows the simplest middleware-based host.
 
 ## Testing Package
 
