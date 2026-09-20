@@ -78,6 +78,7 @@
 
             var builder = new PipelineBuilder<TRequest>(_serviceProvider);
             config(builder);
+            builder.RegisterArchitectureMetadata();
 
             _pipelineBuilder = builder;
 
@@ -92,6 +93,7 @@
 
             var builder = new PipelineBuilder<TRequest, TResponse>(_serviceProvider);
             config(builder);
+            builder.RegisterArchitectureMetadata();
 
             _pipelineBuilder = builder;
 

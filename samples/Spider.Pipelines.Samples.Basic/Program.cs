@@ -1,6 +1,7 @@
 namespace Spider.Pipelines.Samples.Basic
 {
     using Microsoft.Extensions.DependencyInjection;
+    using Spider.Pipelines.Architecture;
     using Spider.Pipelines.Core;
     using Spider.Pipelines.Extensions;
     using Spider.Pipelines.Flows;
@@ -22,6 +23,7 @@ namespace Spider.Pipelines.Samples.Basic
             await RunComposeFlowExampleAsync();
             await RunComposeFlowBranchExampleAsync();
             await RunComposeFlowWithoutResponseExampleAsync();
+            await RunArchitectureMetadataExampleAsync();
         }
 
         /// <summary>
@@ -290,6 +292,51 @@ namespace Spider.Pipelines.Samples.Basic
                 .RunAsync(new OrderRequest("SO-2003", 0m));
 
             log.Write("void flow done");
+        }
+
+        /// <summary>
+        /// Runs a sample that reads architecture metadata generated from flows and pipelines.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private static async Task RunArchitectureMetadataExampleAsync()
+        {
+            var services = new ServiceCollection();
+
+            services.AddSingleton<SampleOrderService>();
+            services.AddSingleton<SampleEventLog>();
+            services.AddSpider(builder =>
+            {
+                builder.AddFlowProfile("Business", profile =>
+                {
+                    profile.TelemetryEnabled = true;
+                    profile.MetricsEnabled = true;
+                });
+            });
+
+            var provider = services.BuildServiceProvider();
+            var spider = provider.GetRequiredService<ISpider>();
+            var log = provider.GetRequiredService<SampleEventLog>();
+
+            log.Write("example: architecture metadata");
+
+            spider
+                .InitBridge<SampleOrderService>()
+                .Attach<OrderRequest, OrderReceipt>(builder => ConfigureOrderPipeline(builder, log));
+
+            var receipt = await spider
+                .ComposeFlow<OrderRequest, OrderReceipt>("Documented order flow")
+                .UsingProfile("Business")
+                .Then(MapOrder)
+                .Then(ReturnReceipt)
+                .RunAsync(new OrderRequest("SO-3001", 330m));
+
+            var manifest = provider.GetRequiredService<ISpiderArchitectureProvider>().GetManifest();
+
+            log.Write($"metadata: {manifest.Components.Count} components, {manifest.Relations.Count} relations");
+            log.Write($"metadata: documented receipt {receipt.ReceiptId}");
+
+            foreach (var component in manifest.Components.Take(5))
+                log.Write($"metadata-component: {component.Kind} {component.Id}");
         }
 
         /// <summary>

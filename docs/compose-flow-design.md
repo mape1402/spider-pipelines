@@ -2,7 +2,9 @@
 
 ## Estado
 
-Draft arquitectonico para implementar `ComposeFlow` dentro de Spider y prepararlo para integrarse despues con KnOwl y RavenTracer.
+Arquitectura de `ComposeFlow` dentro de Spider y plan evolutivo para integrarse despues con KnOwl y RavenTracer.
+
+El corte actual ya implementa metadata por composicion runtime para flows y pipelines a traves de `ISpiderArchitectureProvider`. El analyzer/source generator sigue siendo la ruta recomendada para metadata build-time con evidence de archivo/linea y diagnosticos estaticos.
 
 Este documento reemplaza la discusion previa de nombres sueltos. La meta ya no es solo tener un builder bonito. La meta es que Spider pueda describir procesos de negocio locales, generar metadata estatica para KnOwl y emitir telemetria runtime para RavenTracer sin mezclar eso con los pipelines globales que ya existen.
 
@@ -1087,7 +1089,21 @@ return spider
 
 ## Plan Para Generar Metadata
 
-La metadata debe generarse en build time, no en runtime. Runtime queda reservado para telemetria.
+La metadata completa para documentacion debe generarse en build time. Runtime queda reservado para telemetria y para el manifiesto de composicion disponible hoy.
+
+### Estado Implementado
+
+Spider ya publica un manifest de arquitectura desde runtime composition:
+
+- `spider.pipeline` para pipelines configurados con `Attach`;
+- `spider.pipeline-stage` para preprocess, middleware, target, parallel, success postprocess y failure postprocess;
+- `spider.flow` para flows compuestos con `ComposeFlow`;
+- `spider.flow-step`, `spider.flow-condition` y `spider.flow-branch` para pasos de flow;
+- `spider.flow-profile` para perfiles usados con `UsingProfile`;
+- relaciones `contains`, `next` y `uses-profile`;
+- `ISpiderArchitectureProvider.GetManifest()` como API publica de lectura.
+
+Este corte permite integracion temprana con KnOwl para mapas de proceso/pseudocodigo sin esperar al analyzer. No incluye evidence source-level ni diagnosticos de compilacion.
 
 La salida de metadata debe poder alimentar KnOwl sin que KnOwl conozca internals de Spider. Spider actua como producer semantico y publica un manifest compatible con el protocolo de arquitectura.
 

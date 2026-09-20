@@ -28,6 +28,8 @@
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
 
+        internal bool HasOverride => _targetHandler != null;
+
         /// <inheritdoc/>
         public ITargetConfiguration<TRequest> Overrides(TargetHandler<TRequest> handler, OverridesConditionDelegate<TRequest> condition = null)
         {
@@ -73,6 +75,8 @@
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
+
+        internal bool HasOverride => _targetHandler != null;
 
         /// <inheritdoc/>
         public ITargetConfiguration<TRequest, TResponse> Overrides(TargetHandler<TRequest, TResponse> handler, OverridesConditionDelegate<TRequest> condition = null)
