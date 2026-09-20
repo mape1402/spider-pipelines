@@ -18,6 +18,7 @@ Version 2.1.0 targets .NET 8, .NET 9, and .NET 10.
 - Immutable pipeline step snapshots at execution build time.
 - Thread-safe context state for concurrent target and parallel stages.
 - Provider-agnostic execution boundaries for wrapping complete pipeline execution.
+- Method-level `ComposeFlow` for describing local business processes with `Then`, `ThenWith`, `ContinueIf`, and `Branch`.
 - Testing helpers for boundary traces, execution ordering, transaction assertions, and failure simulation.
 - .NET 8, .NET 9, and .NET 10 support.
 - Tested with xUnit and NSubstitute.
@@ -41,6 +42,46 @@ Run the basic sample with:
 ```bash
 dotnet run --project samples/Spider.Pipelines.Samples.Basic/Spider.Pipelines.Samples.Basic.csproj
 ```
+
+## ComposeFlow
+
+Pipelines wrap execution with cross-cutting behavior. `ComposeFlow` describes local business steps inside a handler, service, endpoint, or job.
+
+```csharp
+var receipt = await spider
+    .ComposeFlow<OrderRequest, OrderReceipt>("Create order receipt")
+    .UsingProfile("Business")
+    .Then(Validate)
+    .Then(Map)
+    .ThenWith<OrderRequest, Order>(Save)
+    .Then(ReturnReceipt)
+    .RunAsync(request, cancellationToken);
+```
+
+Flows can also run without a response:
+
+```csharp
+await spider
+    .ComposeFlow<OrderRequest>("Notify order")
+    .ContinueIf(ShouldNotifyOrder, Flow.Stop())
+    .Then(SendNotification)
+    .RunAsync(request, cancellationToken);
+```
+
+Use `Branch` when the process needs controlled decision paths:
+
+```csharp
+var receipt = await spider
+    .ComposeFlow<OrderRequest, OrderReceipt>("Approve order")
+    .Then(Map)
+    .Branch<OrderDecision>(branch => branch
+        .When(IsSmallOrder, small => small.Then(AutoApprove))
+        .Otherwise(large => large.Then(RequireManualReview)))
+    .Then(ReturnReceipt)
+    .RunAsync(request, cancellationToken);
+```
+
+See [docs/compose-flow-design.md](docs/compose-flow-design.md) for the implementation plan and the KnOwl/RavenTracer metadata direction.
 
 ## Testing Package
 
