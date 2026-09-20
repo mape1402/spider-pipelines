@@ -23,10 +23,6 @@
             _successDelegates = new List<SuccessPostProcessDelegate<TRequest>>();
         }
 
-        internal int FailureCount => _failureDelegates.Count;
-
-        internal int SuccessCount => _successDelegates.Count;
-
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest> OnFailure(FailurePostProcessDelegate<TRequest> handler)
         {
@@ -73,10 +69,6 @@
             _failureDelegates = new List<FailurePostProcessDelegate<TRequest>>();
             _successDelegates = new List<SuccessPostProcessDelegate<TRequest, TResponse>>();
         }
-
-        internal int FailureCount => _failureDelegates.Count;
-
-        internal int SuccessCount => _successDelegates.Count;
 
         /// <inheritdoc/>
         public IPostProcessConfiguration<TRequest, TResponse> OnFailure(FailurePostProcessDelegate<TRequest> handler)

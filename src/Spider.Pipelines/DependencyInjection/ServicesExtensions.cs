@@ -1,8 +1,6 @@
-﻿namespace Microsoft.Extensions.DependencyInjection
+namespace Microsoft.Extensions.DependencyInjection
 {
     using Spider.Pipelines.Boundaries;
-    using Spider.Pipelines.Architecture;
-    using Spider.Pipelines.Architecture.Internals;
     using Spider.Pipelines.Core;
     using Spider.Pipelines.Core.Internals;
     using Spider.Pipelines.Flows;
@@ -21,8 +19,6 @@
         {
             services.AddScoped<ISpider, InternalSpider>();
             services.AddScoped(typeof(IServiceBridge<>), typeof(ServiceBridge<>));
-            services.AddSingleton<SpiderArchitectureRegistry>();
-            services.AddSingleton<ISpiderArchitectureProvider>(provider => provider.GetRequiredService<SpiderArchitectureRegistry>());
             services.AddSingleton(provider =>
             {
                 var registry = new FlowProfileRegistry();

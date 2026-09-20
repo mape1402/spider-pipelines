@@ -21,8 +21,6 @@
             _parallelDelegates = new List<ParallelProcessDelegate<TRequest>>();
         }
 
-        internal int Count => _parallelDelegates.Count;
-
         /// <inheritdoc/>
         public IParallelConfiguration<TRequest> OnParallel(ParallelProcessDelegate<TRequest> handler)
         {
@@ -57,8 +55,6 @@
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _parallelDelegates = new List<ParallelProcessDelegate<TRequest>>();
         }
-
-        internal int Count => _parallelDelegates.Count;
 
         /// <inheritdoc/>
         public IParallelConfiguration<TRequest, TResponse> OnParallel(ParallelProcessDelegate<TRequest> handler)

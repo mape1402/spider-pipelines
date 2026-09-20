@@ -5,6 +5,7 @@
     <Nullable>disable</Nullable>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);AddSpiderAnalyzerToPackage</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -31,9 +32,23 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Spider.Pipelines.Analyzers\Spider.Pipelines.Analyzers.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.5" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="MinVer" Version="6.0.0" PrivateAssets="All" />
   </ItemGroup>
+
+  <Target Name="AddSpiderAnalyzerToPackage">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="../Spider.Pipelines.Analyzers/bin/$(Configuration)/netstandard2.0/Spider.Pipelines.Analyzers.dll"
+                              PackagePath="analyzers/dotnet/cs"
+                              Condition="'$(TargetFramework)' == 'net8.0' and Exists('../Spider.Pipelines.Analyzers/bin/$(Configuration)/netstandard2.0/Spider.Pipelines.Analyzers.dll')" />
+    </ItemGroup>
+  </Target>
 
 </Project>

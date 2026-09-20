@@ -27,8 +27,6 @@
             _preprocessDelegates = new List<PreProcessDelegate<TRequest>>();
         }
 
-        internal int Count => _preprocessDelegates.Count;
-
         /// <inheritdoc/>
         public IPreProcessConfiguration<TRequest> OnPreProcess(PreProcessDelegate<TRequest> handler)
         {

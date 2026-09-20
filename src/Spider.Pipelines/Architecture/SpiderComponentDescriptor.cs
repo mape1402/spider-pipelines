@@ -17,11 +17,30 @@ namespace Spider.Pipelines.Architecture
             string kind,
             string displayName,
             IReadOnlyDictionary<string, string> metadata)
+            : this(id, kind, displayName, metadata, Array.Empty<SpiderEvidenceDescriptor>())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SpiderComponentDescriptor"/> class.
+        /// </summary>
+        /// <param name="id">The stable component id.</param>
+        /// <param name="kind">The component kind.</param>
+        /// <param name="displayName">The component display name.</param>
+        /// <param name="metadata">The component metadata.</param>
+        /// <param name="evidence">The component source evidence.</param>
+        public SpiderComponentDescriptor(
+            string id,
+            string kind,
+            string displayName,
+            IReadOnlyDictionary<string, string> metadata,
+            IReadOnlyCollection<SpiderEvidenceDescriptor> evidence)
         {
             Id = string.IsNullOrWhiteSpace(id) ? throw new ArgumentException("Component id is required.", nameof(id)) : id;
             Kind = string.IsNullOrWhiteSpace(kind) ? throw new ArgumentException("Component kind is required.", nameof(kind)) : kind;
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? Id : displayName;
             Metadata = metadata ?? new Dictionary<string, string>();
+            Evidence = evidence ?? Array.Empty<SpiderEvidenceDescriptor>();
         }
 
         /// <summary>
@@ -43,5 +62,10 @@ namespace Spider.Pipelines.Architecture
         /// Gets the component metadata.
         /// </summary>
         public IReadOnlyDictionary<string, string> Metadata { get; }
+
+        /// <summary>
+        /// Gets the component source evidence.
+        /// </summary>
+        public IReadOnlyCollection<SpiderEvidenceDescriptor> Evidence { get; }
     }
 }
