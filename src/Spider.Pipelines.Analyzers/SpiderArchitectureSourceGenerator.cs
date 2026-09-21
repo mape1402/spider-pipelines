@@ -3,6 +3,7 @@ namespace Spider.Pipelines.Analyzers
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using System.IO;
     using System.Linq;
     using System.Text;
     using System.Text.RegularExpressions;
@@ -28,19 +29,24 @@ namespace Spider.Pipelines.Analyzers
                 return;
 
             var manifest = new ManifestModel();
+            var sourceRoots = CreateSourceRoots(context);
 
             foreach (var invocation in receiver.ComposeFlowInvocations)
-                TryReadFlow(context.Compilation, invocation, manifest);
+                TryReadFlow(context.Compilation, invocation, manifest, sourceRoots);
 
             foreach (var invocation in receiver.AttachInvocations)
-                TryReadPipeline(context.Compilation, invocation, manifest);
+                TryReadPipeline(context.Compilation, invocation, manifest, sourceRoots);
 
             context.AddSource(
                 "SpiderGeneratedArchitecture.g.cs",
                 SourceText.From(GenerateSource(manifest), Encoding.UTF8));
         }
 
-        private static void TryReadFlow(Compilation compilation, InvocationExpressionSyntax composeInvocation, ManifestModel manifest)
+        private static void TryReadFlow(
+            Compilation compilation,
+            InvocationExpressionSyntax composeInvocation,
+            ManifestModel manifest,
+            IReadOnlyCollection<string> sourceRoots)
         {
             var chain = BuildChain(composeInvocation);
             if (chain.Count == 0)
@@ -57,7 +63,7 @@ namespace Spider.Pipelines.Analyzers
             var semanticModel = compilation.GetSemanticModel(composeInvocation.SyntaxTree);
             var flowName = GetStringArgument(composeInvocation, 0) ?? "Unnamed flow";
             var flowId = "spider.flow:" + Normalize(flowName);
-            var flowEvidence = CreateEvidence(semanticModel, composeInvocation, null);
+            var flowEvidence = CreateEvidence(semanticModel, composeInvocation, null, sourceRoots);
             var metadata = new Dictionary<string, string>
             {
                 ["request"] = GetTypeName(semanticModel, genericTypes[0]),
@@ -79,7 +85,7 @@ namespace Spider.Pipelines.Analyzers
                 {
                     var profileName = GetStringArgument(invocation, 0) ?? "Unnamed profile";
                     var profileId = "spider.flow-profile:" + Normalize(profileName);
-                    manifest.AddComponent(new ComponentModel(profileId, "spider.flow-profile", profileName, new Dictionary<string, string>(), CreateEvidence(semanticModel, invocation, null)));
+                    manifest.AddComponent(new ComponentModel(profileId, "spider.flow-profile", profileName, new Dictionary<string, string>(), CreateEvidence(semanticModel, invocation, null, sourceRoots)));
                     manifest.AddRelation(new RelationModel(flowId, profileId, "uses-profile"));
                     continue;
                 }
@@ -88,11 +94,11 @@ namespace Spider.Pipelines.Analyzers
                     continue;
 
                 stepIndex++;
-                var displayName = GetStepDisplayName(invocation);
+                var displayName = GetStepDisplayName(semanticModel, invocation, invocationName);
                 var kind = GetFlowStepKind(invocationName);
                 var stepId = flowId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
                 var stepMetadata = CreateFlowStepMetadata(semanticModel, invocation, invocationName);
-                var evidence = CreateEvidence(semanticModel, invocation, GetDelegateExpression(invocation));
+                var evidence = CreateEvidence(semanticModel, invocation, GetDelegateExpression(invocation), sourceRoots);
 
                 manifest.AddComponent(new ComponentModel(stepId, kind, displayName, stepMetadata, evidence));
                 manifest.AddRelation(new RelationModel(flowId, stepId, "contains"));
@@ -104,7 +110,11 @@ namespace Spider.Pipelines.Analyzers
             }
         }
 
-        private static void TryReadPipeline(Compilation compilation, InvocationExpressionSyntax attachInvocation, ManifestModel manifest)
+        private static void TryReadPipeline(
+            Compilation compilation,
+            InvocationExpressionSyntax attachInvocation,
+            ManifestModel manifest,
+            IReadOnlyCollection<string> sourceRoots)
         {
             var attachName = GetInvocationName(attachInvocation);
             if (attachName != "Attach")
@@ -131,7 +141,7 @@ namespace Spider.Pipelines.Analyzers
             if (responseName != null)
                 metadata["response"] = responseName;
 
-            manifest.AddComponent(new ComponentModel(pipelineId, "spider.pipeline", requestDisplayName, metadata, CreateEvidence(semanticModel, attachInvocation, null)));
+            manifest.AddComponent(new ComponentModel(pipelineId, "spider.pipeline", requestDisplayName, metadata, CreateEvidence(semanticModel, attachInvocation, null, sourceRoots)));
 
             var counts = CountPipelineStages(attachInvocation);
             AddPipelineStage(manifest, pipelineId, "pre-process", "Pre-process", counts.PreProcess, 1, null);
@@ -226,8 +236,11 @@ namespace Spider.Pipelines.Analyzers
             if (genericArguments.Count > 0)
                 metadata["genericArguments"] = string.Join(",", genericArguments.Select(argument => GetTypeName(semanticModel, argument)));
 
+            if (invocationName == "Branch" && genericArguments.Count > 0)
+                metadata["branchType"] = GetTypeName(semanticModel, genericArguments[0]);
+
             var delegateExpression = GetDelegateExpression(invocation);
-            if (delegateExpression != null)
+            if (delegateExpression != null && !(invocationName == "Branch" && delegateExpression is LambdaExpressionSyntax))
                 metadata["delegate"] = GetExpressionDisplayName(delegateExpression);
 
             if (invocationName == "ContinueIf" && invocation.ArgumentList.Arguments.Count > 1)
@@ -300,8 +313,17 @@ namespace Spider.Pipelines.Analyzers
             return invocation.ArgumentList.Arguments[0].Expression;
         }
 
-        private static string GetStepDisplayName(InvocationExpressionSyntax invocation)
+        private static string GetStepDisplayName(SemanticModel semanticModel, InvocationExpressionSyntax invocation, string invocationName)
         {
+            if (invocationName == "Branch")
+            {
+                var genericArguments = GetGenericArguments(invocation);
+                if (genericArguments.Count > 0)
+                    return GetShortTypeName(GetTypeName(semanticModel, genericArguments[0])) + " branch";
+
+                return "Branch";
+            }
+
             var delegateExpression = GetDelegateExpression(invocation);
             if (delegateExpression == null)
                 return GetInvocationName(invocation);
@@ -340,36 +362,141 @@ namespace Spider.Pipelines.Analyzers
             return "spider.flow-step";
         }
 
-        private static EvidenceModel[] CreateEvidence(SemanticModel semanticModel, SyntaxNode node, ExpressionSyntax referencedExpression)
+        private static EvidenceModel[] CreateEvidence(
+            SemanticModel semanticModel,
+            SyntaxNode node,
+            ExpressionSyntax referencedExpression,
+            IReadOnlyCollection<string> sourceRoots)
+        {
+            var evidenceNode = GetEvidenceNode(semanticModel, node, referencedExpression);
+            return CreateEvidenceFromNode(evidenceNode, sourceRoots);
+        }
+
+        private static SyntaxNode GetEvidenceNode(SemanticModel semanticModel, SyntaxNode fallbackNode, ExpressionSyntax referencedExpression)
+        {
+            if (referencedExpression == null)
+                return fallbackNode;
+
+            if (referencedExpression is LambdaExpressionSyntax)
+                return referencedExpression;
+
+            var symbol = semanticModel.GetSymbolInfo(referencedExpression).Symbol ??
+                         semanticModel.GetSymbolInfo(referencedExpression).CandidateSymbols.FirstOrDefault();
+            var declaringSyntax = symbol?.DeclaringSyntaxReferences.FirstOrDefault();
+            if (declaringSyntax == null)
+                return fallbackNode;
+
+            return declaringSyntax.GetSyntax();
+        }
+
+        private static EvidenceModel[] CreateEvidenceFromNode(SyntaxNode node, IReadOnlyCollection<string> sourceRoots)
         {
             var lineSpan = node.SyntaxTree.GetLineSpan(node.Span);
             var containingType = node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-            var containingMember = node.Ancestors().OfType<MemberDeclarationSyntax>()
-                .FirstOrDefault(member => !(member is TypeDeclarationSyntax));
+            var containingMember = node as MemberDeclarationSyntax ??
+                                   node.Ancestors().OfType<MemberDeclarationSyntax>()
+                                       .FirstOrDefault(member => !(member is TypeDeclarationSyntax));
 
             return new[]
             {
                 new EvidenceModel(
                     "source-generator",
-                    lineSpan.Path ?? string.Empty,
+                    NormalizeSourcePath(lineSpan.Path, sourceRoots),
                     lineSpan.StartLinePosition.Line + 1,
                     containingType?.Identifier.ValueText ?? string.Empty,
-                    GetEvidenceMemberName(semanticModel, containingMember, referencedExpression))
+                    GetContainingMemberName(containingMember))
             };
         }
 
-        private static string GetEvidenceMemberName(SemanticModel semanticModel, MemberDeclarationSyntax containingMember, ExpressionSyntax referencedExpression)
+        private static IReadOnlyCollection<string> CreateSourceRoots(GeneratorExecutionContext context)
         {
-            if (referencedExpression != null)
-            {
-                var symbol = semanticModel.GetSymbolInfo(referencedExpression).Symbol;
-                if (symbol != null)
-                    return symbol.Name;
+            var roots = new List<string>();
 
-                if (referencedExpression is LambdaExpressionSyntax)
-                    return "<lambda>";
+            AddGlobalOption(context, roots, "build_property.ProjectDir");
+            AddGlobalOption(context, roots, "build_property.MSBuildProjectDirectory");
+            AddGlobalOption(context, roots, "build_property.SolutionDir");
+
+            return roots
+                .Select(NormalizeDirectoryPath)
+                .Where(root => !string.IsNullOrWhiteSpace(root))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static void AddGlobalOption(GeneratorExecutionContext context, ICollection<string> roots, string key)
+        {
+            string value;
+            if (context.AnalyzerConfigOptions.GlobalOptions.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value))
+                roots.Add(value);
+        }
+
+        private static string NormalizeSourcePath(string path, IReadOnlyCollection<string> sourceRoots)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return string.Empty;
+
+            var normalizedPath = NormalizePath(path);
+            if (!IsRootedSourcePath(path))
+                return normalizedPath;
+
+            foreach (var sourceRoot in sourceRoots ?? Array.Empty<string>())
+            {
+                var relativePath = TryMakeRelativePath(sourceRoot, normalizedPath);
+                if (!string.IsNullOrWhiteSpace(relativePath))
+                    return relativePath;
             }
 
+            return GetFileName(normalizedPath);
+        }
+
+        private static string TryMakeRelativePath(string sourceRoot, string sourcePath)
+        {
+            var root = NormalizeDirectoryPath(sourceRoot);
+            var path = NormalizePath(sourcePath);
+
+            if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(path))
+                return null;
+
+            var comparison = HasWindowsDrive(root) || HasWindowsDrive(path)
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
+            if (!root.EndsWith("/", StringComparison.Ordinal))
+                root += "/";
+
+            if (!path.StartsWith(root, comparison))
+                return null;
+
+            var relativePath = path.Substring(root.Length).TrimStart('/');
+            return string.IsNullOrWhiteSpace(relativePath) ? GetFileName(path) : relativePath;
+        }
+
+        private static string NormalizeDirectoryPath(string path)
+            => NormalizePath(path).TrimEnd('/');
+
+        private static string NormalizePath(string path)
+            => (path ?? string.Empty).Replace('\\', '/');
+
+        private static bool IsRootedSourcePath(string path)
+            => !string.IsNullOrWhiteSpace(path) &&
+               (Path.IsPathRooted(path) || HasWindowsDrive(path));
+
+        private static bool HasWindowsDrive(string path)
+            => !string.IsNullOrWhiteSpace(path) &&
+               path.Length >= 3 &&
+               char.IsLetter(path[0]) &&
+               path[1] == ':' &&
+               (path[2] == '\\' || path[2] == '/');
+
+        private static string GetFileName(string path)
+        {
+            var normalizedPath = NormalizePath(path);
+            var index = normalizedPath.LastIndexOf('/');
+            return index < 0 ? normalizedPath : normalizedPath.Substring(index + 1);
+        }
+
+        private static string GetContainingMemberName(MemberDeclarationSyntax containingMember)
+        {
             if (containingMember is MethodDeclarationSyntax method)
                 return method.Identifier.ValueText;
 

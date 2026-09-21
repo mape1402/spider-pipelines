@@ -42,6 +42,12 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("data-node-id", html);
             Assert.Contains("spider-edge", html);
             Assert.Contains("Execution order", html);
+            Assert.Contains("Action declared in", html);
+            Assert.Contains("Action source file", html);
+            Assert.Contains("Configured in", html);
+            Assert.Contains("Configuration source file", html);
+            Assert.Contains("Action", html);
+            Assert.Contains("Fluent call", html);
             Assert.Contains("spider-manifest-data", html);
             Assert.Contains("Create customer", html);
             Assert.Contains("spider.flow:create-customer", html);
