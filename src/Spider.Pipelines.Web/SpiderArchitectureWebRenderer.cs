@@ -109,7 +109,7 @@ namespace Spider.Pipelines.Web
 
 :root {
   color-scheme: light;
-  --spider-sidebar-width: 244px;
+  --spider-sidebar-width: 220px;
   --spider-sidebar-bg: #111827;
   --spider-sidebar-brand: #0b1020;
   --spider-sidebar-border: #252b3a;
@@ -143,7 +143,7 @@ namespace Spider.Pipelines.Web
   --spider-amber-soft: var(--spider-red-soft);
   --spider-purple: var(--spider-blue-strong);
   --spider-purple-soft: var(--spider-blue-soft);
-  --spider-shadow: 0 10px 28px rgba(17, 24, 39, 0.08);
+  --spider-shadow: 0 8px 18px rgba(17, 24, 39, 0.06);
   --spider-radius: 8px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
 }
@@ -196,7 +196,7 @@ button {
   overflow: hidden;
   border-bottom: 1px solid var(--spider-sidebar-border);
   background: var(--spider-sidebar-brand);
-  padding: 0 18px;
+  padding: 0 14px;
 }
 
 .spider-logo {
@@ -243,7 +243,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: calc(100% - 8px);
+  width: calc(100% - 6px);
   border: 1px solid transparent;
   border-left: 2px solid transparent;
   border-radius: 0 var(--spider-radius) var(--spider-radius) 0;
@@ -252,8 +252,8 @@ button {
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 500;
-  margin-right: 8px;
-  padding: 7px 14px 7px 18px;
+  margin-right: 6px;
+  padding: 7px 12px 7px 16px;
   text-align: left;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
@@ -350,11 +350,12 @@ button {
   flex: 1 1 auto;
   min-width: 0;
   overflow-y: auto;
-  padding: 24px 28px;
+  padding: 18px 22px;
 }
 
 .spider-content {
-  width: min(100%, 1180px);
+  width: 100%;
+  max-width: none;
 }
 
 .spider-view-header,
@@ -408,7 +409,10 @@ button {
 
 .spider-process-list {
   display: grid;
-  gap: 9px;
+  overflow: hidden;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .spider-process-row {
@@ -417,17 +421,21 @@ button {
   align-items: center;
   gap: 16px;
   width: 100%;
-  border: 1px solid var(--spider-line);
-  border-radius: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--spider-line);
+  border-radius: 0;
   background: #ffffff;
   cursor: pointer;
-  padding: 13px 14px;
+  padding: 11px 14px;
   text-align: left;
 }
 
+.spider-process-row:last-child {
+  border-bottom: 0;
+}
+
 .spider-process-row:hover {
-  border-color: var(--spider-line-strong);
-  box-shadow: var(--spider-shadow);
+  background: #fbfcff;
 }
 
 .spider-process-name {
@@ -524,7 +532,7 @@ button {
 
 .spider-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: 280px minmax(320px, 460px) minmax(300px, 1fr);
   gap: 14px;
   align-items: start;
 }
@@ -539,7 +547,7 @@ button {
 }
 
 .spider-panel {
-  padding: 14px;
+  padding: 12px;
 }
 
 .spider-panel-header {
@@ -563,6 +571,87 @@ button {
   font-size: 0.78rem;
 }
 
+.spider-process-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.spider-summary-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.spider-summary-item {
+  display: grid;
+  gap: 2px;
+}
+
+.spider-summary-label {
+  color: var(--spider-muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.spider-summary-value {
+  overflow-wrap: anywhere;
+  color: var(--spider-text);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.spider-outline {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--spider-line);
+  padding-top: 10px;
+}
+
+.spider-outline-title {
+  color: var(--spider-muted);
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.spider-outline-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  padding: 5px 6px;
+  text-align: left;
+}
+
+.spider-outline-row:hover {
+  background: var(--spider-panel-soft);
+}
+
+.spider-outline-row.is-selected {
+  border-color: rgba(230, 36, 45, 0.28);
+  background: var(--spider-red-soft);
+}
+
+.spider-outline-index {
+  color: var(--spider-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.spider-outline-name {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .spider-graph-wrap {
   overflow: visible;
 }
@@ -571,46 +660,45 @@ button {
   display: block;
   width: 100%;
   height: auto;
-  min-height: 360px;
+  min-height: 0;
 }
 
 .spider-edge {
   fill: none;
-  stroke: #9db6df;
-  stroke-width: 2;
-  filter: drop-shadow(0 1px 1px rgba(23, 76, 153, 0.16));
+  stroke: #9aa4b2;
+  stroke-width: 1.35;
 }
 
 .spider-graph-node {
   cursor: pointer;
 }
 
-.spider-graph-node rect {
+.spider-graph-node .spider-node-box {
   fill: #ffffff;
   stroke: var(--spider-line-strong);
-  stroke-width: 1.25;
-  filter: drop-shadow(0 5px 10px rgba(23, 32, 51, 0.07));
+  stroke-width: 1;
+  filter: drop-shadow(0 4px 8px rgba(23, 32, 51, 0.08));
 }
 
-.spider-graph-node.is-root rect {
-  fill: var(--spider-blue-soft);
-  stroke: var(--spider-blue);
+.spider-graph-node .spider-node-accent {
+  fill: var(--spider-red);
 }
 
-.spider-graph-node.is-condition rect {
-  fill: var(--spider-amber-soft);
-  stroke: var(--spider-amber);
+.spider-graph-node.is-root .spider-node-accent {
+  fill: var(--spider-black);
 }
 
-.spider-graph-node.is-branch rect {
-  fill: var(--spider-purple-soft);
-  stroke: var(--spider-purple);
+.spider-graph-node.is-condition .spider-node-accent {
+  fill: var(--spider-red-strong);
 }
 
-.spider-graph-node.is-selected rect {
-  fill: var(--spider-red-soft);
+.spider-graph-node.is-branch .spider-node-accent {
+  fill: #334155;
+}
+
+.spider-graph-node.is-selected .spider-node-box {
   stroke: var(--spider-red);
-  stroke-width: 2.25;
+  stroke-width: 2;
 }
 
 .spider-graph-node text {
@@ -619,6 +707,10 @@ button {
 }
 
 .spider-graph-node .spider-node-subtitle {
+  fill: var(--spider-muted);
+}
+
+.spider-graph-node .spider-node-index {
   fill: var(--spider-muted);
 }
 
@@ -687,13 +779,20 @@ button {
   display: none !important;
 }
 
-@media (max-width: 940px) {
+@media (max-width: 1160px) {
   .spider-detail-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(240px, 300px) minmax(320px, 1fr);
   }
 
   .spider-node-detail {
     position: static;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 940px) {
+  .spider-detail-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -956,10 +1055,13 @@ button {
           </div>
         </header>
         <div class="spider-detail-layout">
+          <aside class="spider-panel spider-process-summary">
+            ${renderProcessSummary(process, children, profiles)}
+          </aside>
           <section class="spider-panel">
             <div class="spider-panel-header">
               <h2>Graph</h2>
-              <span class="spider-panel-note">Vertical execution order</span>
+              <span class="spider-panel-note">Execution order</span>
             </div>
             <div class="spider-graph-wrap spider-process-graph">${graph}</div>
           </section>
@@ -968,6 +1070,59 @@ button {
           </aside>
         </div>
       </article>`;
+  }
+
+  function renderProcessSummary(process, children, profiles) {
+    const evidence = process.evidence || [];
+    const source = evidence.length && evidence[0].filePath
+      ? `${evidence[0].filePath}${evidence[0].lineNumber ? ":" + evidence[0].lineNumber : ""}`
+      : "Not available";
+    const kind = process.kind === "spider.flow" ? "Flow" : "Pipeline";
+    const childLabel = process.kind === "spider.flow" ? "Steps" : "Stages";
+    const profileText = profiles.length
+      ? profiles.map((profile) => profile.displayName || profile.id).join(", ")
+      : "None";
+
+    return `
+      <div class="spider-panel-header">
+        <h2>${escapeHtml(kind)} summary</h2>
+      </div>
+      <div class="spider-summary-grid">
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">Signature</span>
+          <span class="spider-summary-value">${escapeHtml(getSignature(process))}</span>
+        </div>
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">${escapeHtml(childLabel)}</span>
+          <span class="spider-summary-value">${escapeHtml(String(children.length))}</span>
+        </div>
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">Profiles</span>
+          <span class="spider-summary-value">${escapeHtml(profileText)}</span>
+        </div>
+        <div class="spider-summary-item spider-evidence">
+          <span class="spider-summary-label">Source</span>
+          <span class="spider-summary-value">${escapeHtml(shortPath(source))}</span>
+        </div>
+      </div>
+      ${renderProcessOutline(process, children)}`;
+  }
+
+  function renderProcessOutline(process, children) {
+    if (!children.length) {
+      return "";
+    }
+
+    const title = process.kind === "spider.flow" ? "Flow outline" : "Pipeline outline";
+    return `
+      <div class="spider-outline">
+        <div class="spider-outline-title">${escapeHtml(title)}</div>
+        ${children.map((child, index) => `
+          <button class="spider-outline-row" type="button" data-node-id="${escapeAttribute(child.id)}">
+            <span class="spider-outline-index">${escapeHtml(String(index + 1).padStart(2, "0"))}</span>
+            <span class="spider-outline-name">${escapeHtml(child.displayName || child.id)}</span>
+          </button>`).join("")}
+      </div>`;
   }
 
   function renderJson() {
@@ -987,12 +1142,12 @@ button {
 
   function renderVerticalGraph(process, children) {
     const nodes = [process].concat(children);
-    const width = 760;
-    const nodeWidth = 430;
-    const nodeHeight = 74;
-    const nodeX = 165;
-    const top = 24;
-    const gap = 112;
+    const width = 360;
+    const nodeWidth = 250;
+    const nodeHeight = 50;
+    const nodeX = 54;
+    const top = 16;
+    const gap = 74;
     const height = Math.max(260, top + nodes.length * gap);
     const center = nodeX + (nodeWidth / 2);
     const edges = [];
@@ -1010,16 +1165,17 @@ button {
       renderedNodes.push(`
         <g class="spider-graph-node${rootClass}${graphClass}${selected}" data-node-id="${escapeAttribute(node.id)}" transform="translate(${nodeX}, ${y})">
           <title>${escapeHtml(node.displayName || node.id)}</title>
-          <rect width="${nodeWidth}" height="${nodeHeight}" rx="10"></rect>
-          <text x="18" y="28" font-size="13" font-weight="800">${escapeHtml(number)}</text>
-          <text x="56" y="29" font-size="14" font-weight="800">${escapeHtml(truncate(node.displayName || node.id, 42))}</text>
-          <text class="spider-node-subtitle" x="56" y="51" font-size="12">${escapeHtml(truncate(subtitle, 48))}</text>
+          <rect class="spider-node-box" width="${nodeWidth}" height="${nodeHeight}" rx="7"></rect>
+          <rect class="spider-node-accent" width="4" height="${nodeHeight}" rx="2"></rect>
+          <text class="spider-node-index" x="16" y="30" font-size="11" font-weight="800">${escapeHtml(number)}</text>
+          <text x="46" y="22" font-size="12" font-weight="800">${escapeHtml(truncate(node.displayName || node.id, 28))}</text>
+          <text class="spider-node-subtitle" x="46" y="39" font-size="10.5">${escapeHtml(truncate(subtitle, 34))}</text>
         </g>`);
 
       if (index < nodes.length - 1) {
         const y1 = y + nodeHeight;
         const y2 = y + gap;
-        edges.push(`<path class="spider-edge" d="M ${center} ${y1} C ${center} ${y1 + 24}, ${center} ${y2 - 24}, ${center} ${y2 - 8}" marker-end="url(#spider-arrow)" />`);
+        edges.push(`<path class="spider-edge" d="M ${center} ${y1} C ${center} ${y1 + 16}, ${center} ${y2 - 18}, ${center} ${y2 - 7}" marker-end="url(#spider-arrow)" />`);
       }
     }
 
@@ -1027,7 +1183,7 @@ button {
       <svg class="spider-architecture-graph" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(process.displayName || "Spider process graph")}" preserveAspectRatio="xMidYMin meet">
         <defs>
           <marker id="spider-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#9db6df"></path>
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa4b2"></path>
           </marker>
         </defs>
         ${edges.join("")}
@@ -1044,6 +1200,9 @@ button {
 
     state.nodeId = id;
     document.querySelectorAll(".spider-graph-node").forEach((item) => {
+      item.classList.toggle("is-selected", item.getAttribute("data-node-id") === id);
+    });
+    document.querySelectorAll(".spider-outline-row").forEach((item) => {
       item.classList.toggle("is-selected", item.getAttribute("data-node-id") === id);
     });
 
@@ -1251,6 +1410,21 @@ button {
 
     const index = value.lastIndexOf(".");
     return index < 0 ? value : value.substring(index + 1);
+  }
+
+  function shortPath(value) {
+    const text = String(value || "");
+    if (!text || text === "Not available") {
+      return text;
+    }
+
+    const normalized = text.replace(/\\/g, "/");
+    const parts = normalized.split("/");
+    if (parts.length <= 2) {
+      return text;
+    }
+
+    return parts.slice(-2).join("/");
   }
 
   function formatLabel(value) {
