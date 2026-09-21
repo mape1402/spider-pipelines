@@ -538,9 +538,27 @@ button {
 
 .spider-detail-layout {
   display: grid;
-  grid-template-columns: 280px minmax(320px, 460px) minmax(300px, 1fr);
+  grid-template-columns: minmax(220px, 260px) minmax(560px, 1fr) minmax(220px, 280px);
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
+  min-height: calc(100vh - 220px);
+}
+
+.spider-detail-layout.is-inspector-collapsed {
+  grid-template-columns: minmax(220px, 260px) minmax(640px, 1fr) 42px;
+}
+
+.spider-detail-layout.is-inspector-collapsed .spider-node-detail-body {
+  display: none;
+}
+
+.spider-detail-layout.is-inspector-collapsed .spider-node-detail {
+  min-height: 100%;
+  padding: 10px 8px;
+}
+
+.spider-detail-layout.is-inspector-collapsed .spider-node-header {
+  display: none;
 }
 
 .spider-panel,
@@ -554,6 +572,12 @@ button {
 
 .spider-panel {
   padding: 12px;
+}
+
+.spider-process-summary,
+.spider-graph-panel,
+.spider-node-detail {
+  height: calc(100vh - 220px);
 }
 
 .spider-panel-header {
@@ -577,9 +601,17 @@ button {
   font-size: 0.78rem;
 }
 
+.spider-graph-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .spider-process-summary {
   display: grid;
   gap: 12px;
+  align-content: start;
+  overflow: auto;
 }
 
 .spider-summary-grid {
@@ -643,6 +675,37 @@ button {
   background: var(--spider-red-soft);
 }
 
+.spider-outline-row.is-selected.is-branch,
+.spider-outline-row.is-selected.is-route {
+  border-color: rgba(29, 95, 191, 0.28);
+  background: var(--spider-blue-soft);
+}
+
+.spider-outline-row.is-selected.is-stage {
+  border-color: rgba(17, 24, 39, 0.22);
+  background: var(--spider-panel-soft);
+}
+
+.spider-outline-row.is-selected.is-condition {
+  border-color: rgba(189, 16, 24, 0.28);
+  background: var(--spider-red-soft);
+}
+
+.spider-outline-row.is-nested {
+  margin-left: 18px;
+  width: calc(100% - 18px);
+}
+
+.spider-outline-row.is-route {
+  grid-template-columns: 26px minmax(0, 1fr);
+  background: var(--spider-panel-soft);
+}
+
+.spider-outline-row.is-route-step {
+  margin-left: 34px;
+  width: calc(100% - 34px);
+}
+
 .spider-outline-index {
   color: var(--spider-muted);
   font-size: 0.72rem;
@@ -659,13 +722,21 @@ button {
 }
 
 .spider-graph-wrap {
-  overflow: visible;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
 }
 
 .spider-architecture-graph {
   display: block;
-  width: 100%;
+  width: var(--spider-graph-width, 520px);
+  max-width: none;
   height: auto;
+  margin: 0 auto;
   min-height: 0;
 }
 
@@ -694,9 +765,52 @@ button {
   fill: var(--spider-black);
 }
 
+.spider-graph-node.is-branch .spider-node-accent {
+  fill: var(--spider-blue);
+}
+
+.spider-graph-node.is-route .spider-node-accent {
+  fill: var(--spider-blue-strong);
+}
+
+.spider-graph-node.is-route-step .spider-node-accent {
+  fill: var(--spider-red);
+}
+
+.spider-graph-node.is-stage .spider-node-accent {
+  fill: var(--spider-black);
+}
+
+.spider-graph-node.is-condition .spider-node-accent {
+  fill: var(--spider-red-strong);
+}
+
+.spider-graph-node.is-linked-flow .spider-node-box {
+  stroke: rgba(230, 36, 45, 0.45);
+}
+
 .spider-graph-node.is-selected .spider-node-box {
   stroke: var(--spider-red);
   stroke-width: 2;
+}
+
+.spider-graph-node.is-selected.is-branch .spider-node-box,
+.spider-graph-node.is-selected.is-route .spider-node-box {
+  stroke: var(--spider-blue);
+}
+
+.spider-graph-node.is-selected.is-stage .spider-node-box,
+.spider-graph-node.is-selected.is-root .spider-node-box {
+  stroke: var(--spider-black);
+}
+
+.spider-graph-node.is-selected.is-condition .spider-node-box {
+  stroke: var(--spider-red-strong);
+}
+
+.spider-graph-node.is-route .spider-node-box,
+.spider-graph-node.is-route-step .spider-node-box {
+  fill: #fbfcff;
 }
 
 .spider-graph-node text {
@@ -712,16 +826,101 @@ button {
   fill: var(--spider-muted);
 }
 
+.spider-graph-link .spider-link-dot {
+  fill: #ffffff;
+  stroke: var(--spider-red);
+  stroke-width: 1.4;
+}
+
+.spider-graph-link text {
+  fill: var(--spider-red);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.spider-graph-link:hover .spider-link-dot {
+  fill: var(--spider-red-soft);
+  stroke-width: 1.8;
+}
+
+.spider-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spider-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--spider-muted);
+  font-size: 0.74rem;
+}
+
+.spider-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--spider-red);
+}
+
+.spider-legend-swatch.branch {
+  background: var(--spider-blue);
+}
+
+.spider-legend-swatch.route {
+  background: var(--spider-blue-strong);
+}
+
+.spider-legend-swatch.stage {
+  background: var(--spider-black);
+}
+
 .spider-node-detail {
   position: sticky;
   top: 22px;
-  padding: 14px;
+  overflow: auto;
+  padding: 12px;
 }
 
 .spider-node-header {
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.spider-node-detail-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.spider-detail-layout.is-inspector-collapsed .spider-node-detail-top {
+  align-items: center;
+  justify-content: center;
+}
+
+.spider-inspector-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--spider-line);
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--spider-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.spider-inspector-toggle:hover {
+  border-color: rgba(230, 36, 45, 0.38);
+  background: var(--spider-red-soft);
+  color: var(--spider-red);
 }
 
 .spider-definition {
@@ -756,6 +955,42 @@ button {
   gap: 6px;
 }
 
+.spider-related-list {
+  display: grid;
+  gap: 6px;
+}
+
+.spider-related-button {
+  display: grid;
+  width: 100%;
+  border: 1px solid rgba(230, 36, 45, 0.32);
+  border-radius: 7px;
+  background: var(--spider-red-soft);
+  color: var(--spider-text);
+  cursor: pointer;
+  gap: 2px;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.spider-related-button:hover {
+  border-color: rgba(230, 36, 45, 0.62);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.08);
+}
+
+.spider-related-label {
+  color: var(--spider-red);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.spider-related-name {
+  overflow-wrap: anywhere;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 [data-show-evidence="false"] .spider-evidence {
   display: none;
 }
@@ -780,6 +1015,21 @@ button {
 @media (max-width: 1160px) {
   .spider-detail-layout {
     grid-template-columns: minmax(240px, 300px) minmax(320px, 1fr);
+    min-height: 0;
+  }
+
+  .spider-detail-layout.is-inspector-collapsed {
+    grid-template-columns: minmax(240px, 300px) minmax(320px, 1fr);
+  }
+
+  .spider-process-summary,
+  .spider-graph-panel,
+  .spider-node-detail {
+    height: auto;
+  }
+
+  .spider-graph-wrap {
+    max-height: calc(100vh - 220px);
   }
 
   .spider-node-detail {
@@ -859,7 +1109,8 @@ button {
     mode: "list",
     processId: "",
     nodeId: "",
-    query: ""
+    query: "",
+    inspectorCollapsed: false
   };
 
   flowCount.textContent = String(flows.length);
@@ -885,6 +1136,16 @@ button {
     const back = event.target.closest("[data-back-list]");
     if (back) {
       showList(state.view);
+      return;
+    }
+
+    const inspectorToggle = event.target.closest("[data-toggle-inspector]");
+    if (inspectorToggle) {
+      state.inspectorCollapsed = !state.inspectorCollapsed;
+      const process = byId.get(state.processId);
+      if (process) {
+        renderProcessDetail(process, orderChildren(process));
+      }
       return;
     }
 
@@ -1056,14 +1317,20 @@ button {
             <p class="spider-detail-subtitle">${escapeHtml(describeProcess(process, children))}</p>
           </div>
         </header>
-        <div class="spider-detail-layout">
+        <div class="spider-detail-layout${state.inspectorCollapsed ? " is-inspector-collapsed" : ""}">
           <aside class="spider-panel spider-process-summary">
             ${renderProcessSummary(process, children, profiles)}
           </aside>
-          <section class="spider-panel">
+          <section class="spider-panel spider-graph-panel">
             <div class="spider-panel-header">
               <h2>Graph</h2>
-              <span class="spider-panel-note">Execution order</span>
+              <div class="spider-graph-legend" aria-label="Graph operation legend">
+                <span class="spider-legend-item"><i class="spider-legend-swatch"></i>Step</span>
+                <span class="spider-legend-item"><i class="spider-legend-swatch branch"></i>Branch</span>
+                <span class="spider-legend-item"><i class="spider-legend-swatch route"></i>Route</span>
+                <span class="spider-legend-item"><i class="spider-legend-swatch stage"></i>Pipeline</span>
+                <span class="spider-legend-item">↗ Linked flow</span>
+              </div>
             </div>
             <div class="spider-graph-wrap spider-process-graph">${graph}</div>
           </section>
@@ -1099,7 +1366,34 @@ button {
           <span class="spider-summary-value">${escapeHtml(profileText)}</span>
         </div>
       </div>
+      ${renderProcessRelations(process)}
       ${renderProcessOutline(process, children)}`;
+  }
+
+  function renderProcessRelations(process) {
+    const invokedFlows = getOutgoing(process.id, "pipeline-invokes-flow");
+    const usedByPipelines = getIncoming(process.id, "pipeline-invokes-flow");
+    const usedBySteps = getIncoming(process.id, "invokes-flow")
+      .map((source) => {
+        const owner = findOwningProcess(source.id);
+        return owner || source;
+      })
+      .filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index);
+
+    const sections = [];
+    if (invokedFlows.length) {
+      sections.push(renderRelatedButtons("Linked flows", invokedFlows, "Open flow"));
+    }
+
+    if (usedByPipelines.length || usedBySteps.length) {
+      sections.push(renderRelatedButtons("Referenced by", usedByPipelines.concat(usedBySteps), "Open parent"));
+    }
+
+    if (!sections.length) {
+      return "";
+    }
+
+    return `<div class="spider-detail-section">${sections.join("")}</div>`;
   }
 
   function renderProcessOutline(process, children) {
@@ -1108,15 +1402,39 @@ button {
     }
 
     const title = process.kind === "spider.flow" ? "Flow outline" : "Pipeline outline";
+    const rows = [];
+    children.forEach((child, index) => {
+      rows.push(renderOutlineRow(child, String(index + 1).padStart(2, "0"), ""));
+
+      if (child.kind !== "spider.flow-branch") {
+        return;
+      }
+
+      const routes = getBranchRoutes(child);
+      routes.forEach((route, routeIndex) => {
+        const routeNumber = `${index + 1}.${routeIndex + 1}`;
+        rows.push(renderOutlineRow(route, routeNumber, " is-nested is-route"));
+
+        getRouteSteps(route).forEach((step, stepIndex) => {
+          rows.push(renderOutlineRow(step, `${routeNumber}.${stepIndex + 1}`, " is-nested is-route-step"));
+        });
+      });
+    });
+
     return `
       <div class="spider-outline">
         <div class="spider-outline-title">${escapeHtml(title)}</div>
-        ${children.map((child, index) => `
-          <button class="spider-outline-row${child.id === state.nodeId ? " is-selected" : ""}" type="button" data-node-id="${escapeAttribute(child.id)}">
-            <span class="spider-outline-index">${escapeHtml(String(index + 1).padStart(2, "0"))}</span>
-            <span class="spider-outline-name">${escapeHtml(child.displayName || child.id)}</span>
-          </button>`).join("")}
+        ${rows.join("")}
       </div>`;
+  }
+
+  function renderOutlineRow(node, index, className) {
+    const semanticClass = getGraphClass(node);
+    return `
+      <button class="spider-outline-row${semanticClass}${className || ""}${node.id === state.nodeId ? " is-selected" : ""}" type="button" data-node-id="${escapeAttribute(node.id)}">
+        <span class="spider-outline-index">${escapeHtml(index)}</span>
+        <span class="spider-outline-name">${escapeHtml(node.displayName || node.id)}</span>
+      </button>`;
   }
 
   function renderJson() {
@@ -1135,46 +1453,48 @@ button {
   }
 
   function renderVerticalGraph(process, children) {
-    const nodes = [process].concat(children);
-    const width = 360;
+    const branchWidth = getGraphBranchWidth(children);
+    const width = Math.max(420, branchWidth);
     const nodeWidth = 250;
     const nodeHeight = 50;
-    const nodeX = 54;
+    const nodeX = Math.round((width - nodeWidth) / 2);
     const top = 16;
     const gap = 74;
-    const height = Math.max(260, top + nodes.length * gap);
     const center = nodeX + (nodeWidth / 2);
     const edges = [];
     const renderedNodes = [];
+    let y = top;
 
-    for (let index = 0; index < nodes.length; index++) {
-      const node = nodes[index];
-      const y = top + (index * gap);
-      const selected = node.id === state.nodeId ? " is-selected" : "";
-      const rootClass = index === 0 ? " is-root" : "";
-      const graphClass = getGraphClass(node);
-      const subtitle = index === 0 ? getSignature(node) : getNodeSubtitle(node);
-      const number = index === 0 ? "0" : String(index).padStart(2, "0");
+    renderedNodes.push(renderGraphNode(process, "0", nodeX, y, nodeWidth, nodeHeight, " is-root", getSignature(process)));
+    let previousExit = { x: center, y: y + nodeHeight };
+    y += gap;
 
-      renderedNodes.push(`
-        <g class="spider-graph-node${rootClass}${graphClass}${selected}" data-node-id="${escapeAttribute(node.id)}" transform="translate(${nodeX}, ${y})">
-          <title>${escapeHtml(node.displayName || node.id)}</title>
-          <rect class="spider-node-box" width="${nodeWidth}" height="${nodeHeight}" rx="7"></rect>
-          <rect class="spider-node-accent" width="4" height="${nodeHeight}" rx="2"></rect>
-          <text class="spider-node-index" x="16" y="30" font-size="11" font-weight="800">${escapeHtml(number)}</text>
-          <text x="46" y="22" font-size="12" font-weight="800">${escapeHtml(truncate(node.displayName || node.id, 28))}</text>
-          <text class="spider-node-subtitle" x="46" y="39" font-size="10.5">${escapeHtml(truncate(subtitle, 34))}</text>
-        </g>`);
+    for (let index = 0; index < children.length; index++) {
+      const node = children[index];
+      const number = String(index + 1).padStart(2, "0");
 
-      if (index < nodes.length - 1) {
-        const y1 = y + nodeHeight;
-        const y2 = y + gap;
-        edges.push(`<path class="spider-edge" d="M ${center} ${y1} C ${center} ${y1 + 16}, ${center} ${y2 - 18}, ${center} ${y2 - 7}" marker-end="url(#spider-arrow)" />`);
+      edges.push(renderGraphEdge(previousExit.x, previousExit.y, center, y));
+
+      if (node.kind === "spider.flow-branch" && getBranchRoutes(node).length) {
+        renderedNodes.push(renderGraphNode(node, number, nodeX, y, nodeWidth, nodeHeight, getGraphClass(node), getNodeSubtitle(node)));
+        const branchExit = { x: center, y: y + nodeHeight };
+        const layout = renderBranchGraph(node, number, branchExit, y + 86, width);
+        edges.push(...layout.edges);
+        renderedNodes.push(...layout.nodes);
+        previousExit = { x: center, y: layout.exitY };
+        y = layout.exitY + 48;
+        continue;
       }
+
+      renderedNodes.push(renderGraphNode(node, number, nodeX, y, nodeWidth, nodeHeight, getGraphClass(node), getNodeSubtitle(node)));
+      previousExit = { x: center, y: y + nodeHeight };
+      y += gap;
     }
 
+    const height = Math.max(260, y + 24);
+
     return `
-      <svg class="spider-architecture-graph" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(process.displayName || "Spider process graph")}" preserveAspectRatio="xMidYMin meet">
+      <svg class="spider-architecture-graph" style="--spider-graph-width: ${width}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(process.displayName || "Spider process graph")}" preserveAspectRatio="xMidYMin meet">
         <defs>
           <marker id="spider-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa4b2"></path>
@@ -1183,6 +1503,92 @@ button {
         ${edges.join("")}
         ${renderedNodes.join("")}
       </svg>`;
+  }
+
+  function renderBranchGraph(branch, branchNumber, branchExit, startY, width) {
+    const routes = getBranchRoutes(branch);
+    const routeWidth = 190;
+    const routeHeight = 46;
+    const routeGapX = 24;
+    const routeGapY = 64;
+    const totalWidth = (routes.length * routeWidth) + ((routes.length - 1) * routeGapX);
+    const startX = Math.max(18, Math.round((width - totalWidth) / 2));
+    const edges = [];
+    const nodes = [];
+    let maxBottom = startY;
+
+    routes.forEach((route, routeIndex) => {
+      const routeX = startX + (routeIndex * (routeWidth + routeGapX));
+      const routeCenter = routeX + (routeWidth / 2);
+      const routeNumber = `${branchNumber}.${routeIndex + 1}`;
+      nodes.push(renderGraphNode(route, routeNumber, routeX, startY, routeWidth, routeHeight, getGraphClass(route), getNodeSubtitle(route)));
+      edges.push(renderGraphEdge(branchExit.x, branchExit.y, routeCenter, startY));
+
+      let currentExit = { x: routeCenter, y: startY + routeHeight };
+      let stepY = startY + routeGapY;
+      const steps = getRouteSteps(route);
+
+      steps.forEach((step, stepIndex) => {
+        edges.push(renderGraphEdge(currentExit.x, currentExit.y, routeCenter, stepY));
+        nodes.push(renderGraphNode(step, `${routeNumber}.${stepIndex + 1}`, routeX, stepY, routeWidth, routeHeight, " is-route-step", getNodeSubtitle(step)));
+        currentExit = { x: routeCenter, y: stepY + routeHeight };
+        stepY += routeGapY;
+      });
+
+      maxBottom = Math.max(maxBottom, currentExit.y);
+      route._spiderGraphExit = currentExit;
+    });
+
+    const exitY = maxBottom + 34;
+    routes.forEach((route) => {
+      const exit = route._spiderGraphExit;
+      if (exit) {
+        edges.push(renderGraphEdge(exit.x, exit.y, branchExit.x, exitY));
+        delete route._spiderGraphExit;
+      }
+    });
+
+    return { edges, nodes, exitY };
+  }
+
+  function renderGraphNode(node, number, x, y, width, height, extraClass, subtitle) {
+    const selected = node.id === state.nodeId ? " is-selected" : "";
+    const linkedFlow = getFirstLinkedFlow(node);
+    const linkedClass = linkedFlow ? " is-linked-flow" : "";
+    const graphClass = (extraClass || "") + linkedClass;
+    const numberText = String(number || "");
+    const textX = numberText.length > 4 ? 58 : 43;
+    const titleFontSize = numberText.length > 4 ? 9.4 : 10;
+    const subtitleFontSize = numberText.length > 4 ? 8.5 : 8.8;
+    const titleLimit = width > 220
+      ? (linkedFlow ? 23 : 30)
+      : (linkedFlow ? 17 : 21);
+    const subtitleLimit = width > 220
+      ? (linkedFlow ? 27 : 34)
+      : (linkedFlow ? 19 : 24);
+    const linkBadge = linkedFlow
+      ? `
+        <g class="spider-graph-link" data-open-process="${escapeAttribute(linkedFlow.id)}" transform="translate(${width - 20}, 9)">
+          <title>Open related flow: ${escapeHtml(linkedFlow.displayName || linkedFlow.id)}</title>
+          <circle class="spider-link-dot" cx="8" cy="8" r="8"></circle>
+          <text x="5" y="11">↗</text>
+        </g>`
+      : "";
+    return `
+      <g class="spider-graph-node${graphClass}${selected}" data-node-id="${escapeAttribute(node.id)}" transform="translate(${x}, ${y})">
+        <title>${escapeHtml(node.displayName || node.id)}</title>
+        <rect class="spider-node-box" width="${width}" height="${height}" rx="7"></rect>
+        <rect class="spider-node-accent" width="4" height="${height}" rx="2"></rect>
+        <text class="spider-node-index" x="14" y="${height > 48 ? 30 : 28}" font-size="9.5" font-weight="700">${escapeHtml(numberText)}</text>
+        <text x="${textX}" y="${height > 48 ? 21 : 20}" font-size="${titleFontSize}" font-weight="650">${escapeHtml(truncate(node.displayName || node.id, titleLimit))}</text>
+        <text class="spider-node-subtitle" x="${textX}" y="${height > 48 ? 37 : 35}" font-size="${subtitleFontSize}">${escapeHtml(truncate(subtitle, subtitleLimit))}</text>
+        ${linkBadge}
+      </g>`;
+  }
+
+  function renderGraphEdge(fromX, fromY, toX, toY) {
+    const midY = fromY + Math.max(16, Math.round((toY - fromY) / 2));
+    return `<path class="spider-edge" d="M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY - 7}" marker-end="url(#spider-arrow)" />`;
   }
 
   function selectNode(id) {
@@ -1227,16 +1633,92 @@ button {
           </dl>
         </div>`
       : "";
+    const branchRows = renderBranchDetail(node);
+    const relationRows = renderNodeRelations(node, process);
 
     return `
-      <div class="spider-node-header">
-        <span class="spider-node-kind ${getKindClass(node)}">${escapeHtml(getFriendlyKind(node))}</span>
-        <h2>${escapeHtml(node.displayName || node.id)}</h2>
+      <div class="spider-node-detail-top">
+        <div class="spider-node-header">
+          <span class="spider-node-kind ${getKindClass(node)}">${escapeHtml(getFriendlyKind(node))}</span>
+          <h2>${escapeHtml(node.displayName || node.id)}</h2>
+        </div>
+        <button class="spider-inspector-toggle" type="button" data-toggle-inspector title="${state.inspectorCollapsed ? "Show details" : "Hide details"}" aria-label="${state.inspectorCollapsed ? "Show details" : "Hide details"}">${state.inspectorCollapsed ? "i" : "×"}</button>
       </div>
-      <dl class="spider-definition">
-        ${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "Not declared")}</dd>`).join("")}
-      </dl>
-      ${evidenceRows}`;
+      <div class="spider-node-detail-body">
+        <dl class="spider-definition">
+          ${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "Not declared")}</dd>`).join("")}
+        </dl>
+        ${branchRows}
+        ${relationRows}
+        ${evidenceRows}
+      </div>`;
+  }
+
+  function renderBranchDetail(node) {
+    if (node.kind === "spider.flow-branch") {
+      const routes = getBranchRoutes(node);
+      if (!routes.length) {
+        return "";
+      }
+
+      return `
+        <div class="spider-detail-section">
+          ${renderRelatedButtons("Branch routes", routes, "Inspect route", "node")}
+        </div>`;
+    }
+
+    if (node.kind === "spider.flow-branch-route") {
+      const steps = getRouteSteps(node);
+      if (!steps.length) {
+        return "";
+      }
+
+      return `
+        <div class="spider-detail-section">
+          ${renderRelatedButtons("Route steps", steps, "Inspect step", "node")}
+        </div>`;
+    }
+
+    return "";
+  }
+
+  function renderNodeRelations(node, process) {
+    const outgoing = getOutgoing(node.id, "invokes-flow").concat(getOutgoing(node.id, "pipeline-invokes-flow"));
+    const incoming = getIncoming(node.id, "invokes-flow").concat(getIncoming(node.id, "pipeline-invokes-flow"))
+      .map((source) => findOwningProcess(source.id) || source)
+      .filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index);
+    const sections = [];
+
+    if (outgoing.length) {
+      sections.push(renderRelatedButtons("Opens related flow", outgoing, "Open flow"));
+    }
+
+    if (incoming.length && node.id === process.id) {
+      sections.push(renderRelatedButtons("Referenced by", incoming, "Open parent"));
+    }
+
+    if (!sections.length) {
+      return "";
+    }
+
+    return `<div class="spider-detail-section">${sections.join("")}</div>`;
+  }
+
+  function renderRelatedButtons(title, items, action, mode) {
+    if (!items.length) {
+      return "";
+    }
+
+    const attribute = mode === "node" ? "data-node-id" : "data-open-process";
+    return `
+      <div class="spider-related-list">
+        <div class="spider-summary-label">${escapeHtml(title)}</div>
+        ${items.map((item) => `
+          <button class="spider-related-button" type="button" ${attribute}="${escapeAttribute(item.id)}">
+            <span class="spider-related-label">${escapeHtml(action)}</span>
+            <span class="spider-related-name">${escapeHtml(item.displayName || item.id)}</span>
+          </button>`).join("")}
+      </div>`;
   }
 
   function getEvidenceLabels(node) {
@@ -1291,6 +1773,7 @@ button {
   function getMetadataLabel(key) {
     const labels = {
       branchType: "Branch type",
+      condition: "Condition",
       count: "Configured actions",
       delegate: "Action",
       genericArguments: "Type arguments",
@@ -1300,10 +1783,17 @@ button {
       otherwise: "Otherwise",
       request: "Input",
       response: "Output",
-      stage: "Pipeline stage"
+      routeKind: "Route type",
+      service: "Service",
+      stage: "Pipeline stage",
+      target: "Target method"
     };
 
-    if (key === "order") {
+    if (key === "order" ||
+        key === "actionSymbolId" ||
+        key === "conditionSymbolId" ||
+        key === "declaringMemberSymbolId" ||
+        key === "targetSymbolId") {
       return "";
     }
 
@@ -1378,12 +1868,113 @@ button {
     return ordered;
   }
 
+  function getBranchRoutes(branch) {
+    return orderRelatedChildren(branch.id, "branch-route", "");
+  }
+
+  function getRouteSteps(route) {
+    return orderRelatedChildren(route.id, "route-contains", "route-next");
+  }
+
+  function orderRelatedChildren(sourceId, relationKind, nextKind) {
+    const children = relations
+      .filter((relation) => relation.kind === relationKind && relation.sourceId === sourceId)
+      .map((relation) => byId.get(relation.targetId))
+      .filter(Boolean);
+
+    if (children.length <= 1) {
+      return children;
+    }
+
+    const allHaveOrder = children.every((child) => Number.isFinite(Number(getMetadata(child, "order"))));
+    if (allHaveOrder) {
+      return children.slice().sort((left, right) => Number(getMetadata(left, "order")) - Number(getMetadata(right, "order")));
+    }
+
+    if (!nextKind) {
+      return children;
+    }
+
+    const ids = new Set(children.map((child) => child.id));
+    const next = relations.filter((relation) => relation.kind === nextKind && ids.has(relation.sourceId) && ids.has(relation.targetId));
+    if (next.length === 0) {
+      return children;
+    }
+
+    const targets = new Set(next.map((relation) => relation.targetId));
+    const bySource = new Map(next.map((relation) => [relation.sourceId, relation.targetId]));
+    const ordered = [];
+    let current = children.find((child) => !targets.has(child.id)) || children[0];
+
+    while (current && !ordered.some((item) => item.id === current.id)) {
+      ordered.push(current);
+      const nextId = bySource.get(current.id);
+      current = nextId ? byId.get(nextId) : null;
+    }
+
+    for (const child of children) {
+      if (!ordered.some((item) => item.id === child.id)) {
+        ordered.push(child);
+      }
+    }
+
+    return ordered;
+  }
+
+  function getGraphBranchWidth(children) {
+    let width = 360;
+    for (const child of children) {
+      if (child.kind !== "spider.flow-branch") {
+        continue;
+      }
+
+      const routeCount = getBranchRoutes(child).length;
+      if (routeCount > 1) {
+        width = Math.max(width, (routeCount * 190) + ((routeCount - 1) * 24) + 48);
+      }
+    }
+
+    return width;
+  }
+
   function getRelated(sourceId, kind) {
     return relations
       .filter((relation) => relation.kind === kind && relation.sourceId === sourceId)
       .map((relation) => byId.get(relation.targetId))
       .filter(Boolean)
       .sort(compareByName);
+  }
+
+  function getOutgoing(sourceId, kind) {
+    return getRelated(sourceId, kind);
+  }
+
+  function getIncoming(targetId, kind) {
+    return relations
+      .filter((relation) => relation.kind === kind && relation.targetId === targetId)
+      .map((relation) => byId.get(relation.sourceId))
+      .filter(Boolean)
+      .sort(compareByName);
+  }
+
+  function findOwningProcess(componentId) {
+    const visited = new Set();
+    let currentId = componentId;
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const current = byId.get(currentId);
+      if (current && (current.kind === "spider.flow" || current.kind === "spider.pipeline")) {
+        return current;
+      }
+
+      const parentRelation = relations.find((relation) =>
+        (relation.kind === "contains" || relation.kind === "branch-route" || relation.kind === "route-contains") &&
+        relation.targetId === currentId);
+      currentId = parentRelation ? parentRelation.sourceId : "";
+    }
+
+    return null;
   }
 
   function createSearchText(component) {
@@ -1396,6 +1987,12 @@ button {
 
     for (const child of orderChildren(component)) {
       values.push(child.id, child.kind, child.displayName, ...Object.values(child.metadata || {}));
+      for (const route of getBranchRoutes(child)) {
+        values.push(route.id, route.kind, route.displayName, ...Object.values(route.metadata || {}));
+        for (const step of getRouteSteps(route)) {
+          values.push(step.id, step.kind, step.displayName, ...Object.values(step.metadata || {}));
+        }
+      }
     }
 
     return values.filter(Boolean).join(" ").toLowerCase();
@@ -1451,6 +2048,10 @@ button {
       return "Branch";
     }
 
+    if (component.kind === "spider.flow-branch-route") {
+      return "Branch route";
+    }
+
     return "Step";
   }
 
@@ -1463,10 +2064,18 @@ button {
       return "spider-kind-branch";
     }
 
+    if (component.kind === "spider.flow-branch-route") {
+      return "spider-kind-branch";
+    }
+
     return component.kind === "spider.pipeline-stage" ? "spider-kind-stage" : "spider-kind-step";
   }
 
   function getGraphClass(component) {
+    if (component.kind === "spider.pipeline-stage") {
+      return " is-stage";
+    }
+
     if (component.kind === "spider.flow-condition") {
       return " is-condition";
     }
@@ -1475,7 +2084,21 @@ button {
       return " is-branch";
     }
 
+    if (component.kind === "spider.flow-branch-route") {
+      return " is-route";
+    }
+
     return "";
+  }
+
+  function getFirstLinkedFlow(component) {
+    const linked = getOutgoing(component.id, component.kind === "spider.pipeline" ? "pipeline-invokes-flow" : "invokes-flow");
+    if (linked.length) {
+      return linked[0];
+    }
+
+    const pipelineLinked = getOutgoing(component.id, "pipeline-invokes-flow");
+    return pipelineLinked.length ? pipelineLinked[0] : null;
   }
 
   function getMetadata(component, key) {
