@@ -12,6 +12,35 @@ namespace Spider.Pipelines.Flows.Internals
         private readonly List<FlowBranchRoute<TCurrent>> _routes = new();
         private IReadOnlyList<IFlowStep> _otherwise;
 
+        /// <inheritdoc/>
+        public IFlowBranchBuilder<TCurrent, TNext> Named(string name)
+        {
+            new FlowMetadataBuilder().Named(name);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IFlowBranchBuilder<TCurrent, TNext> Describe(string description)
+        {
+            new FlowMetadataBuilder().Describe(description);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IFlowBranchBuilder<TCurrent, TNext> Tags(params string[] tags)
+        {
+            new FlowMetadataBuilder().Tags(tags);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IFlowBranchBuilder<TCurrent, TNext> Metadata(string key, string value)
+        {
+            new FlowMetadataBuilder().Metadata(key, value);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchBuilder<TCurrent, TNext> When(
             Func<TCurrent, bool> condition,
             Action<IFlowBranchRouteBuilder<TCurrent, TNext>> configure)
@@ -40,6 +69,10 @@ namespace Spider.Pipelines.Flows.Internals
             return this;
         }
 
+        /// <summary>
+        /// Builds the executable branch step.
+        /// </summary>
+        /// <returns>The executable branch step.</returns>
         public IFlowStep BuildStep()
         {
             if (_otherwise == null)
@@ -65,15 +98,68 @@ namespace Spider.Pipelines.Flows.Internals
 
         public IReadOnlyList<IFlowStep> Steps => _steps;
 
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Named(string name)
+        {
+            new FlowMetadataBuilder().Named(name);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Describe(string description)
+        {
+            new FlowMetadataBuilder().Describe(description);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Tags(params string[] tags)
+        {
+            new FlowMetadataBuilder().Tags(tags);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Metadata(string key, string value)
+        {
+            new FlowMetadataBuilder().Metadata(key, value);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, TNext> step)
             => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current))));
 
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, TNext> step, Action<IFlowMetadataBuilder> configure)
+        {
+            ConfigureMetadata(configure);
+            return Then(step);
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step)
             => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>(step));
 
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step, Action<IFlowMetadataBuilder> configure)
+        {
+            ConfigureMetadata(configure);
+            return Then(step);
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Func<TCurrent, CancellationToken, Task> step)
             => AddCurrent(new ActiveEffectStep<TCurrent>(step));
 
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Func<TCurrent, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
+        {
+            ConfigureMetadata(configure);
+            return Then(step);
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Action<TCurrent> step)
             => AddCurrent(new ActiveEffectStep<TCurrent>((current, _) =>
             {
@@ -81,11 +167,34 @@ namespace Spider.Pipelines.Flows.Internals
                 return Task.CompletedTask;
             }));
 
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Action<TCurrent> step, Action<IFlowMetadataBuilder> configure)
+        {
+            ConfigureMetadata(configure);
+            return Then(step);
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> ThenWith<TValue, TNext>(Func<TValue, TNext> step)
             => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value))));
 
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TNext, TBranchResult> ThenWith<TValue, TNext>(Func<TValue, TNext> step, Action<IFlowMetadataBuilder> configure)
+        {
+            ConfigureMetadata(configure);
+            return ThenWith<TValue, TNext>(step);
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step)
             => AddCurrent(new HistoryEffectStep<TValue1, TValue2>(step));
+
+        /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TCurrent, TBranchResult> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
+        {
+            ConfigureMetadata(configure);
+            return ThenWith<TValue1, TValue2>(step);
+        }
 
         private IFlowBranchRouteBuilder<TNext, TBranchResult> Add<TNext>(IFlowStep step)
         {
@@ -97,6 +206,14 @@ namespace Spider.Pipelines.Flows.Internals
         {
             _steps.Add(step);
             return this;
+        }
+
+        private static void ConfigureMetadata(Action<IFlowMetadataBuilder> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            configure(new FlowMetadataBuilder());
         }
     }
 

@@ -24,26 +24,70 @@ namespace Spider.Pipelines.Samples.Web
         {
             _ = spider
                 .ComposeFlow<CreditApplicationRequest, CreditDecision>("Evaluate credit application")
+                .Describe("Evaluates bureau and risk signals before producing the final credit decision.")
+                .Tags("credit", "bureau", "risk")
+                .Metadata("audience", "credit operations")
                 .UsingProfile("Web verbose telemetry")
-                .Then(CreditEvaluationFlowSteps.ValidateApplicationAsync)
-                .Then(CreditEvaluationFlowSteps.BuildBureauRequest)
+                .Then(CreditEvaluationFlowSteps.ValidateApplicationAsync, step => step
+                    .Named("Validate application")
+                    .Describe("Checks that the sample credit application can continue through the evaluation flow.")
+                    .Tags("validation", "guard"))
+                .Then(CreditEvaluationFlowSteps.BuildBureauRequest, step => step
+                    .Named("Build bureau request")
+                    .Describe("Maps the incoming credit application into the bureau request contract.")
+                    .Tags("mapping", "bureau"))
                 .Branch<BureauDecision>(branch => branch
-                    .When(CreditEvaluationFlowSteps.CanUseCachedBureau, cached => cached.Then(CreditEvaluationFlowSteps.UseCachedBureau))
+                    .Named("Bureau decision")
+                    .Describe("Chooses whether to reuse cached bureau data or call the remote bureau service.")
+                    .Tags("branch", "bureau")
+                    .When(CreditEvaluationFlowSteps.CanUseCachedBureau, cached => cached
+                        .Named("Use cached bureau")
+                        .Describe("Uses already available bureau information when the request qualifies.")
+                        .Tags("cache")
+                        .Then(CreditEvaluationFlowSteps.UseCachedBureau, step => step
+                            .Named("Use cached bureau decision")
+                            .Tags("cache", "bureau")))
                     .Otherwise(remote => remote
-                        .Then(CreditEvaluationFlowSteps.CallBureauAsync)
-                        .Then(CreditEvaluationFlowSteps.EvaluateBureauResponse)))
-                .ThenWith<CreditApplicationRequest, BureauDecision, RiskInput>(CreditEvaluationFlowSteps.BuildRiskInput)
-                .Then(CreditEvaluationFlowSteps.CalculateRiskAsync)
-                .ThenWith<CreditApplicationRequest, RiskScore, CreditDecision>(CreditEvaluationFlowSteps.BuildDecision)
-                .Then(workflow.PersistDecisionAsync)
+                        .Named("Call bureau")
+                        .Describe("Calls the external bureau path when cached data cannot be used.")
+                        .Tags("remote", "bureau")
+                        .Then(CreditEvaluationFlowSteps.CallBureauAsync, step => step
+                            .Named("Call bureau service")
+                            .Tags("remote-call"))
+                        .Then(CreditEvaluationFlowSteps.EvaluateBureauResponse, step => step
+                            .Named("Evaluate bureau response")
+                            .Tags("evaluation"))))
+                .ThenWith<CreditApplicationRequest, BureauDecision, RiskInput>(CreditEvaluationFlowSteps.BuildRiskInput, step => step
+                    .Named("Build risk input")
+                    .Tags("mapping", "risk"))
+                .Then(CreditEvaluationFlowSteps.CalculateRiskAsync, step => step
+                    .Named("Calculate risk")
+                    .Describe("Calculates the score used to approve, reject, or review the application.")
+                    .Tags("risk", "scoring"))
+                .ThenWith<CreditApplicationRequest, RiskScore, CreditDecision>(CreditEvaluationFlowSteps.BuildDecision, step => step
+                    .Named("Build credit decision")
+                    .Tags("decision"))
+                .Then(workflow.PersistDecisionAsync, step => step
+                    .Named("Persist decision")
+                    .Describe("Delegates persistence to the nested decision flow.")
+                    .Tags("persistence", "linked-flow"))
                 .RunAsync(request, cancellationToken);
 
             _ = spider
                 .ComposeFlow<CreditDecision>("Publish credit decision")
+                .Describe("Publishes a notification when a credit decision is ready to leave the service.")
+                .Tags("notification", "background")
                 .UsingProfile("Background telemetry")
-                .ContinueIf(CreditDecisionPublishingSteps.ShouldPublishDecision, Flow.Stop())
-                .Then(CreditDecisionPublishingSteps.BuildNotificationEnvelope)
-                .Then(CreditDecisionPublishingSteps.PublishNotificationAsync)
+                .ContinueIf(CreditDecisionPublishingSteps.ShouldPublishDecision, Flow.Stop(), step => step
+                    .Named("Should publish decision")
+                    .Describe("Stops the flow when the decision is not ready to be published.")
+                    .Tags("guard"))
+                .Then(CreditDecisionPublishingSteps.BuildNotificationEnvelope, step => step
+                    .Named("Build notification envelope")
+                    .Tags("mapping", "notification"))
+                .Then(CreditDecisionPublishingSteps.PublishNotificationAsync, step => step
+                    .Named("Publish notification")
+                    .Tags("publish", "notification"))
                 .RunAsync(new CreditDecision(request.ApplicationId, "Pending", 0), cancellationToken);
 
             _ = spider

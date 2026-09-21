@@ -78,6 +78,8 @@ namespace Spider.Pipelines.Analyzers
             if (genericTypes.Count == 2)
                 metadata["response"] = GetTypeName(semanticModel, genericTypes[1]);
 
+            ApplyMetadataInvocations(metadata, chain.Skip(1).Where(invocation => IsMetadataInvocation(GetInvocationName(invocation))));
+
             manifest.AddComponent(new ComponentModel(flowId, "spider.flow", flowName, metadata, flowEvidence));
 
             string previousStepId = null;
@@ -95,14 +97,17 @@ namespace Spider.Pipelines.Analyzers
                     continue;
                 }
 
+                if (IsMetadataInvocation(invocationName))
+                    continue;
+
                 if (!IsFlowStep(invocationName))
                     continue;
 
                 stepIndex++;
-                var displayName = GetStepDisplayName(semanticModel, invocation, invocationName);
                 var kind = GetFlowStepKind(invocationName);
-                var stepId = flowId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
                 var stepMetadata = CreateFlowStepMetadata(semanticModel, invocation, invocationName);
+                var displayName = GetDisplayName(stepMetadata, GetStepDisplayName(semanticModel, invocation, invocationName));
+                var stepId = flowId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
                 var evidence = CreateEvidence(semanticModel, invocation, GetDelegateExpression(invocation), sourceRoots);
 
                 manifest.AddComponent(new ComponentModel(stepId, kind, displayName, stepMetadata, evidence));
@@ -352,6 +357,8 @@ namespace Spider.Pipelines.Analyzers
             if (invocationName == "ContinueIf" && invocation.ArgumentList.Arguments.Count > 1)
                 metadata["otherwise"] = invocation.ArgumentList.Arguments[1].Expression.ToString();
 
+            ApplyStepMetadata(invocation, invocationName, metadata);
+
             return metadata;
         }
 
@@ -393,7 +400,6 @@ namespace Spider.Pipelines.Analyzers
                 var routeDisplayName = isOtherwise
                     ? "Otherwise"
                     : "When " + GetExpressionDisplayName(conditionExpression);
-                var routeId = branchId + ".route." + routeIndex.ToString("00", CultureInfo.InvariantCulture) + "-" + Normalize(routeDisplayName);
                 var routeMetadata = new Dictionary<string, string>
                 {
                     ["routeKind"] = isOtherwise ? "otherwise" : "when",
@@ -408,6 +414,10 @@ namespace Spider.Pipelines.Analyzers
                         routeMetadata["conditionSymbolId"] = conditionSymbolId;
                 }
 
+                ApplyRouteMetadata(configureExpression, routeMetadata);
+                routeDisplayName = GetDisplayName(routeMetadata, routeDisplayName);
+
+                var routeId = branchId + ".route." + routeIndex.ToString("00", CultureInfo.InvariantCulture) + "-" + Normalize(routeDisplayName);
                 var routeEvidence = CreateEvidence(semanticModel, routeInvocation, conditionExpression, sourceRoots);
                 manifest.AddComponent(new ComponentModel(routeId, "spider.flow-branch-route", routeDisplayName, routeMetadata, routeEvidence));
                 manifest.AddRelation(new RelationModel(branchId, routeId, "branch-route", new Dictionary<string, string>
@@ -447,9 +457,9 @@ namespace Spider.Pipelines.Analyzers
             {
                 stepIndex++;
                 var invocationName = GetInvocationName(stepInvocation);
-                var displayName = GetStepDisplayName(semanticModel, stepInvocation, invocationName);
-                var stepId = routeId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
                 var metadata = CreateFlowStepMetadata(semanticModel, stepInvocation, invocationName);
+                var displayName = GetDisplayName(metadata, GetStepDisplayName(semanticModel, stepInvocation, invocationName));
+                var stepId = routeId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
                 metadata["order"] = stepIndex.ToString(CultureInfo.InvariantCulture);
                 var evidence = CreateEvidence(semanticModel, stepInvocation, GetDelegateExpression(stepInvocation), sourceRoots);
 
@@ -477,6 +487,150 @@ namespace Spider.Pipelines.Analyzers
             }
 
             return invocations;
+        }
+
+        private static void ApplyStepMetadata(
+            InvocationExpressionSyntax invocation,
+            string invocationName,
+            IDictionary<string, string> metadata)
+        {
+            var configureExpression = GetStepMetadataExpression(invocation, invocationName);
+            if (configureExpression != null)
+                ApplyMetadataFromLambda(metadata, configureExpression);
+
+            if (invocationName == "Branch")
+            {
+                var branchExpression = GetDelegateExpression(invocation) as LambdaExpressionSyntax;
+                if (branchExpression != null)
+                    ApplyMetadataFromLambda(metadata, branchExpression);
+            }
+        }
+
+        private static LambdaExpressionSyntax GetStepMetadataExpression(InvocationExpressionSyntax invocation, string invocationName)
+        {
+            var metadataArgumentIndex = invocationName == "ContinueIf" ? 2 : 1;
+            if (invocationName == "Branch" || invocation.ArgumentList.Arguments.Count <= metadataArgumentIndex)
+                return null;
+
+            return invocation.ArgumentList.Arguments[metadataArgumentIndex].Expression as LambdaExpressionSyntax;
+        }
+
+        private static void ApplyRouteMetadata(LambdaExpressionSyntax routeLambda, IDictionary<string, string> metadata)
+        {
+            if (routeLambda == null)
+                return;
+
+            ApplyMetadataFromLambda(metadata, routeLambda);
+        }
+
+        private static void ApplyMetadataFromLambda(IDictionary<string, string> metadata, LambdaExpressionSyntax lambda)
+            => ApplyMetadataInvocations(metadata, GetTopLevelFluentInvocations(lambda));
+
+        private static void ApplyMetadataInvocations(
+            IDictionary<string, string> metadata,
+            IEnumerable<InvocationExpressionSyntax> invocations)
+        {
+            foreach (var invocation in invocations)
+            {
+                var invocationName = GetInvocationName(invocation);
+                if (!IsMetadataInvocation(invocationName))
+                    continue;
+
+                if (invocationName == "Named")
+                {
+                    var name = GetStringArgument(invocation, 0);
+                    if (!string.IsNullOrWhiteSpace(name))
+                        metadata["name"] = name;
+
+                    continue;
+                }
+
+                if (invocationName == "Describe")
+                {
+                    var description = GetStringArgument(invocation, 0);
+                    if (!string.IsNullOrWhiteSpace(description))
+                        metadata["description"] = description;
+
+                    continue;
+                }
+
+                if (invocationName == "Tags")
+                {
+                    MergeTags(metadata, GetStringArguments(invocation));
+                    continue;
+                }
+
+                if (invocationName == "Metadata")
+                {
+                    var key = GetStringArgument(invocation, 0);
+                    var value = GetStringArgument(invocation, 1);
+                    if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                        metadata[key] = value;
+                }
+            }
+        }
+
+        private static IReadOnlyList<InvocationExpressionSyntax> GetTopLevelFluentInvocations(LambdaExpressionSyntax lambda)
+        {
+            if (lambda.Body is ExpressionSyntax expression)
+                return UnwindFluentInvocations(expression);
+
+            if (lambda.Body is BlockSyntax block)
+            {
+                return block.Statements
+                    .OfType<ExpressionStatementSyntax>()
+                    .SelectMany(statement => UnwindFluentInvocations(statement.Expression))
+                    .OrderBy(GetInvocationNamePosition)
+                    .ToArray();
+            }
+
+            return Array.Empty<InvocationExpressionSyntax>();
+        }
+
+        private static IReadOnlyList<InvocationExpressionSyntax> UnwindFluentInvocations(ExpressionSyntax expression)
+        {
+            var stack = new Stack<InvocationExpressionSyntax>();
+            var current = expression;
+
+            while (current is InvocationExpressionSyntax invocation)
+            {
+                stack.Push(invocation);
+
+                if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+                {
+                    current = memberAccess.Expression;
+                    continue;
+                }
+
+                break;
+            }
+
+            return stack.ToArray();
+        }
+
+        private static void MergeTags(IDictionary<string, string> metadata, IEnumerable<string> tags)
+        {
+            var values = new List<string>();
+            if (metadata.TryGetValue("tags", out var existing))
+                values.AddRange(existing.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+
+            values.AddRange(tags);
+            var merged = values
+                .Select(tag => tag.Trim())
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (merged.Length > 0)
+                metadata["tags"] = string.Join(",", merged);
+        }
+
+        private static string GetDisplayName(IReadOnlyDictionary<string, string> metadata, string fallback)
+        {
+            if (metadata.TryGetValue("name", out var name) && !string.IsNullOrWhiteSpace(name))
+                return name;
+
+            return fallback;
         }
 
         private static IReadOnlyList<TypeSyntax> GetGenericArguments(InvocationExpressionSyntax invocation)
@@ -533,6 +687,19 @@ namespace Spider.Pipelines.Analyzers
             return null;
         }
 
+        private static IReadOnlyList<string> GetStringArguments(InvocationExpressionSyntax invocation)
+        {
+            var values = new List<string>();
+            for (var index = 0; index < invocation.ArgumentList.Arguments.Count; index++)
+            {
+                var value = GetStringArgument(invocation, index);
+                if (!string.IsNullOrWhiteSpace(value))
+                    values.Add(value);
+            }
+
+            return values;
+        }
+
         private static ExpressionSyntax GetDelegateExpression(InvocationExpressionSyntax invocation)
         {
             if (invocation.ArgumentList.Arguments.Count == 0)
@@ -578,6 +745,12 @@ namespace Spider.Pipelines.Analyzers
                invocationName == "ThenWith" ||
                invocationName == "ContinueIf" ||
                invocationName == "Branch";
+
+        private static bool IsMetadataInvocation(string invocationName)
+            => invocationName == "Named" ||
+               invocationName == "Describe" ||
+               invocationName == "Tags" ||
+               invocationName == "Metadata";
 
         private static string GetFlowStepKind(string invocationName)
         {

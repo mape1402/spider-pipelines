@@ -716,6 +716,12 @@ button {
   color: var(--spider-muted);
 }
 
+.spider-chip.tag {
+  background: var(--spider-blue-soft);
+  border: 1px solid rgba(29, 95, 191, 0.18);
+  color: var(--spider-blue);
+}
+
 .spider-empty-list,
 .spider-empty-state {
   border: 1px dashed var(--spider-line);
@@ -1097,6 +1103,20 @@ button {
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.spider-node-description {
+  margin: 8px 0 0;
+  color: var(--spider-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.spider-node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
 }
 
 .spider-node-detail-top {
@@ -1546,6 +1566,7 @@ button {
     const selectedIndex = selectedNode.id === process.id
       ? 0
       : children.findIndex((child) => child.id === selectedNode.id) + 1;
+    const processTags = renderTagChips(process);
 
     setActiveMenu(state.view);
     setTopbarTitle(process.displayName || kind);
@@ -1559,6 +1580,7 @@ button {
               <span class="spider-chip ${process.kind === "spider.flow" ? "flow" : "pipeline"}">${escapeHtml(kind)}</span>
               <span class="spider-chip">${escapeHtml(getSignature(process))}</span>
               ${profiles.map((profile) => `<span class="spider-chip profile">${escapeHtml(profile.displayName || profile.id)}</span>`).join("")}
+              ${processTags}
             </div>
             <h1 class="spider-detail-title">${escapeHtml(process.displayName || process.id)}</h1>
             <p class="spider-detail-subtitle">${escapeHtml(describeProcess(process, children))}</p>
@@ -1594,6 +1616,8 @@ button {
     const profileText = profiles.length
       ? profiles.map((profile) => profile.displayName || profile.id).join(", ")
       : "None";
+    const description = getMetadata(process, "description");
+    const tags = getTags(process);
 
     return `
       <div class="spider-panel-header">
@@ -1612,6 +1636,16 @@ button {
           <span class="spider-summary-label">Profiles</span>
           <span class="spider-summary-value">${escapeHtml(profileText)}</span>
         </div>
+        ${description ? `
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">Description</span>
+          <span class="spider-summary-value">${escapeHtml(description)}</span>
+        </div>` : ""}
+        ${tags.length ? `
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">Tags</span>
+          <span class="spider-summary-value">${escapeHtml(tags.join(", "))}</span>
+        </div>` : ""}
       </div>
       ${renderProcessRelations(process)}
       ${renderProcessOutline(process, children)}`;
@@ -1882,12 +1916,16 @@ button {
       : "";
     const branchRows = renderBranchDetail(node);
     const relationRows = renderNodeRelations(node, process);
+    const description = getMetadata(node, "description");
+    const tagChips = renderTagChips(node);
 
     return `
       <div class="spider-node-detail-top">
         <div class="spider-node-header">
           <span class="spider-node-kind ${getKindClass(node)}">${escapeHtml(getFriendlyKind(node))}</span>
           <h2>${escapeHtml(node.displayName || node.id)}</h2>
+          ${description ? `<p class="spider-node-description">${escapeHtml(description)}</p>` : ""}
+          ${tagChips ? `<div class="spider-node-tags">${tagChips}</div>` : ""}
         </div>
         <button class="spider-inspector-toggle" type="button" data-toggle-inspector title="${state.inspectorCollapsed ? "Show details" : "Hide details"}" aria-label="${state.inspectorCollapsed ? "Show details" : "Hide details"}">${state.inspectorCollapsed ? "i" : "×"}</button>
       </div>
@@ -2006,6 +2044,10 @@ button {
 
     const metadata = Object.entries(node.metadata || {});
     for (const [key, value] of metadata) {
+      if (key === "name" || key === "description" || key === "tags") {
+        continue;
+      }
+
       const label = getMetadataLabel(key);
       if (!label) {
         continue;
@@ -2246,6 +2288,11 @@ button {
   }
 
   function describeProcess(process, children) {
+    const description = getMetadata(process, "description");
+    if (description) {
+      return description;
+    }
+
     const childNoun = process.kind === "spider.pipeline" ? "stage" : "step";
     return `${children.length} ${childNoun}${children.length === 1 ? "" : "s"} discovered at compile time.`;
   }
@@ -2350,6 +2397,37 @@ button {
 
   function getMetadata(component, key) {
     return component && component.metadata ? component.metadata[key] || "" : "";
+  }
+
+  function getTags(component) {
+    const raw = getMetadata(component, "tags");
+    if (!raw) {
+      return [];
+    }
+
+    const value = String(raw).trim();
+    if (!value) {
+      return [];
+    }
+
+    if (value.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => String(item).trim()).filter(Boolean);
+        }
+      } catch {
+        // Fall through to comma-separated tags for older manifests.
+      }
+    }
+
+    return value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  }
+
+  function renderTagChips(component) {
+    return getTags(component)
+      .map((tag) => `<span class="spider-chip tag">${escapeHtml(tag)}</span>`)
+      .join("");
   }
 
   function compareByName(left, right) {

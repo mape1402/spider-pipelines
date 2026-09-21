@@ -29,16 +29,30 @@ namespace Spider.Pipelines.Samples.Web
             CancellationToken cancellationToken)
             => _spider
                 .ComposeFlow<CreditApplicationRequest, CreditDecision>("Handle credit application")
-                .Then(CreditEvaluationFlowSteps.ValidateApplicationAsync)
-                .Then(CreditEvaluationFlowSteps.BuildBureauRequest)
+                .Describe("Handles a credit application inside the endpoint pipeline.")
+                .Tags("handler", "credit")
+                .Then(CreditEvaluationFlowSteps.ValidateApplicationAsync, step => step
+                    .Named("Validate application")
+                    .Tags("validation"))
+                .Then(CreditEvaluationFlowSteps.BuildBureauRequest, step => step
+                    .Named("Build bureau request")
+                    .Tags("bureau", "mapping"))
                 .Branch<BureauDecision>(branch => branch
-                    .When(CreditEvaluationFlowSteps.CanUseCachedBureau, cached => cached.Then(CreditEvaluationFlowSteps.UseCachedBureau))
+                    .Named("Bureau decision")
+                    .Tags("branch", "bureau")
+                    .When(CreditEvaluationFlowSteps.CanUseCachedBureau, cached => cached
+                        .Named("Use cached bureau")
+                        .Then(CreditEvaluationFlowSteps.UseCachedBureau, step => step.Named("Use cached bureau decision")))
                     .Otherwise(remote => remote
-                        .Then(CreditEvaluationFlowSteps.CallBureauAsync)
-                        .Then(CreditEvaluationFlowSteps.EvaluateBureauResponse)))
-                .ThenWith<CreditApplicationRequest, BureauDecision, RiskInput>(CreditEvaluationFlowSteps.BuildRiskInput)
-                .Then(CreditEvaluationFlowSteps.CalculateRiskAsync)
-                .ThenWith<CreditApplicationRequest, RiskScore, CreditDecision>(CreditEvaluationFlowSteps.BuildDecision)
+                        .Named("Call bureau")
+                        .Then(CreditEvaluationFlowSteps.CallBureauAsync, step => step.Named("Call bureau service"))
+                        .Then(CreditEvaluationFlowSteps.EvaluateBureauResponse, step => step.Named("Evaluate bureau response"))))
+                .ThenWith<CreditApplicationRequest, BureauDecision, RiskInput>(CreditEvaluationFlowSteps.BuildRiskInput, step => step
+                    .Named("Build risk input"))
+                .Then(CreditEvaluationFlowSteps.CalculateRiskAsync, step => step
+                    .Named("Calculate risk"))
+                .ThenWith<CreditApplicationRequest, RiskScore, CreditDecision>(CreditEvaluationFlowSteps.BuildDecision, step => step
+                    .Named("Build credit decision"))
                 .RunAsync(request, cancellationToken);
     }
 }

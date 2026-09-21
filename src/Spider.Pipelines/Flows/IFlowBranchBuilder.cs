@@ -8,6 +8,35 @@ namespace Spider.Pipelines.Flows
     public interface IFlowBranchBuilder<TCurrent, TNext>
     {
         /// <summary>
+        /// Assigns a display name to the branch.
+        /// </summary>
+        /// <param name="name">The display name to show in generated documentation.</param>
+        /// <returns>The current branch builder.</returns>
+        IFlowBranchBuilder<TCurrent, TNext> Named(string name);
+
+        /// <summary>
+        /// Assigns a short description to the branch.
+        /// </summary>
+        /// <param name="description">The description to show in generated documentation.</param>
+        /// <returns>The current branch builder.</returns>
+        IFlowBranchBuilder<TCurrent, TNext> Describe(string description);
+
+        /// <summary>
+        /// Adds descriptive tags to the branch.
+        /// </summary>
+        /// <param name="tags">The tags to show in generated documentation.</param>
+        /// <returns>The current branch builder.</returns>
+        IFlowBranchBuilder<TCurrent, TNext> Tags(params string[] tags);
+
+        /// <summary>
+        /// Adds custom key-value metadata to the branch.
+        /// </summary>
+        /// <param name="key">The metadata key.</param>
+        /// <param name="value">The metadata value.</param>
+        /// <returns>The current branch builder.</returns>
+        IFlowBranchBuilder<TCurrent, TNext> Metadata(string key, string value);
+
+        /// <summary>
         /// Adds a conditional branch.
         /// </summary>
         /// <param name="condition">The branch condition.</param>
