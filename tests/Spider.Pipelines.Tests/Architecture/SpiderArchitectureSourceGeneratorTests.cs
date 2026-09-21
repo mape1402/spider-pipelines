@@ -99,6 +99,69 @@ namespace Spider.Pipelines.Tests.Architecture
             Assert.Equal("Actions/ExternalActions.cs", evidence.FilePath);
         }
 
+        [Fact]
+        public void BuildManifest_WhenBranchHasRoutes_ShouldGenerateRouteMetadata()
+        {
+            var manifest = GenerateManifest(BranchFlowSource);
+            var branch = Assert.Single(manifest.Components, component => component.Id == "spider.flow:evaluate-risk.002-risk-decision-branch");
+            var routes = manifest.Relations
+                .Where(relation => relation.Kind == "branch-route" && relation.SourceId == branch.Id)
+                .OrderBy(relation => relation.Metadata["order"])
+                .ToArray();
+
+            Assert.Equal(2, routes.Length);
+            Assert.Contains(manifest.Components, component =>
+                component.Id == routes[0].TargetId &&
+                component.Kind == "spider.flow-branch-route" &&
+                component.DisplayName == "When IsLowRisk" &&
+                component.Metadata["condition"] == "IsLowRisk");
+            Assert.Contains(manifest.Components, component =>
+                component.Id == routes[1].TargetId &&
+                component.Kind == "spider.flow-branch-route" &&
+                component.DisplayName == "Otherwise");
+
+            var routeStepRelations = manifest.Relations
+                .Where(relation => relation.Kind == "route-contains")
+                .ToArray();
+            Assert.Equal(3, routeStepRelations.Length);
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "route-next" &&
+                relation.SourceId.Contains("score-async", StringComparison.Ordinal) &&
+                relation.TargetId.Contains("build-decision", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void BuildManifest_WhenStepMethodDeclaresAnotherFlow_ShouldLinkStepToNestedFlow()
+        {
+            var manifest = GenerateManifest(NestedFlowSource);
+            var mainStep = Assert.Single(manifest.Components, component => component.Id == "spider.flow:main-flow.002-persist-async");
+            var nestedFlow = Assert.Single(manifest.Components, component => component.Id == "spider.flow:persist-decision");
+
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "invokes-flow" &&
+                relation.SourceId == mainStep.Id &&
+                relation.TargetId == nestedFlow.Id);
+        }
+
+        [Fact]
+        public void BuildManifest_WhenPipelineExecuteTargetsMethodWithFlow_ShouldLinkPipelineToTargetFlow()
+        {
+            var manifest = GenerateManifest(PipelineTargetFlowSource);
+            var pipelineId = "spider.pipeline:create-customer-request-to-customer-response";
+            var targetStage = Assert.Single(manifest.Components, component => component.Id == pipelineId + ".target");
+            var targetFlow = Assert.Single(manifest.Components, component => component.Id == "spider.flow:handle-customer");
+
+            Assert.Equal("HandleAsync", targetStage.Metadata["target"]);
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "invokes-flow" &&
+                relation.SourceId == targetStage.Id &&
+                relation.TargetId == targetFlow.Id);
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "pipeline-invokes-flow" &&
+                relation.SourceId == pipelineId &&
+                relation.TargetId == targetFlow.Id);
+        }
+
         private static void AssertStage(SpiderArchitectureManifest manifest, string id, string count, string hasOverride = null)
         {
             var stage = Assert.Single(manifest.Components, component => component.Id == id);
@@ -299,6 +362,144 @@ namespace ArchitectureSample
         public static Task Validate(CreateCustomerRequest request, CancellationToken token)
             => Task.CompletedTask;
     }
+}
+";
+
+        private const string BranchFlowSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedFlows
+    {
+        public void Configure(ISpider spider, RiskRequest request, CancellationToken token)
+        {
+            _ = spider
+                .ComposeFlow<RiskRequest, RiskResponse>(""Evaluate risk"")
+                .Then(BuildProfile)
+                .Branch<RiskDecision>(branch => branch
+                    .When(IsLowRisk, low => low.Then(AutoApprove))
+                    .Otherwise(normal => normal
+                        .Then(ScoreAsync)
+                        .Then(BuildDecision)))
+                .Then(ReturnResponse)
+                .RunAsync(request, token);
+        }
+
+        private static RiskProfile BuildProfile(RiskRequest request) => new RiskProfile();
+
+        private static bool IsLowRisk(RiskProfile profile) => true;
+
+        private static RiskDecision AutoApprove(RiskProfile profile) => new RiskDecision();
+
+        private static Task<RiskScore> ScoreAsync(RiskProfile profile, CancellationToken token) => Task.FromResult(new RiskScore());
+
+        private static RiskDecision BuildDecision(RiskScore score) => new RiskDecision();
+
+        private static RiskResponse ReturnResponse(RiskDecision decision) => new RiskResponse();
+    }
+
+    public sealed class RiskRequest { }
+
+    public sealed class RiskProfile { }
+
+    public sealed class RiskScore { }
+
+    public sealed class RiskDecision { }
+
+    public sealed class RiskResponse { }
+}
+";
+
+        private const string NestedFlowSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedFlows
+    {
+        public void Configure(ISpider spider, CreditDecisionWorkflow workflow, CreateCustomerRequest request, CancellationToken token)
+        {
+            _ = spider
+                .ComposeFlow<CreateCustomerRequest, CreditDecision>(""Main flow"")
+                .Then(BuildDecision)
+                .Then(workflow.PersistAsync)
+                .RunAsync(request, token);
+        }
+
+        private static CreditDecision BuildDecision(CreateCustomerRequest request) => new CreditDecision();
+    }
+
+    public sealed class CreditDecisionWorkflow
+    {
+        private readonly ISpider _spider;
+
+        public CreditDecisionWorkflow(ISpider spider)
+        {
+            _spider = spider;
+        }
+
+        public Task<CreditDecision> PersistAsync(CreditDecision decision, CancellationToken token)
+            => _spider
+                .ComposeFlow<CreditDecision, CreditDecision>(""Persist decision"")
+                .Then(ReturnDecision)
+                .RunAsync(decision, token);
+
+        private static CreditDecision ReturnDecision(CreditDecision decision) => decision;
+    }
+
+    public sealed class CreateCustomerRequest { }
+
+    public sealed class CreditDecision { }
+}
+";
+
+        private const string PipelineTargetFlowSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedFlows
+    {
+        public void Configure(ISpider spider, CreateCustomerRequest request, CancellationToken token)
+        {
+            _ = spider
+                .InitBridge<CustomerService>()
+                .Attach<CreateCustomerRequest, CustomerResponse>(builder => { })
+                .ExecuteAsync(service => (item, ct) => service.HandleAsync(item, ct), request, token);
+        }
+    }
+
+    public sealed class CustomerService
+    {
+        private readonly ISpider _spider;
+
+        public CustomerService(ISpider spider)
+        {
+            _spider = spider;
+        }
+
+        public Task<CustomerResponse> HandleAsync(CreateCustomerRequest request, CancellationToken token)
+            => _spider
+                .ComposeFlow<CreateCustomerRequest, CustomerResponse>(""Handle customer"")
+                .Then(ReturnResponse)
+                .RunAsync(request, token);
+
+        private static CustomerResponse ReturnResponse(CreateCustomerRequest request) => new CustomerResponse();
+    }
+
+    public sealed class CreateCustomerRequest { }
+
+    public sealed class CustomerResponse { }
 }
 ";
     }

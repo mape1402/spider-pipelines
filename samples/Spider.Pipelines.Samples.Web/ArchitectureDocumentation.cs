@@ -13,10 +13,12 @@ namespace Spider.Pipelines.Samples.Web
         /// Describes the credit evaluation process that the source generator converts into metadata.
         /// </summary>
         /// <param name="spider">The Spider facade used to compose flows and pipelines.</param>
+        /// <param name="workflow">The workflow that exposes nested decision flows.</param>
         /// <param name="request">The request that starts the sample flow.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         public void Describe(
             ISpider spider,
+            CreditDecisionWorkflow workflow,
             CreditApplicationRequest request,
             CancellationToken cancellationToken)
         {
@@ -33,6 +35,7 @@ namespace Spider.Pipelines.Samples.Web
                 .ThenWith<CreditApplicationRequest, BureauDecision, RiskInput>(CreditEvaluationFlowSteps.BuildRiskInput)
                 .Then(CreditEvaluationFlowSteps.CalculateRiskAsync)
                 .ThenWith<CreditApplicationRequest, RiskScore, CreditDecision>(CreditEvaluationFlowSteps.BuildDecision)
+                .Then(workflow.PersistDecisionAsync)
                 .RunAsync(request, cancellationToken);
 
             _ = spider
@@ -43,14 +46,15 @@ namespace Spider.Pipelines.Samples.Web
                 .Then(CreditDecisionPublishingSteps.PublishNotificationAsync)
                 .RunAsync(new CreditDecision(request.ApplicationId, "Pending", 0), cancellationToken);
 
-            spider
+            _ = spider
                 .InitBridge<CreditApplicationHandler>()
                 .Attach<CreditApplicationRequest, CreditDecision>(builder => builder
                     .PreProcess((ctx, args) => Task.CompletedTask)
                     .UseMiddleware((ctx, next) => next())
                     .Parallel((ctx, args) => Task.CompletedTask)
                     .OnSuccess((ctx, args) => Task.CompletedTask)
-                    .OnFailure((ctx, args) => Task.CompletedTask));
+                    .OnFailure((ctx, args) => Task.CompletedTask))
+                .ExecuteAsync(service => (application, token) => service.HandleAsync(application, token), request, cancellationToken);
         }
     }
 }

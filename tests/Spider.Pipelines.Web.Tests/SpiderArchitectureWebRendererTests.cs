@@ -37,19 +37,30 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-process-graph", html);
             Assert.Contains("spider-architecture-graph", html);
             Assert.Contains("spider-graph-node", html);
+            Assert.Contains("is-nested is-route", html);
+            Assert.Contains("spider-related-button", html);
             Assert.Contains("spider-node-box", html);
             Assert.Contains("spider-node-accent", html);
             Assert.Contains("data-node-id", html);
+            Assert.Contains("data-open-process", html);
             Assert.Contains("spider-edge", html);
-            Assert.Contains("Execution order", html);
+            Assert.Contains("spider-graph-legend", html);
+            Assert.Contains("data-toggle-inspector", html);
+            Assert.Contains("↗ Linked flow", html);
+            Assert.Contains("spider-link-dot", html);
             Assert.Contains("Action declared in", html);
             Assert.Contains("Action source file", html);
             Assert.Contains("Configured in", html);
             Assert.Contains("Configuration source file", html);
             Assert.Contains("Action", html);
             Assert.Contains("Fluent call", html);
+            Assert.Contains("Branch routes", html);
+            Assert.Contains("Opens related flow", html);
+            Assert.Contains("branch-route", html);
+            Assert.Contains("invokes-flow", html);
             Assert.Contains("spider-manifest-data", html);
             Assert.Contains("Create customer", html);
+            Assert.Contains("Persist customer", html);
             Assert.Contains("spider.flow:create-customer", html);
             Assert.Contains("spider.pipeline:create-customer-request-to-customer-response", html);
         }
@@ -105,6 +116,10 @@ namespace Spider.Pipelines.Web.Tests
             var flowId = "spider.flow:create-customer";
             var validateId = flowId + ".001-validate";
             var mapId = flowId + ".002-map";
+            var branchId = flowId + ".003-customer-branch";
+            var routeId = branchId + ".route.01-when-is-priority";
+            var routeStepId = routeId + ".001-approve-priority";
+            var nestedFlowId = "spider.flow:persist-customer";
             var pipelineId = "spider.pipeline:create-customer-request-to-customer-response";
 
             return new SpiderArchitectureManifest(
@@ -145,6 +160,42 @@ namespace Spider.Pipelines.Web.Tests
                             ["delegate"] = "Map"
                         }),
                     new SpiderComponentDescriptor(
+                        branchId,
+                        "spider.flow-branch",
+                        "Customer branch",
+                        new Dictionary<string, string>
+                        {
+                            ["branchType"] = "CustomerDecision"
+                        }),
+                    new SpiderComponentDescriptor(
+                        routeId,
+                        "spider.flow-branch-route",
+                        "When IsPriority",
+                        new Dictionary<string, string>
+                        {
+                            ["routeKind"] = "when",
+                            ["condition"] = "IsPriority",
+                            ["order"] = "1"
+                        }),
+                    new SpiderComponentDescriptor(
+                        routeStepId,
+                        "spider.flow-step",
+                        "ApprovePriority",
+                        new Dictionary<string, string>
+                        {
+                            ["delegate"] = "ApprovePriority",
+                            ["order"] = "1"
+                        }),
+                    new SpiderComponentDescriptor(
+                        nestedFlowId,
+                        "spider.flow",
+                        "Persist customer",
+                        new Dictionary<string, string>
+                        {
+                            ["request"] = "CustomerResponse",
+                            ["response"] = "CustomerResponse"
+                        }),
+                    new SpiderComponentDescriptor(
                         pipelineId,
                         "spider.pipeline",
                         "CreateCustomerRequest",
@@ -168,7 +219,12 @@ namespace Spider.Pipelines.Web.Tests
                 {
                     new SpiderRelationDescriptor("flow-contains-validate", flowId, validateId, "contains", new Dictionary<string, string>()),
                     new SpiderRelationDescriptor("flow-contains-map", flowId, mapId, "contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("flow-contains-branch", flowId, branchId, "contains", new Dictionary<string, string>()),
                     new SpiderRelationDescriptor("flow-next", validateId, mapId, "next", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("flow-next-branch", mapId, branchId, "next", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("branch-route", branchId, routeId, "branch-route", new Dictionary<string, string> { ["order"] = "1" }),
+                    new SpiderRelationDescriptor("route-contains", routeId, routeStepId, "route-contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("route-invokes-flow", routeStepId, nestedFlowId, "invokes-flow", new Dictionary<string, string>()),
                     new SpiderRelationDescriptor("pipeline-contains-middleware", pipelineId, pipelineId + ".middleware", "contains", new Dictionary<string, string>())
                 });
         }

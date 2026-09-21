@@ -37,6 +37,8 @@ namespace Spider.Pipelines.Analyzers
             foreach (var invocation in receiver.AttachInvocations)
                 TryReadPipeline(context.Compilation, invocation, manifest, sourceRoots);
 
+            AddInvokedFlowRelations(manifest);
+
             context.AddSource(
                 "SpiderGeneratedArchitecture.g.cs",
                 SourceText.From(GenerateSource(manifest), Encoding.UTF8));
@@ -69,6 +71,9 @@ namespace Spider.Pipelines.Analyzers
                 ["request"] = GetTypeName(semanticModel, genericTypes[0]),
                 ["hasResponse"] = (genericTypes.Count == 2).ToString(CultureInfo.InvariantCulture).ToLowerInvariant()
             };
+            var declaringMemberSymbolId = GetEnclosingSymbolId(semanticModel, composeInvocation);
+            if (!string.IsNullOrWhiteSpace(declaringMemberSymbolId))
+                metadata["declaringMemberSymbolId"] = declaringMemberSymbolId;
 
             if (genericTypes.Count == 2)
                 metadata["response"] = GetTypeName(semanticModel, genericTypes[1]);
@@ -103,6 +108,9 @@ namespace Spider.Pipelines.Analyzers
                 manifest.AddComponent(new ComponentModel(stepId, kind, displayName, stepMetadata, evidence));
                 manifest.AddRelation(new RelationModel(flowId, stepId, "contains"));
 
+                if (invocationName == "Branch")
+                    AddBranchRoutes(manifest, semanticModel, invocation, stepId, sourceRoots);
+
                 if (previousStepId != null)
                     manifest.AddRelation(new RelationModel(previousStepId, stepId, "next"));
 
@@ -127,6 +135,8 @@ namespace Spider.Pipelines.Analyzers
             var semanticModel = compilation.GetSemanticModel(attachInvocation.SyntaxTree);
             var requestName = GetTypeName(semanticModel, genericTypes[0]);
             var responseName = genericTypes.Count == 2 ? GetTypeName(semanticModel, genericTypes[1]) : null;
+            var serviceName = GetBridgeServiceName(semanticModel, attachInvocation);
+            var targetMethod = GetExecuteAsyncTargetMethod(semanticModel, attachInvocation);
             var requestDisplayName = GetShortTypeName(requestName);
             var pipelineId = responseName == null
                 ? "spider.pipeline:" + Normalize(requestDisplayName)
@@ -141,15 +151,28 @@ namespace Spider.Pipelines.Analyzers
             if (responseName != null)
                 metadata["response"] = responseName;
 
+            if (!string.IsNullOrWhiteSpace(serviceName))
+                metadata["service"] = serviceName;
+
             manifest.AddComponent(new ComponentModel(pipelineId, "spider.pipeline", requestDisplayName, metadata, CreateEvidence(semanticModel, attachInvocation, null, sourceRoots)));
 
             var counts = CountPipelineStages(attachInvocation);
-            AddPipelineStage(manifest, pipelineId, "pre-process", "Pre-process", counts.PreProcess, 1, null);
-            AddPipelineStage(manifest, pipelineId, "middleware", "Middleware", counts.Middleware, 2, null);
-            AddPipelineStage(manifest, pipelineId, "target", "Target", 1, 3, new Dictionary<string, string>
+            var targetMetadata = new Dictionary<string, string>
             {
                 ["hasOverride"] = (counts.Override > 0).ToString(CultureInfo.InvariantCulture)
-            });
+            };
+
+            if (targetMethod != null)
+            {
+                targetMetadata["target"] = targetMethod.Name;
+                var targetSymbolId = GetSymbolId(targetMethod);
+                if (!string.IsNullOrWhiteSpace(targetSymbolId))
+                    targetMetadata["targetSymbolId"] = targetSymbolId;
+            }
+
+            AddPipelineStage(manifest, pipelineId, "pre-process", "Pre-process", counts.PreProcess, 1, null);
+            AddPipelineStage(manifest, pipelineId, "middleware", "Middleware", counts.Middleware, 2, null);
+            AddPipelineStage(manifest, pipelineId, "target", "Target", 1, 3, targetMetadata);
             AddPipelineStage(manifest, pipelineId, "parallel", "Parallel", counts.Parallel, 4, null);
             AddPipelineStage(manifest, pipelineId, "post-success", "Post-process success", counts.Success, 5, null);
             AddPipelineStage(manifest, pipelineId, "post-failure", "Post-process failure", counts.Failure, 6, null);
@@ -225,6 +248,85 @@ namespace Spider.Pipelines.Analyzers
             return counts;
         }
 
+        private static string GetBridgeServiceName(SemanticModel semanticModel, InvocationExpressionSyntax attachInvocation)
+        {
+            if (!(attachInvocation.Expression is MemberAccessExpressionSyntax memberAccess) ||
+                !(memberAccess.Expression is InvocationExpressionSyntax bridgeInvocation) ||
+                GetInvocationName(bridgeInvocation) != "InitBridge")
+            {
+                return null;
+            }
+
+            var genericTypes = GetGenericArguments(bridgeInvocation);
+            return genericTypes.Count == 1 ? GetTypeName(semanticModel, genericTypes[0]) : null;
+        }
+
+        private static IMethodSymbol GetExecuteAsyncTargetMethod(SemanticModel semanticModel, InvocationExpressionSyntax attachInvocation)
+        {
+            var executeInvocation = BuildChain(attachInvocation)
+                .FirstOrDefault(invocation => GetInvocationName(invocation) == "ExecuteAsync");
+            if (executeInvocation == null || executeInvocation.ArgumentList.Arguments.Count == 0)
+                return null;
+
+            var targetExpression = executeInvocation.ArgumentList.Arguments[0].Expression;
+            var targetInvocation = targetExpression
+                .DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .FirstOrDefault(invocation => invocation.Expression is MemberAccessExpressionSyntax);
+            if (targetInvocation == null)
+                return null;
+
+            return semanticModel.GetSymbolInfo(targetInvocation).Symbol as IMethodSymbol ??
+                   semanticModel.GetSymbolInfo(targetInvocation).CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        }
+
+        private static void AddInvokedFlowRelations(ManifestModel manifest)
+        {
+            var flowsByDeclaringMember = manifest.Components
+                .Where(component => component.Kind == "spider.flow" &&
+                                    TryGetMetadata(component, "declaringMemberSymbolId", out _))
+                .GroupBy(component => component.Metadata["declaringMemberSymbolId"], StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => (IReadOnlyCollection<ComponentModel>)group.ToArray(), StringComparer.Ordinal);
+
+            foreach (var component in manifest.Components.ToArray())
+            {
+                AddInvokedFlowRelation(manifest, flowsByDeclaringMember, component, "actionSymbolId");
+                AddInvokedFlowRelation(manifest, flowsByDeclaringMember, component, "targetSymbolId");
+            }
+        }
+
+        private static void AddInvokedFlowRelation(
+            ManifestModel manifest,
+            IReadOnlyDictionary<string, IReadOnlyCollection<ComponentModel>> flowsByDeclaringMember,
+            ComponentModel component,
+            string metadataKey)
+        {
+            if (!TryGetMetadata(component, metadataKey, out var symbolId) ||
+                !flowsByDeclaringMember.TryGetValue(symbolId, out var invokedFlows))
+            {
+                return;
+            }
+
+            foreach (var invokedFlow in invokedFlows)
+            {
+                if (component.Id == invokedFlow.Id)
+                    continue;
+
+                if (component.Kind == "spider.pipeline-stage")
+                {
+                    manifest.AddRelation(new RelationModel(component.Id, invokedFlow.Id, "invokes-flow"));
+
+                    var pipeline = manifest.FindParent(component.Id, "contains", "spider.pipeline");
+                    if (pipeline != null)
+                        manifest.AddRelation(new RelationModel(pipeline.Id, invokedFlow.Id, "pipeline-invokes-flow"));
+
+                    continue;
+                }
+
+                manifest.AddRelation(new RelationModel(component.Id, invokedFlow.Id, "invokes-flow"));
+            }
+        }
+
         private static Dictionary<string, string> CreateFlowStepMetadata(SemanticModel semanticModel, InvocationExpressionSyntax invocation, string invocationName)
         {
             var metadata = new Dictionary<string, string>
@@ -243,10 +345,122 @@ namespace Spider.Pipelines.Analyzers
             if (delegateExpression != null && !(invocationName == "Branch" && delegateExpression is LambdaExpressionSyntax))
                 metadata["delegate"] = GetExpressionDisplayName(delegateExpression);
 
+            var actionSymbolId = GetExpressionSymbolId(semanticModel, delegateExpression);
+            if (!string.IsNullOrWhiteSpace(actionSymbolId) && !(invocationName == "Branch" && delegateExpression is LambdaExpressionSyntax))
+                metadata["actionSymbolId"] = actionSymbolId;
+
             if (invocationName == "ContinueIf" && invocation.ArgumentList.Arguments.Count > 1)
                 metadata["otherwise"] = invocation.ArgumentList.Arguments[1].Expression.ToString();
 
             return metadata;
+        }
+
+        private static void AddBranchRoutes(
+            ManifestModel manifest,
+            SemanticModel semanticModel,
+            InvocationExpressionSyntax branchInvocation,
+            string branchId,
+            IReadOnlyCollection<string> sourceRoots)
+        {
+            var branchLambda = GetDelegateExpression(branchInvocation) as LambdaExpressionSyntax;
+            if (branchLambda == null)
+                return;
+
+            var routeInvocations = branchLambda.Body
+                .DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .Where(invocation =>
+                {
+                    var name = GetInvocationName(invocation);
+                    return name == "When" || name == "Otherwise";
+                })
+                .OrderBy(GetInvocationNamePosition)
+                .ToArray();
+
+            var routeIndex = 0;
+            foreach (var routeInvocation in routeInvocations)
+            {
+                routeIndex++;
+                var routeName = GetInvocationName(routeInvocation);
+                var isOtherwise = routeName == "Otherwise";
+                var conditionExpression = !isOtherwise && routeInvocation.ArgumentList.Arguments.Count > 0
+                    ? routeInvocation.ArgumentList.Arguments[0].Expression
+                    : null;
+                var configureExpressionIndex = isOtherwise ? 0 : 1;
+                var configureExpression = routeInvocation.ArgumentList.Arguments.Count > configureExpressionIndex
+                    ? routeInvocation.ArgumentList.Arguments[configureExpressionIndex].Expression as LambdaExpressionSyntax
+                    : null;
+                var routeDisplayName = isOtherwise
+                    ? "Otherwise"
+                    : "When " + GetExpressionDisplayName(conditionExpression);
+                var routeId = branchId + ".route." + routeIndex.ToString("00", CultureInfo.InvariantCulture) + "-" + Normalize(routeDisplayName);
+                var routeMetadata = new Dictionary<string, string>
+                {
+                    ["routeKind"] = isOtherwise ? "otherwise" : "when",
+                    ["order"] = routeIndex.ToString(CultureInfo.InvariantCulture)
+                };
+
+                if (conditionExpression != null)
+                {
+                    routeMetadata["condition"] = GetExpressionDisplayName(conditionExpression);
+                    var conditionSymbolId = GetExpressionSymbolId(semanticModel, conditionExpression);
+                    if (!string.IsNullOrWhiteSpace(conditionSymbolId))
+                        routeMetadata["conditionSymbolId"] = conditionSymbolId;
+                }
+
+                var routeEvidence = CreateEvidence(semanticModel, routeInvocation, conditionExpression, sourceRoots);
+                manifest.AddComponent(new ComponentModel(routeId, "spider.flow-branch-route", routeDisplayName, routeMetadata, routeEvidence));
+                manifest.AddRelation(new RelationModel(branchId, routeId, "branch-route", new Dictionary<string, string>
+                {
+                    ["order"] = routeIndex.ToString(CultureInfo.InvariantCulture)
+                }));
+
+                AddBranchRouteSteps(manifest, semanticModel, configureExpression, routeId, sourceRoots);
+            }
+        }
+
+        private static void AddBranchRouteSteps(
+            ManifestModel manifest,
+            SemanticModel semanticModel,
+            LambdaExpressionSyntax routeLambda,
+            string routeId,
+            IReadOnlyCollection<string> sourceRoots)
+        {
+            if (routeLambda == null)
+                return;
+
+            var stepInvocations = routeLambda.Body
+                .DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .Where(invocation =>
+                {
+                    var name = GetInvocationName(invocation);
+                    return name == "Then" || name == "ThenWith";
+                })
+                .OrderBy(GetInvocationNamePosition)
+                .ToArray();
+
+            string previousStepId = null;
+            var stepIndex = 0;
+
+            foreach (var stepInvocation in stepInvocations)
+            {
+                stepIndex++;
+                var invocationName = GetInvocationName(stepInvocation);
+                var displayName = GetStepDisplayName(semanticModel, stepInvocation, invocationName);
+                var stepId = routeId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
+                var metadata = CreateFlowStepMetadata(semanticModel, stepInvocation, invocationName);
+                metadata["order"] = stepIndex.ToString(CultureInfo.InvariantCulture);
+                var evidence = CreateEvidence(semanticModel, stepInvocation, GetDelegateExpression(stepInvocation), sourceRoots);
+
+                manifest.AddComponent(new ComponentModel(stepId, "spider.flow-step", displayName, metadata, evidence));
+                manifest.AddRelation(new RelationModel(routeId, stepId, "route-contains"));
+
+                if (previousStepId != null)
+                    manifest.AddRelation(new RelationModel(previousStepId, stepId, "route-next"));
+
+                previousStepId = stepId;
+            }
         }
 
         private static IReadOnlyList<InvocationExpressionSyntax> BuildChain(InvocationExpressionSyntax firstInvocation)
@@ -291,6 +505,20 @@ namespace Spider.Pipelines.Analyzers
                 return genericName.Identifier.ValueText;
 
             return string.Empty;
+        }
+
+        private static int GetInvocationNamePosition(InvocationExpressionSyntax invocation)
+        {
+            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+                return memberAccess.Name.SpanStart;
+
+            if (invocation.Expression is IdentifierNameSyntax identifier)
+                return identifier.SpanStart;
+
+            if (invocation.Expression is GenericNameSyntax genericName)
+                return genericName.SpanStart;
+
+            return invocation.SpanStart;
         }
 
         private static string GetStringArgument(InvocationExpressionSyntax invocation, int index)
@@ -387,6 +615,29 @@ namespace Spider.Pipelines.Analyzers
                 return fallbackNode;
 
             return declaringSyntax.GetSyntax();
+        }
+
+        private static string GetExpressionSymbolId(SemanticModel semanticModel, ExpressionSyntax expression)
+        {
+            if (expression == null)
+                return null;
+
+            var symbol = semanticModel.GetSymbolInfo(expression).Symbol ??
+                         semanticModel.GetSymbolInfo(expression).CandidateSymbols.FirstOrDefault();
+            return GetSymbolId(symbol);
+        }
+
+        private static string GetEnclosingSymbolId(SemanticModel semanticModel, SyntaxNode node)
+            => GetSymbolId(semanticModel.GetEnclosingSymbol(node.SpanStart));
+
+        private static string GetSymbolId(ISymbol symbol)
+        {
+            if (symbol == null)
+                return null;
+
+            return DocumentationCommentId.CreateDeclarationId(symbol.OriginalDefinition) ??
+                   DocumentationCommentId.CreateDeclarationId(symbol) ??
+                   symbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         }
 
         private static EvidenceModel[] CreateEvidenceFromNode(SyntaxNode node, IReadOnlyCollection<string> sourceRoots)
@@ -534,6 +785,9 @@ namespace Spider.Pipelines.Analyzers
             return normalized.Trim('-').ToLowerInvariant();
         }
 
+        private static bool TryGetMetadata(ComponentModel component, string key, out string value)
+            => component.Metadata.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value);
+
         private static string GenerateSource(ManifestModel manifest)
         {
             var builder = new StringBuilder();
@@ -647,6 +901,17 @@ namespace Spider.Pipelines.Analyzers
 
             public void AddRelation(RelationModel relation)
                 => _relations[relation.Id] = relation;
+
+            public ComponentModel FindParent(string childId, string relationKind, string parentKind)
+            {
+                var relation = _relations.Values.FirstOrDefault(candidate =>
+                    candidate.Kind == relationKind &&
+                    candidate.TargetId == childId &&
+                    _components.TryGetValue(candidate.SourceId, out var parent) &&
+                    parent.Kind == parentKind);
+
+                return relation == null ? null : _components[relation.SourceId];
+            }
         }
 
         private sealed class ComponentModel
