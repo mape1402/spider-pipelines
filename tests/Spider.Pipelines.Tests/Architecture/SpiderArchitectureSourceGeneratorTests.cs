@@ -131,6 +131,36 @@ namespace Spider.Pipelines.Tests.Architecture
         }
 
         [Fact]
+        public void BuildManifest_WhenFlowUsesDescriptiveMetadata_ShouldGenerateDocumentationMetadata()
+        {
+            var manifest = GenerateManifest(MetadataFlowSource);
+
+            var flow = Assert.Single(manifest.Components, component => component.Id == "spider.flow:documented-credit-flow");
+            Assert.Equal("Evaluates a credit request with descriptive metadata.", flow.Metadata["description"]);
+            Assert.Equal("credit,decision", flow.Metadata["tags"]);
+            Assert.Equal("credit-team", flow.Metadata["owner"]);
+
+            var validate = Assert.Single(manifest.Components, component => component.Id == "spider.flow:documented-credit-flow.001-validate-request");
+            Assert.Equal("Validate request", validate.DisplayName);
+            Assert.Equal("Checks required fields before mapping.", validate.Metadata["description"]);
+            Assert.Equal("validation,guard", validate.Metadata["tags"]);
+
+            var branch = Assert.Single(manifest.Components, component => component.Id == "spider.flow:documented-credit-flow.002-score-decision");
+            Assert.Equal("Score decision", branch.DisplayName);
+            Assert.Equal("Chooses the scoring path.", branch.Metadata["description"]);
+            Assert.Equal("branch", branch.Metadata["tags"]);
+
+            var route = Assert.Single(manifest.Components, component => component.Id == branch.Id + ".route.01-low-risk");
+            Assert.Equal("Low risk", route.DisplayName);
+            Assert.Equal("Fast path for low risk scores.", route.Metadata["description"]);
+            Assert.Equal("automatic", route.Metadata["tags"]);
+
+            var routeStep = Assert.Single(manifest.Components, component => component.Id == route.Id + ".001-approve");
+            Assert.Equal("Approve", routeStep.DisplayName);
+            Assert.Equal("approval", routeStep.Metadata["tags"]);
+        }
+
+        [Fact]
         public void BuildManifest_WhenStepMethodDeclaresAnotherFlow_ShouldLinkStepToNestedFlow()
         {
             var manifest = GenerateManifest(NestedFlowSource);
@@ -411,6 +441,66 @@ namespace ArchitectureSample
     public sealed class RiskDecision { }
 
     public sealed class RiskResponse { }
+}
+";
+
+        private const string MetadataFlowSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedFlows
+    {
+        public void Configure(ISpider spider, CreditRequest request, CancellationToken token)
+        {
+            _ = spider
+                .ComposeFlow<CreditRequest, CreditResponse>(""Documented credit flow"")
+                .Describe(""Evaluates a credit request with descriptive metadata."")
+                .Tags(""credit"", ""decision"")
+                .Metadata(""owner"", ""credit-team"")
+                .Then(Validate, step => step
+                    .Named(""Validate request"")
+                    .Describe(""Checks required fields before mapping."")
+                    .Tags(""validation"", ""guard""))
+                .Branch<CreditDecision>(branch => branch
+                    .Named(""Score decision"")
+                    .Describe(""Chooses the scoring path."")
+                    .Tags(""branch"")
+                    .When(IsLowRisk, low => low
+                        .Named(""Low risk"")
+                        .Describe(""Fast path for low risk scores."")
+                        .Tags(""automatic"")
+                        .Then(Approve, step => step
+                            .Named(""Approve"")
+                            .Tags(""approval"")))
+                    .Otherwise(normal => normal
+                        .Named(""Manual review"")
+                        .Then(Review)))
+                .Then(ReturnResponse)
+                .RunAsync(request, token);
+        }
+
+        private static CreditScore Validate(CreditRequest request) => new CreditScore();
+
+        private static bool IsLowRisk(CreditScore score) => true;
+
+        private static CreditDecision Approve(CreditScore score) => new CreditDecision();
+
+        private static CreditDecision Review(CreditScore score) => new CreditDecision();
+
+        private static CreditResponse ReturnResponse(CreditDecision decision) => new CreditResponse();
+    }
+
+    public sealed class CreditRequest { }
+
+    public sealed class CreditScore { }
+
+    public sealed class CreditDecision { }
+
+    public sealed class CreditResponse { }
 }
 ";
 

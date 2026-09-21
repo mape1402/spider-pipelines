@@ -29,6 +29,40 @@ namespace Spider.Pipelines.Tests.Flows
         }
 
         [Fact]
+        public async Task RunAsync_WhenFlowHasDescriptiveMetadata_ShouldKeepExecutionBehavior()
+        {
+            var spider = CreateSpider();
+
+            var response = await spider
+                .ComposeFlow<RiskRequest, RiskResponse>("Evaluate risk")
+                .Describe("Evaluates the risk score and produces a decision.")
+                .Tags("risk", "decision")
+                .Metadata("owner", "credit")
+                .Then(BuildRiskProfile, step => step
+                    .Named("Build profile")
+                    .Describe("Creates the risk profile used by branch conditions.")
+                    .Tags("mapping"))
+                .Branch<RiskDecision>(branch => branch
+                    .Named("Risk decision")
+                    .Describe("Chooses the correct decision path.")
+                    .Tags("branch")
+                    .When(IsLowRisk, low => low
+                        .Named("Low risk route")
+                        .Tags("automatic")
+                        .Then(AutoApprove, step => step.Named("Approve automatically")))
+                    .When(IsHighRisk, high => high
+                        .Named("High risk route")
+                        .Then(RequireManualReview, step => step.Tags("manual-review")))
+                    .Otherwise(normal => normal
+                        .Named("Standard risk route")
+                        .Then(CalculateStandardDecision)))
+                .Then(ReturnRiskResponse, step => step.Tags("response"))
+                .RunAsync(new RiskRequest(100), CancellationToken.None);
+
+            Assert.Equal("approved", response.Decision);
+        }
+
+        [Fact]
         public async Task RunAsync_WhenFlowDoesNotDeclareResponse_ShouldComplete()
         {
             var spider = CreateSpider();

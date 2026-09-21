@@ -63,6 +63,10 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("data-toggle-inspector", html);
             Assert.Contains("↗ Linked flow", html);
             Assert.Contains("spider-link-dot", html);
+            Assert.Contains("spider-chip tag", html);
+            Assert.Contains("Creates a customer and persists the result.", html);
+            Assert.Contains("customer", html);
+            Assert.Contains("validation", html);
             Assert.Contains("Action declared in", html);
             Assert.Contains("Action source file", html);
             Assert.Contains("Configured in", html);
@@ -147,7 +151,9 @@ namespace Spider.Pipelines.Web.Tests
                         new Dictionary<string, string>
                         {
                             ["request"] = "CreateCustomerRequest",
-                            ["response"] = "CustomerResponse"
+                            ["response"] = "CustomerResponse",
+                            ["description"] = "Creates a customer and persists the result.",
+                            ["tags"] = "customer,write"
                         },
                         new[]
                         {
@@ -164,7 +170,9 @@ namespace Spider.Pipelines.Web.Tests
                         "Validate",
                         new Dictionary<string, string>
                         {
-                            ["delegate"] = "Validate"
+                            ["delegate"] = "Validate",
+                            ["description"] = "Checks whether the customer request is valid.",
+                            ["tags"] = "validation"
                         }),
                     new SpiderComponentDescriptor(
                         mapId,

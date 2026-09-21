@@ -29,8 +29,14 @@ namespace Spider.Pipelines.Samples.Web
             CancellationToken cancellationToken)
             => _spider
                 .ComposeFlow<CreditDecision, CreditDecision>("Persist credit decision")
-                .Then(CreditDecisionPersistenceSteps.StoreDecisionAsync)
-                .Then(CreditDecisionPersistenceSteps.MarkDecisionAsStored)
+                .Describe("Persists the credit decision and returns the stored model.")
+                .Tags("persistence", "nested-flow")
+                .Then(CreditDecisionPersistenceSteps.StoreDecisionAsync, step => step
+                    .Named("Store decision")
+                    .Tags("storage"))
+                .Then(CreditDecisionPersistenceSteps.MarkDecisionAsStored, step => step
+                    .Named("Mark decision as stored")
+                    .Tags("state"))
                 .RunAsync(decision, cancellationToken);
     }
 }
