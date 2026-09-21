@@ -56,20 +56,24 @@ namespace Spider.Pipelines.Web
             html.AppendLine("    <aside class=\"spider-sidebar\" aria-label=\"Spider architecture navigation\">");
             html.AppendLine("      <div class=\"spider-brand\">");
             html.AppendLine("        <div class=\"spider-logo\" aria-hidden=\"true\">S</div>");
-            html.AppendLine("        <div>");
+            html.AppendLine("        <div class=\"spider-brand-copy\">");
             html.AppendLine($"          <div class=\"spider-title\">{title}</div>");
             html.AppendLine("          <div class=\"spider-subtitle\">Architecture</div>");
             html.AppendLine("        </div>");
             html.AppendLine("      </div>");
             html.AppendLine("      <nav class=\"spider-menu\" aria-label=\"Architecture sections\">");
-            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"pipelines\"><span>Pipelines</span><strong id=\"spider-pipeline-count\">0</strong></button>");
-            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"flows\"><span>Flows</span><strong id=\"spider-flow-count\">0</strong></button>");
+            html.AppendLine("        <div class=\"spider-menu-section\">Map</div>");
+            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"pipelines\"><span class=\"spider-menu-icon pipeline\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Pipelines</span><small>Execution wrappers</small></span><strong id=\"spider-pipeline-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"flows\"><span class=\"spider-menu-icon flow\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Flows</span><small>Business processes</small></span><strong id=\"spider-flow-count\">0</strong></button>");
             html.AppendLine("      </nav>");
-            html.AppendLine("      <button id=\"spider-json-link\" class=\"spider-json-link\" type=\"button\">Manifest JSON</button>");
+            html.AppendLine("      <div class=\"spider-sidebar-footer\">");
+            html.AppendLine("        <button id=\"spider-json-link\" class=\"spider-json-link\" type=\"button\">Manifest JSON</button>");
+            html.AppendLine("      </div>");
             html.AppendLine("    </aside>");
             html.AppendLine("    <section class=\"spider-workspace\">");
             html.AppendLine("      <header class=\"spider-topbar\">");
             html.AppendLine("        <div class=\"spider-topbar-left\">");
+            html.AppendLine("          <button id=\"spider-sidebar-toggle\" class=\"spider-sidebar-toggle\" type=\"button\" aria-label=\"Collapse navigation\" aria-expanded=\"true\" title=\"Collapse navigation\"><span class=\"spider-sidebar-toggle-line\"></span><span class=\"spider-sidebar-toggle-line\"></span></button>");
             html.AppendLine("          <div id=\"spider-topbar-title\" class=\"spider-topbar-title\">Pipelines</div>");
             html.AppendLine("        </div>");
             html.AppendLine("        <div class=\"spider-topbar-badge\">Generated metadata</div>");
@@ -109,7 +113,8 @@ namespace Spider.Pipelines.Web
 
 :root {
   color-scheme: light;
-  --spider-sidebar-width: 220px;
+  --spider-sidebar-width: 248px;
+  --spider-sidebar-collapsed-width: 72px;
   --spider-sidebar-bg: #111827;
   --spider-sidebar-brand: #0b1020;
   --spider-sidebar-border: #252b3a;
@@ -185,18 +190,21 @@ button {
   overflow: hidden;
   border-right: 1px solid var(--spider-sidebar-border);
   background: var(--spider-sidebar-bg);
+  transition: flex-basis 0.16s ease, width 0.16s ease;
 }
 
 .spider-brand {
   display: flex;
   align-items: center;
-  height: var(--spider-topbar-height);
-  flex: 0 0 var(--spider-topbar-height);
-  gap: 10px;
+  min-height: 68px;
+  flex: 0 0 auto;
+  gap: 11px;
   overflow: hidden;
   border-bottom: 1px solid var(--spider-sidebar-border);
-  background: var(--spider-sidebar-brand);
-  padding: 0 14px;
+  background:
+    linear-gradient(135deg, rgba(230, 36, 45, 0.16), transparent 42%),
+    var(--spider-sidebar-brand);
+  padding: 13px 14px;
 }
 
 .spider-logo {
@@ -211,6 +219,10 @@ button {
   color: #ffffff;
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.spider-brand-copy {
+  min-width: 0;
 }
 
 .spider-title {
@@ -232,55 +244,110 @@ button {
 .spider-menu {
   display: grid;
   flex: 1 1 auto;
-  gap: 6px;
+  gap: 8px;
   align-content: start;
   grid-auto-rows: max-content;
   overflow-y: auto;
-  padding: 10px 0;
+  padding: 14px 10px;
+}
+
+.spider-menu-section {
+  color: var(--spider-sidebar-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 0 8px 2px;
+  text-transform: uppercase;
 }
 
 .spider-menu-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  width: calc(100% - 6px);
+  gap: 10px;
+  width: 100%;
   border: 1px solid transparent;
-  border-left: 2px solid transparent;
-  border-radius: 0 var(--spider-radius) var(--spider-radius) 0;
+  border-radius: var(--spider-radius);
   background: transparent;
   color: var(--spider-sidebar-text);
   cursor: pointer;
   font-size: 0.875rem;
-  font-weight: 500;
-  margin-right: 6px;
-  padding: 7px 12px 7px 16px;
+  font-weight: 650;
+  padding: 9px 10px;
   text-align: left;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.12s;
 }
 
 .spider-menu-item:hover {
   background: var(--spider-sidebar-hover);
-  border-left-color: var(--spider-sidebar-border);
+  border-color: rgba(255, 255, 255, 0.08);
   color: #e0e2f0;
 }
 
 .spider-menu-item.is-active {
   background: var(--spider-sidebar-active);
-  border-left-color: var(--spider-sidebar-active-border);
+  border-color: rgba(230, 36, 45, 0.36);
   color: var(--spider-sidebar-active-text);
 }
 
+.spider-menu-item.is-active .spider-menu-icon {
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.14);
+}
+
 .spider-menu-item strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
   color: currentColor;
-  font-size: 0.75rem;
-  font-weight: 600;
-  opacity: 0.8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.spider-menu-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--spider-red);
+}
+
+.spider-menu-icon.pipeline {
+  background: linear-gradient(135deg, var(--spider-black), var(--spider-blue));
+}
+
+.spider-menu-icon.flow {
+  background: linear-gradient(135deg, var(--spider-red), var(--spider-red-strong));
+}
+
+.spider-menu-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.spider-menu-text small {
+  overflow: hidden;
+  color: var(--spider-sidebar-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-sidebar-footer {
+  border-top: 1px solid var(--spider-sidebar-border);
+  padding: 12px 10px;
 }
 
 .spider-json-link {
   display: none;
-  width: calc(100% - 28px);
-  margin: 0 14px 14px;
+  width: 100%;
+  margin: 0;
   border: 1px solid var(--spider-sidebar-border);
   border-radius: var(--spider-radius);
   background: transparent;
@@ -298,6 +365,40 @@ button {
 
 [data-show-json="true"] .spider-json-link {
   display: block;
+}
+
+@media (min-width: 761px) {
+  .spider-shell.is-sidebar-collapsed {
+    --spider-sidebar-width: var(--spider-sidebar-collapsed-width);
+  }
+
+  .spider-shell.is-sidebar-collapsed .spider-brand {
+    justify-content: center;
+    padding: 13px 8px;
+  }
+
+  .spider-shell.is-sidebar-collapsed .spider-brand-copy,
+  .spider-shell.is-sidebar-collapsed .spider-menu-section,
+  .spider-shell.is-sidebar-collapsed .spider-menu-text,
+  .spider-shell.is-sidebar-collapsed .spider-menu-item strong,
+  .spider-shell.is-sidebar-collapsed .spider-sidebar-footer {
+    display: none;
+  }
+
+  .spider-shell.is-sidebar-collapsed .spider-menu {
+    padding: 12px 9px;
+  }
+
+  .spider-shell.is-sidebar-collapsed .spider-menu-item {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: 10px 0;
+  }
+
+  .spider-shell.is-sidebar-collapsed .spider-menu-icon {
+    width: 30px;
+    height: 30px;
+  }
 }
 
 .spider-workspace {
@@ -321,7 +422,39 @@ button {
 }
 
 .spider-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
+}
+
+.spider-sidebar-toggle {
+  display: inline-grid;
+  place-content: center;
+  gap: 4px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--spider-line);
+  border-radius: var(--spider-radius);
+  background: #ffffff;
+  color: var(--spider-text);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s, color 0.12s;
+}
+
+.spider-sidebar-toggle:hover {
+  border-color: rgba(230, 36, 45, 0.36);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.08);
+  color: var(--spider-red);
+}
+
+.spider-sidebar-toggle-line {
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .spider-topbar-title {
@@ -350,7 +483,7 @@ button {
   flex: 1 1 auto;
   min-width: 0;
   overflow-y: auto;
-  padding: 18px 22px;
+  padding: 20px 24px;
 }
 
 .spider-content {
@@ -364,7 +497,7 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .spider-view-title,
@@ -384,8 +517,8 @@ button {
 }
 
 .spider-search {
-  width: min(280px, 34vw);
-  min-width: 190px;
+  width: min(340px, 36vw);
+  min-width: 220px;
 }
 
 .spider-search input {
@@ -409,48 +542,124 @@ button {
 
 .spider-process-list {
   display: grid;
-  overflow: hidden;
-  border: 1px solid var(--spider-line);
-  border-radius: 8px;
-  background: #ffffff;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 360px));
+  grid-auto-rows: 96px;
+  justify-content: start;
+  gap: 12px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .spider-process-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 16px;
+  grid-template-columns: 4px minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 12px;
   width: 100%;
-  border: 0;
-  border-bottom: 1px solid var(--spider-line);
-  border-radius: 0;
+  height: 96px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
   background: #ffffff;
   cursor: pointer;
-  padding: 11px 14px;
+  padding: 0;
   text-align: left;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
 }
 
 .spider-process-row:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--spider-line);
 }
 
 .spider-process-row:hover {
-  background: #fbfcff;
+  border-color: rgba(230, 36, 45, 0.28);
+  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.07);
+  transform: translateY(-1px);
+}
+
+.spider-process-accent {
+  border-radius: 8px 0 0 8px;
+  background: var(--spider-red);
+}
+
+.spider-process-row.pipeline .spider-process-accent {
+  background: var(--spider-black);
+}
+
+.spider-process-body {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px 0;
 }
 
 .spider-process-name {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--spider-text);
-  font-size: 0.95rem;
-  font-weight: 750;
+  font-size: 0.96rem;
+  font-weight: 700;
   line-height: 1.3;
 }
 
 .spider-process-meta {
-  margin-top: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--spider-muted);
   font-size: 0.8rem;
   line-height: 1.35;
+}
+
+.spider-process-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.spider-process-kind {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid rgba(230, 36, 45, 0.2);
+  border-radius: 999px;
+  background: var(--spider-red-soft);
+  color: var(--spider-red);
+  font-size: 0.7rem;
+  font-weight: 750;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.spider-process-kind.pipeline {
+  border-color: rgba(17, 24, 39, 0.16);
+  background: var(--spider-panel-soft);
+  color: var(--spider-black);
+}
+
+.spider-process-action {
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: 8px;
+  min-width: 74px;
+  padding: 12px 12px 12px 0;
+}
+
+.spider-process-arrow {
+  color: var(--spider-muted);
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .spider-count-pill,
@@ -470,6 +679,7 @@ button {
   background: var(--spider-panel-soft);
   border: 1px solid var(--spider-line);
   color: var(--spider-muted);
+  white-space: nowrap;
 }
 
 .spider-chip {
@@ -1060,9 +1270,18 @@ button {
     border-bottom: 1px solid var(--spider-sidebar-border);
   }
 
+  .spider-sidebar-toggle {
+    display: none;
+  }
+
   .spider-menu {
     grid-template-columns: 1fr 1fr;
     padding: 8px;
+  }
+
+  .spider-menu-section,
+  .spider-sidebar-footer {
+    grid-column: 1 / -1;
   }
 
   .spider-main {
@@ -1070,10 +1289,17 @@ button {
   }
 
   .spider-view-header,
-  .spider-detail-toolbar,
-  .spider-process-row {
+  .spider-detail-toolbar {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .spider-process-list {
+    grid-template-columns: 1fr;
+  }
+
+  .spider-process-row {
+    grid-template-columns: 4px minmax(0, 1fr) auto;
   }
 
   .spider-search {
@@ -1101,7 +1327,9 @@ button {
   const flowCount = document.getElementById("spider-flow-count");
   const pipelineCount = document.getElementById("spider-pipeline-count");
   const topbarTitle = document.getElementById("spider-topbar-title");
+  const sidebarToggle = document.getElementById("spider-sidebar-toggle");
   const jsonLink = document.getElementById("spider-json-link");
+  const sidebarStorageKey = "spider:architecture:sidebar-collapsed";
   const showGraph = root.dataset.showGraph === "true";
   const showJson = root.dataset.showJson === "true";
   const state = {
@@ -1119,6 +1347,8 @@ button {
   if (!showJson && jsonLink) {
     jsonLink.classList.add("spider-hidden");
   }
+
+  setSidebarCollapsed(readSidebarCollapsedPreference());
 
   document.addEventListener("click", (event) => {
     const menu = event.target.closest("[data-menu-view]");
@@ -1163,6 +1393,14 @@ button {
       setHash("json");
       renderJson();
       setActiveMenu("");
+    });
+  }
+
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      const collapsed = !root.classList.contains("is-sidebar-collapsed");
+      setSidebarCollapsed(collapsed);
+      writeSidebarCollapsedPreference(collapsed);
     });
   }
 
@@ -1257,14 +1495,23 @@ button {
       const countLabel = item.kind === "spider.pipeline"
         ? `${children.length} stages`
         : `${children.length} steps`;
+      const kindLabel = item.kind === "spider.pipeline" ? "Pipeline" : "Flow";
+      const kindClass = item.kind === "spider.pipeline" ? "pipeline" : "flow";
 
       return `
-        <button class="spider-process-row" type="button" data-open-process="${escapeAttribute(item.id)}">
-          <span>
+        <button class="spider-process-row ${kindClass}" type="button" data-open-process="${escapeAttribute(item.id)}">
+          <span class="spider-process-accent" aria-hidden="true"></span>
+          <span class="spider-process-body">
+            <span class="spider-process-tags">
+              <span class="spider-process-kind ${kindClass}">${escapeHtml(kindLabel)}</span>
+              <span class="spider-process-meta">${escapeHtml(getSignature(item))}</span>
+            </span>
             <span class="spider-process-name">${escapeHtml(item.displayName || item.id)}</span>
-            <span class="spider-process-meta">${escapeHtml(getSignature(item))}</span>
           </span>
-          <span class="spider-count-pill">${escapeHtml(countLabel)}</span>
+          <span class="spider-process-action">
+            <span class="spider-count-pill">${escapeHtml(countLabel)}</span>
+            <span class="spider-process-arrow" aria-hidden="true">↗</span>
+          </span>
         </button>`;
     }).join("");
   }
@@ -2154,6 +2401,34 @@ button {
   function setTopbarTitle(value) {
     if (topbarTitle) {
       topbarTitle.textContent = value || "Spider Architecture";
+    }
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    root.classList.toggle("is-sidebar-collapsed", collapsed);
+
+    if (!sidebarToggle) {
+      return;
+    }
+
+    sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+    sidebarToggle.setAttribute("aria-label", collapsed ? "Expand navigation" : "Collapse navigation");
+    sidebarToggle.setAttribute("title", collapsed ? "Expand navigation" : "Collapse navigation");
+  }
+
+  function readSidebarCollapsedPreference() {
+    try {
+      return window.localStorage.getItem(sidebarStorageKey) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function writeSidebarCollapsedPreference(collapsed) {
+    try {
+      window.localStorage.setItem(sidebarStorageKey, String(collapsed));
+    } catch {
+      // Ignore blocked storage; the visual state still changes for this page view.
     }
   }
 

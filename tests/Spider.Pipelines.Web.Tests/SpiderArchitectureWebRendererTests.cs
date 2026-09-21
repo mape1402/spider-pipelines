@@ -15,6 +15,13 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-documentation-app", html);
             Assert.Contains("spider-sidebar", html);
             Assert.Contains("spider-menu", html);
+            Assert.Contains("spider-menu-section", html);
+            Assert.Contains("spider-menu-icon", html);
+            Assert.Contains("spider-menu-text", html);
+            Assert.Contains("spider-sidebar-toggle", html);
+            Assert.Contains("Collapse navigation", html);
+            Assert.Contains("is-sidebar-collapsed", html);
+            Assert.Contains("spider:architecture:sidebar-collapsed", html);
             Assert.Contains("spider-topbar", html);
             Assert.Contains("data-menu-view=\"pipelines\"", html);
             Assert.Contains("data-menu-view=\"flows\"", html);
@@ -25,6 +32,14 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-content", html);
             Assert.Contains("spider-list-view", html);
             Assert.Contains("spider-process-list", html);
+            Assert.Contains("spider-process-accent", html);
+            Assert.Contains("spider-process-kind", html);
+            Assert.Contains("spider-process-action", html);
+            Assert.Contains("spider-process-arrow", html);
+            Assert.Contains("grid-template-columns: repeat(auto-fill, minmax(320px, 360px))", html);
+            Assert.Contains("grid-auto-rows: 96px", html);
+            Assert.Contains("height: 96px", html);
+            Assert.Contains("text-overflow: ellipsis", html);
             Assert.Contains("data-open-process", html);
             Assert.Contains("spider-detail-view", html);
             Assert.Contains("spider-process-summary", html);
