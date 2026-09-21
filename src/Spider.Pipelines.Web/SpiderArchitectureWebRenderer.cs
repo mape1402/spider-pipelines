@@ -477,11 +477,16 @@ button {
   color: var(--spider-red);
 }
 
-.spider-chip.flow,
+.spider-chip.flow {
+  background: var(--spider-red-soft);
+  color: var(--spider-red);
+}
+
 .spider-kind-step,
 .spider-kind-stage {
-  background: var(--spider-blue-soft);
-  color: var(--spider-blue);
+  background: var(--spider-panel-soft);
+  border: 1px solid var(--spider-line);
+  color: var(--spider-muted);
 }
 
 .spider-chip.pipeline {
@@ -496,8 +501,9 @@ button {
 
 .spider-kind-branch,
 .spider-chip.profile {
-  background: var(--spider-purple-soft);
-  color: var(--spider-purple);
+  background: var(--spider-panel-soft);
+  border: 1px solid var(--spider-line);
+  color: var(--spider-muted);
 }
 
 .spider-empty-list,
@@ -686,14 +692,6 @@ button {
 
 .spider-graph-node.is-root .spider-node-accent {
   fill: var(--spider-black);
-}
-
-.spider-graph-node.is-condition .spider-node-accent {
-  fill: var(--spider-red-strong);
-}
-
-.spider-graph-node.is-branch .spider-node-accent {
-  fill: #334155;
 }
 
 .spider-graph-node.is-selected .spider-node-box {
@@ -1016,26 +1014,30 @@ button {
       return;
     }
 
+    const children = orderChildren(process);
     state.view = process.kind === "spider.flow" ? "flows" : "pipelines";
     state.mode = "detail";
     state.processId = id;
-    state.nodeId = id;
+    state.nodeId = children.length ? children[0].id : id;
     if (!skipHash) {
       setHash(id);
     }
 
-    renderProcessDetail(process);
+    renderProcessDetail(process, children);
     resetMainScroll();
   }
 
-  function renderProcessDetail(process) {
-    const children = orderChildren(process);
+  function renderProcessDetail(process, children) {
     const profiles = getRelated(process.id, "uses-profile");
     const kind = process.kind === "spider.flow" ? "Flow" : "Pipeline";
     const backLabel = process.kind === "spider.flow" ? "Back to Flows" : "Back to Pipelines";
     const graph = showGraph
       ? renderVerticalGraph(process, children)
       : `<div class="spider-empty-list">Graph disabled.</div>`;
+    const selectedNode = byId.get(state.nodeId) || process;
+    const selectedIndex = selectedNode.id === process.id
+      ? 0
+      : children.findIndex((child) => child.id === selectedNode.id) + 1;
 
     setActiveMenu(state.view);
     setTopbarTitle(process.displayName || kind);
@@ -1066,17 +1068,13 @@ button {
             <div class="spider-graph-wrap spider-process-graph">${graph}</div>
           </section>
           <aside id="spider-node-detail" class="spider-node-detail">
-            ${renderNodeDetail(process, process, 0)}
+            ${renderNodeDetail(selectedNode, process, selectedIndex)}
           </aside>
         </div>
       </article>`;
   }
 
   function renderProcessSummary(process, children, profiles) {
-    const evidence = process.evidence || [];
-    const source = evidence.length && evidence[0].filePath
-      ? `${evidence[0].filePath}${evidence[0].lineNumber ? ":" + evidence[0].lineNumber : ""}`
-      : "Not available";
     const kind = process.kind === "spider.flow" ? "Flow" : "Pipeline";
     const childLabel = process.kind === "spider.flow" ? "Steps" : "Stages";
     const profileText = profiles.length
@@ -1100,10 +1098,6 @@ button {
           <span class="spider-summary-label">Profiles</span>
           <span class="spider-summary-value">${escapeHtml(profileText)}</span>
         </div>
-        <div class="spider-summary-item spider-evidence">
-          <span class="spider-summary-label">Source</span>
-          <span class="spider-summary-value">${escapeHtml(shortPath(source))}</span>
-        </div>
       </div>
       ${renderProcessOutline(process, children)}`;
   }
@@ -1118,7 +1112,7 @@ button {
       <div class="spider-outline">
         <div class="spider-outline-title">${escapeHtml(title)}</div>
         ${children.map((child, index) => `
-          <button class="spider-outline-row" type="button" data-node-id="${escapeAttribute(child.id)}">
+          <button class="spider-outline-row${child.id === state.nodeId ? " is-selected" : ""}" type="button" data-node-id="${escapeAttribute(child.id)}">
             <span class="spider-outline-index">${escapeHtml(String(index + 1).padStart(2, "0"))}</span>
             <span class="spider-outline-name">${escapeHtml(child.displayName || child.id)}</span>
           </button>`).join("")}
@@ -1215,22 +1209,21 @@ button {
   }
 
   function renderNodeDetail(node, process, index) {
-    const metadata = Object.entries(node.metadata || {});
     const evidence = node.evidence || [];
     const source = evidence.length && evidence[0].filePath
       ? `${evidence[0].filePath}${evidence[0].lineNumber ? ":" + evidence[0].lineNumber : ""}`
       : "";
-    const rows = [
-      ["Kind", getFriendlyKind(node)],
-      ["Order", index === 0 ? "Process root" : String(index)],
-      ["Id", node.id]
-    ].concat(metadata.map(([key, value]) => [formatLabel(key), value]));
+    const rows = createDetailRows(node, index);
+    const evidenceLabels = getEvidenceLabels(node);
+    const declaredIn = evidence.length
+      ? formatDeclaredIn(evidence[0])
+      : "";
     const evidenceRows = evidence.length
       ? `
         <div class="spider-detail-section spider-evidence">
           <dl class="spider-definition">
-            <dt>Member</dt><dd>${escapeHtml(evidence[0].memberName || "Not available")}</dd>
-            <dt>Source</dt><dd>${escapeHtml(source || "Not available")}</dd>
+            <dt>${escapeHtml(evidenceLabels.declaredIn)}</dt><dd>${escapeHtml(declaredIn || "Not available")}</dd>
+            <dt>${escapeHtml(evidenceLabels.sourceFile)}</dt><dd>${escapeHtml(source || "Not available")}</dd>
           </dl>
         </div>`
       : "";
@@ -1244,6 +1237,96 @@ button {
         ${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "Not declared")}</dd>`).join("")}
       </dl>
       ${evidenceRows}`;
+  }
+
+  function getEvidenceLabels(node) {
+    const action = getMetadata(node, "delegate");
+    if (action === "lambda") {
+      return {
+        declaredIn: "Lambda declared in",
+        sourceFile: "Lambda source file"
+      };
+    }
+
+    if (node.kind === "spider.flow-condition" && action) {
+      return {
+        declaredIn: "Condition declared in",
+        sourceFile: "Condition source file"
+      };
+    }
+
+    if (node.kind === "spider.flow-step" && action) {
+      return {
+        declaredIn: "Action declared in",
+        sourceFile: "Action source file"
+      };
+    }
+
+    return {
+      declaredIn: "Configured in",
+      sourceFile: "Configuration source file"
+    };
+  }
+
+  function createDetailRows(node, index) {
+    const rows = [
+      ["Component type", getFriendlyKind(node)],
+      ["Position", index === 0 ? "Root" : String(index)],
+      ["Component id", node.id]
+    ];
+
+    const metadata = Object.entries(node.metadata || {});
+    for (const [key, value] of metadata) {
+      const label = getMetadataLabel(key);
+      if (!label) {
+        continue;
+      }
+
+      rows.push([label, formatMetadataValue(key, value)]);
+    }
+
+    return rows;
+  }
+
+  function getMetadataLabel(key) {
+    const labels = {
+      branchType: "Branch type",
+      count: "Configured actions",
+      delegate: "Action",
+      genericArguments: "Type arguments",
+      hasOverride: "Override configured",
+      hasResponse: "Returns value",
+      operation: "Fluent call",
+      otherwise: "Otherwise",
+      request: "Input",
+      response: "Output",
+      stage: "Pipeline stage"
+    };
+
+    if (key === "order") {
+      return "";
+    }
+
+    return labels[key] || formatLabel(key);
+  }
+
+  function formatMetadataValue(key, value) {
+    if (key === "hasResponse" || key === "hasOverride") {
+      return value === "true" || value === "True" ? "Yes" : "No";
+    }
+
+    return value;
+  }
+
+  function formatDeclaredIn(evidence) {
+    const typeName = evidence && evidence.typeName ? evidence.typeName : "";
+    const memberName = evidence && evidence.memberName ? evidence.memberName : "";
+
+    if (typeName && memberName) {
+      return `${typeName}.${memberName}`;
+    }
+
+    return typeName || memberName;
   }
 
   function filterProcesses(items) {

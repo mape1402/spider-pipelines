@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Spider.Pipelines.Analyzers;
 using Spider.Pipelines.Architecture;
 using Spider.Pipelines.Core;
@@ -29,7 +30,8 @@ namespace Spider.Pipelines.Tests.Architecture
                  component.Kind == "spider.flow-branch")));
             Assert.Contains(manifest.Components, component =>
                 component.Id == "spider.flow:create-customer.001-validate" &&
-                component.Evidence.Single().MemberName == "Validate");
+                component.Evidence.Single().MemberName == "Validate" &&
+                component.Metadata["delegate"] == "Validate");
             Assert.Equal(4, manifest.Relations.Count(relation =>
                 relation.Kind == "next" &&
                 relation.SourceId.StartsWith("spider.flow:create-customer.", StringComparison.Ordinal)));
@@ -54,6 +56,49 @@ namespace Spider.Pipelines.Tests.Architecture
             AssertStage(manifest, $"{pipelineId}.post-failure", "1");
         }
 
+        [Fact]
+        public void BuildManifest_WhenSourceFilePathIsAbsolute_ShouldGeneratePortableEvidencePaths()
+        {
+            var projectDirectory = NormalizeTestPath(Path.Combine(Path.GetTempPath(), "spider-source-root"));
+            var sourcePath = NormalizeTestPath(Path.Combine(projectDirectory, "Features", "ArchitectureSample.cs"));
+            var manifest = GenerateManifest(TestSource, sourcePath, projectDirectory);
+            var evidencePaths = manifest.Components
+                .SelectMany(component => component.Evidence)
+                .Select(evidence => evidence.FilePath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.NotEmpty(evidencePaths);
+            Assert.All(evidencePaths, path =>
+            {
+                Assert.False(Path.IsPathRooted(path));
+                Assert.DoesNotContain(projectDirectory, path, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain("\\", path);
+            });
+            Assert.Contains("Features/ArchitectureSample.cs", evidencePaths);
+        }
+
+        [Fact]
+        public void BuildManifest_WhenStepUsesMethodFromAnotherFile_ShouldUseMethodDeclarationAsEvidence()
+        {
+            var projectDirectory = NormalizeTestPath(Path.Combine(Path.GetTempPath(), "spider-external-source-root"));
+            var flowPath = NormalizeTestPath(Path.Combine(projectDirectory, "Flows", "FlowDocumentation.cs"));
+            var actionPath = NormalizeTestPath(Path.Combine(projectDirectory, "Actions", "ExternalActions.cs"));
+            var manifest = GenerateManifest(
+                ExternalFlowSource,
+                flowPath,
+                projectDirectory,
+                (ExternalActionsSource, actionPath));
+
+            var step = Assert.Single(manifest.Components, component => component.Id == "spider.flow:external-flow.001-validate");
+            var evidence = Assert.Single(step.Evidence);
+
+            Assert.Equal("Validate", evidence.MemberName);
+            Assert.Equal("ExternalActions", evidence.TypeName);
+            Assert.Equal("Actions/ExternalActions.cs", evidence.FilePath);
+        }
+
         private static void AssertStage(SpiderArchitectureManifest manifest, string id, string count, string hasOverride = null)
         {
             var stage = Assert.Single(manifest.Components, component => component.Id == id);
@@ -64,18 +109,33 @@ namespace Spider.Pipelines.Tests.Architecture
                 Assert.Equal(hasOverride, stage.Metadata["hasOverride"]);
         }
 
-        private static SpiderArchitectureManifest GenerateManifest(string source)
+        private static SpiderArchitectureManifest GenerateManifest(
+            string source,
+            string filePath = "ArchitectureSample.cs",
+            string projectDirectory = null,
+            params (string Source, string FilePath)[] additionalSources)
         {
-            var syntaxTree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest), "ArchitectureSample.cs");
+            var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+            var syntaxTrees = new List<SyntaxTree>
+            {
+                CSharpSyntaxTree.ParseText(source, parseOptions, filePath)
+            };
+
+            syntaxTrees.AddRange(additionalSources.Select(additionalSource =>
+                CSharpSyntaxTree.ParseText(additionalSource.Source, parseOptions, additionalSource.FilePath)));
+
             var references = GetMetadataReferences();
             var compilation = CSharpCompilation.Create(
                 "ArchitectureSample",
-                new[] { syntaxTree },
+                syntaxTrees,
                 references,
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
             var generator = new SpiderArchitectureSourceGenerator();
-            GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+            GeneratorDriver driver = CSharpGeneratorDriver.Create(
+                new[] { generator },
+                parseOptions: null,
+                optionsProvider: new TestAnalyzerConfigOptionsProvider(projectDirectory));
             driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
 
             Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
@@ -103,6 +163,47 @@ namespace Spider.Pipelines.Tests.Architecture
 
             trustedPlatformAssemblies.Add(MetadataReference.CreateFromFile(typeof(ISpider).Assembly.Location));
             return trustedPlatformAssemblies;
+        }
+
+        private static string NormalizeTestPath(string path)
+            => path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
+        private sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
+        {
+            private readonly AnalyzerConfigOptions _options;
+
+            public TestAnalyzerConfigOptionsProvider(string projectDirectory)
+            {
+                var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(projectDirectory))
+                {
+                    values["build_property.ProjectDir"] = projectDirectory.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                        ? projectDirectory
+                        : projectDirectory + Path.DirectorySeparatorChar;
+                    values["build_property.MSBuildProjectDirectory"] = projectDirectory;
+                }
+
+                _options = new TestAnalyzerConfigOptions(values);
+            }
+
+            public override AnalyzerConfigOptions GlobalOptions => _options;
+
+            public override AnalyzerConfigOptions GetOptions(SyntaxTree tree)
+                => _options;
+
+            public override AnalyzerConfigOptions GetOptions(AdditionalText textFile)
+                => _options;
+        }
+
+        private sealed class TestAnalyzerConfigOptions : AnalyzerConfigOptions
+        {
+            private readonly IReadOnlyDictionary<string, string> _values;
+
+            public TestAnalyzerConfigOptions(IReadOnlyDictionary<string, string> values)
+                => _values = values;
+
+            public override bool TryGetValue(string key, out string value)
+                => _values.TryGetValue(key, out value);
         }
 
         private const string TestSource = @"
@@ -162,6 +263,42 @@ namespace ArchitectureSample
     public sealed class Customer { }
 
     public sealed class CustomerResponse { }
+}
+";
+
+        private const string ExternalFlowSource = @"
+using System.Threading;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class FlowDocumentation
+    {
+        public void Configure(ISpider spider, CreateCustomerRequest request, CancellationToken token)
+        {
+            _ = spider
+                .ComposeFlow<CreateCustomerRequest>(""External flow"")
+                .Then(ExternalActions.Validate)
+                .RunAsync(request, token);
+        }
+    }
+
+    public sealed class CreateCustomerRequest { }
+}
+";
+
+        private const string ExternalActionsSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace ArchitectureSample
+{
+    public static class ExternalActions
+    {
+        public static Task Validate(CreateCustomerRequest request, CancellationToken token)
+            => Task.CompletedTask;
+    }
 }
 ";
     }
