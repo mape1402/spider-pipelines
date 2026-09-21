@@ -1,11 +1,11 @@
 namespace Spider.Pipelines.Web
 {
-    using System.Net;
     using System.Text;
+    using System.Text.Encodings.Web;
     using Spider.Pipelines.Architecture;
 
     /// <summary>
-    /// Renders Spider architecture manifests as graphical web documentation.
+    /// Renders Spider architecture manifests as focused graphical web documentation.
     /// </summary>
     public sealed class SpiderArchitectureWebRenderer : ISpiderArchitectureWebRenderer
     {
@@ -22,7 +22,7 @@ namespace Spider.Pipelines.Web
         /// <summary>
         /// Initializes a new instance of the <see cref="SpiderArchitectureWebRenderer"/> class.
         /// </summary>
-        /// <param name="serializer">The manifest serializer.</param>
+        /// <param name="serializer">The manifest serializer used to embed architecture metadata.</param>
         public SpiderArchitectureWebRenderer(ISpiderArchitectureManifestSerializer serializer)
         {
             _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
@@ -36,1061 +36,1184 @@ namespace Spider.Pipelines.Web
 
             options ??= new SpiderArchitectureWebOptions();
 
-            var json = _serializer.Serialize(manifest);
-            var title = Html(options.Title);
+            var title = HtmlEncoder.Default.Encode(options.Title ?? "Spider Architecture");
+            var manifestJson = _serializer.Serialize(manifest);
+            var html = new StringBuilder();
 
-            var builder = new StringBuilder();
-            builder.AppendLine("<!doctype html>");
-            builder.AppendLine("<html lang=\"en\">");
-            builder.AppendLine("<head>");
-            builder.AppendLine("  <meta charset=\"utf-8\">");
-            builder.AppendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            builder.AppendLine($"  <title>{title}</title>");
-            builder.AppendLine("  <style>");
-            builder.AppendLine(CreateCss());
-            builder.AppendLine("  </style>");
-            builder.AppendLine("</head>");
-            builder.AppendLine("<body>");
-            builder.AppendLine("  <div id=\"spider-architecture-app\" class=\"spider-shell\" data-show-json=\"" + options.IncludeJsonPanel.ToString().ToLowerInvariant() + "\" data-show-evidence=\"" + options.IncludeEvidence.ToString().ToLowerInvariant() + "\" data-show-search=\"" + options.IncludeSearch.ToString().ToLowerInvariant() + "\" data-show-graph=\"" + options.IncludeGraph.ToString().ToLowerInvariant() + "\">");
-            builder.AppendLine("    <aside class=\"spider-nav\">");
-            builder.AppendLine($"      <div class=\"spider-brand\"><span class=\"spider-brand-mark\">S</span><span>{title}</span></div>");
-            builder.AppendLine("      <div id=\"spider-summary\" class=\"spider-summary\"></div>");
-            builder.AppendLine("      <nav class=\"spider-tabs\" aria-label=\"Architecture views\">");
-            builder.AppendLine("        <button type=\"button\" class=\"is-active\" data-view=\"overview\" data-title=\"Architecture Overview\" data-subtitle=\"Business flows and execution pipelines generated at compile time.\">Overview</button>");
-            builder.AppendLine("        <button type=\"button\" data-view=\"graph\" data-title=\"Architecture Graph\" data-subtitle=\"Visual relationship map for the selected components.\">Graph</button>");
-            builder.AppendLine("        <button type=\"button\" data-view=\"flows\" data-title=\"Business Flows\" data-subtitle=\"Method-level process descriptions in execution order.\">Flows</button>");
-            builder.AppendLine("        <button type=\"button\" data-view=\"pipelines\" data-title=\"Execution Pipelines\" data-subtitle=\"Cross-cutting pipeline stages attached around service execution.\">Pipelines</button>");
-            builder.AppendLine("        <button type=\"button\" data-view=\"evidence\" data-title=\"Source Evidence\" data-subtitle=\"Where each documented component was discovered in code.\">Evidence</button>");
-            builder.AppendLine("        <button type=\"button\" data-view=\"json\" data-title=\"Raw Manifest\" data-subtitle=\"The generated metadata model used by this page.\">Raw JSON</button>");
-            builder.AppendLine("      </nav>");
-            builder.AppendLine("      <h2 class=\"spider-nav-heading\">Component Types</h2>");
-            builder.AppendLine("      <div id=\"spider-kind-filters\" class=\"spider-filter-list\"></div>");
-            builder.AppendLine("    </aside>");
-            builder.AppendLine("    <main class=\"spider-main\">");
-            builder.AppendLine("      <header class=\"spider-toolbar\">");
-            builder.AppendLine("        <div>");
-            builder.AppendLine("          <h1 id=\"spider-view-title\">Architecture Overview</h1>");
-            builder.AppendLine("          <p id=\"spider-view-subtitle\">Business flows and execution pipelines generated at compile time.</p>");
-            builder.AppendLine("        </div>");
-            builder.AppendLine("        <div class=\"spider-actions\">");
-            builder.AppendLine("          <input id=\"spider-search\" type=\"search\" placeholder=\"Search processes or steps\" aria-label=\"Search processes or steps\">");
-            builder.AppendLine("          <button id=\"spider-fit\" type=\"button\">Fit Graph</button>");
-            builder.AppendLine("        </div>");
-            builder.AppendLine("      </header>");
-            builder.AppendLine("      <section id=\"spider-view-overview\" class=\"spider-view is-active\" aria-label=\"Architecture overview\"></section>");
-            builder.AppendLine("      <section id=\"spider-view-detail\" class=\"spider-view\" aria-label=\"Selected process detail\"></section>");
-            builder.AppendLine("      <section id=\"spider-view-graph\" class=\"spider-view\" aria-label=\"Architecture graph\">");
-            builder.AppendLine("        <div class=\"spider-graph-frame\">");
-            builder.AppendLine("          <svg id=\"spider-architecture-graph\" class=\"spider-graph\" role=\"img\" aria-label=\"Spider architecture graph\"></svg>");
-            builder.AppendLine("        </div>");
-            builder.AppendLine("      </section>");
-            builder.AppendLine("      <section id=\"spider-view-flows\" class=\"spider-view\" aria-label=\"Flows\"></section>");
-            builder.AppendLine("      <section id=\"spider-view-pipelines\" class=\"spider-view\" aria-label=\"Pipelines\"></section>");
-            builder.AppendLine("      <section id=\"spider-view-evidence\" class=\"spider-view\" aria-label=\"Evidence\"></section>");
-            builder.AppendLine("      <section id=\"spider-view-json\" class=\"spider-view\" aria-label=\"Raw manifest JSON\"><pre id=\"spider-json\"></pre></section>");
-            builder.AppendLine("    </main>");
-            builder.AppendLine("    <aside id=\"spider-detail\" class=\"spider-detail\" aria-label=\"Selected component details\"></aside>");
-            builder.AppendLine("  </div>");
-            builder.AppendLine("  <script id=\"spider-manifest-data\" type=\"application/json\">");
-            builder.AppendLine(json);
-            builder.AppendLine("  </script>");
-            builder.AppendLine("  <script>");
-            builder.AppendLine(CreateJavaScript());
-            builder.AppendLine("  </script>");
-            builder.AppendLine("</body>");
-            builder.AppendLine("</html>");
-            return builder.ToString();
+            html.AppendLine("<!doctype html>");
+            html.AppendLine("<html lang=\"en\">");
+            html.AppendLine("<head>");
+            html.AppendLine("  <meta charset=\"utf-8\" />");
+            html.AppendLine("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />");
+            html.AppendLine($"  <title>{title}</title>");
+            html.AppendLine("  <style>");
+            html.AppendLine(CreateStyles());
+            html.AppendLine("  </style>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            html.AppendLine(
+                $"  <div id=\"spider-documentation-app\" class=\"spider-shell spider-architecture-app\" data-show-evidence=\"{BooleanAttribute(options.IncludeEvidence)}\" data-show-graph=\"{BooleanAttribute(options.IncludeGraph)}\" data-show-json=\"{BooleanAttribute(options.IncludeJsonPanel)}\" data-show-search=\"{BooleanAttribute(options.IncludeSearch)}\">");
+            html.AppendLine("    <aside class=\"spider-sidebar\" aria-label=\"Spider architecture navigation\">");
+            html.AppendLine("      <div class=\"spider-brand\">");
+            html.AppendLine("        <div class=\"spider-logo\" aria-hidden=\"true\">S</div>");
+            html.AppendLine("        <div>");
+            html.AppendLine($"          <div class=\"spider-title\">{title}</div>");
+            html.AppendLine("          <div class=\"spider-subtitle\">Architecture documentation</div>");
+            html.AppendLine("        </div>");
+            html.AppendLine("      </div>");
+            html.AppendLine("      <label class=\"spider-search\" data-search-region>");
+            html.AppendLine("        <span>Search</span>");
+            html.AppendLine("        <input id=\"spider-search\" type=\"search\" autocomplete=\"off\" placeholder=\"Flow, pipeline, step\" />");
+            html.AppendLine("      </label>");
+            html.AppendLine("      <nav class=\"spider-navigation\">");
+            html.AppendLine("        <section class=\"spider-nav-section\" aria-labelledby=\"spider-pipeline-heading\">");
+            html.AppendLine("          <div class=\"spider-nav-heading\" id=\"spider-pipeline-heading\"><span>Pipelines</span><strong id=\"spider-pipeline-count\">0</strong></div>");
+            html.AppendLine("          <div id=\"spider-pipeline-list\" class=\"spider-nav-list\" data-kind=\"pipelines\"></div>");
+            html.AppendLine("        </section>");
+            html.AppendLine("        <section class=\"spider-nav-section\" aria-labelledby=\"spider-flow-heading\">");
+            html.AppendLine("          <div class=\"spider-nav-heading\" id=\"spider-flow-heading\"><span>Flows</span><strong id=\"spider-flow-count\">0</strong></div>");
+            html.AppendLine("          <div id=\"spider-flow-list\" class=\"spider-nav-list\" data-kind=\"flows\"></div>");
+            html.AppendLine("        </section>");
+            html.AppendLine("      </nav>");
+            html.AppendLine("      <button id=\"spider-json-link\" class=\"spider-json-link\" type=\"button\">Manifest JSON</button>");
+            html.AppendLine("    </aside>");
+            html.AppendLine("    <main class=\"spider-main\">");
+            html.AppendLine("      <section id=\"spider-detail\" class=\"spider-detail\" aria-live=\"polite\"></section>");
+            html.AppendLine("    </main>");
+            html.AppendLine("  </div>");
+            html.AppendLine($"  <script id=\"spider-manifest-data\" type=\"application/json\">{manifestJson}</script>");
+            html.AppendLine("  <script>");
+            html.AppendLine(CreateScript());
+            html.AppendLine("  </script>");
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+
+            return html.ToString();
         }
 
         /// <summary>
-        /// Encodes a value for safe HTML output.
+        /// Converts a Boolean value to an HTML data attribute value.
         /// </summary>
-        /// <param name="value">The value to encode.</param>
-        /// <returns>The encoded HTML value.</returns>
-        private static string Html(string value)
-            => WebUtility.HtmlEncode(value ?? string.Empty);
+        /// <param name="value">The Boolean value.</param>
+        /// <returns>The encoded attribute value.</returns>
+        private string BooleanAttribute(bool value)
+            => value ? "true" : "false";
 
         /// <summary>
-        /// Creates the stylesheet used by the standalone documentation page.
+        /// Creates the stylesheet used by the documentation shell.
         /// </summary>
-        /// <returns>The stylesheet content.</returns>
-        private static string CreateCss()
+        /// <returns>The stylesheet text.</returns>
+        private string CreateStyles()
             => """
+* {
+  box-sizing: border-box;
+}
+
 :root {
   color-scheme: light;
-  --spider-bg: #f4f6f8;
+  --spider-bg: #f5f7fb;
   --spider-panel: #ffffff;
-  --spider-ink: #16202a;
-  --spider-muted: #667085;
-  --spider-soft: #f8fafc;
-  --spider-line: #d8dee8;
-  --spider-blue: #2563eb;
-  --spider-green: #0f766e;
-  --spider-red: #b42318;
-  --spider-yellow: #a16207;
-  --spider-violet: #7c3aed;
-  --spider-radius: 8px;
-  font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+  --spider-panel-soft: #f9fafb;
+  --spider-line: #d8e0eb;
+  --spider-line-strong: #b8c5d6;
+  --spider-text: #142033;
+  --spider-muted: #65748a;
+  --spider-blue: #255fda;
+  --spider-blue-soft: #e8f0ff;
+  --spider-green: #0f8a73;
+  --spider-green-soft: #e7f7f3;
+  --spider-amber: #a15d00;
+  --spider-amber-soft: #fff2d8;
+  --spider-purple: #6c3fc5;
+  --spider-purple-soft: #f1ebff;
+  --spider-red: #b23b3b;
+  --spider-red-soft: #ffeaea;
+  --spider-shadow: 0 16px 40px rgba(20, 32, 51, 0.08);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--spider-bg); color: var(--spider-ink); overflow-x: hidden; }
-button, input { font: inherit; }
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--spider-bg);
+  color: var(--spider-text);
+}
+
+button,
+input {
+  font: inherit;
+}
+
 .spider-shell {
-  min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px;
-}
-.spider-nav, .spider-detail {
-  background: var(--spider-panel);
-  border-color: var(--spider-line);
-  border-style: solid;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   min-height: 100vh;
-  overflow: auto;
 }
-.spider-nav { border-width: 0 1px 0 0; padding: 18px; }
-.spider-detail { border-width: 0 0 0 1px; padding: 20px; }
-.spider-main { min-width: 0; display: flex; flex-direction: column; }
-.spider-brand { display: flex; gap: 10px; align-items: center; font-weight: 750; font-size: 18px; line-height: 1.15; margin-bottom: 18px; }
-.spider-brand-mark { width: 32px; height: 32px; display: grid; place-items: center; color: #fff; background: var(--spider-blue); border-radius: 8px; flex: 0 0 auto; }
-.spider-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
-.spider-metric { border: 1px solid var(--spider-line); border-radius: var(--spider-radius); padding: 10px; background: var(--spider-soft); }
-.spider-metric strong { display: block; font-size: 20px; line-height: 1; }
-.spider-metric span { color: var(--spider-muted); font-size: 12px; }
-.spider-nav-heading { margin: 20px 0 8px; font-size: 12px; color: var(--spider-muted); text-transform: uppercase; letter-spacing: 0; }
-.spider-tabs { display: grid; gap: 6px; margin-bottom: 18px; }
-.spider-tabs button, .spider-actions button, .spider-filter-list button {
+
+.spider-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--spider-line);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 20px 18px;
+}
+
+.spider-brand {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.spider-logo {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: #172033;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.spider-title {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-subtitle {
+  margin-top: 3px;
+  color: var(--spider-muted);
+  font-size: 0.83rem;
+}
+
+.spider-search {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 18px;
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.spider-search input {
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--spider-line);
-  background: #fff;
-  color: var(--spider-ink);
-  border-radius: var(--spider-radius);
-  cursor: pointer;
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--spider-text);
+  outline: none;
+  padding: 10px 11px;
+  text-transform: none;
 }
-.spider-tabs button { text-align: left; padding: 10px 11px; }
-.spider-tabs button.is-active { background: #eef4ff; color: var(--spider-blue); border-color: #bfd4ff; font-weight: 650; }
-.spider-filter-list { display: grid; gap: 8px; }
-.spider-filter-list button { padding: 8px 10px; text-align: left; display: flex; justify-content: space-between; gap: 8px; }
-.spider-filter-list button.is-muted { opacity: .42; }
-.spider-toolbar {
-  min-height: 88px;
+
+.spider-search input:focus {
+  border-color: var(--spider-blue);
+  box-shadow: 0 0 0 3px rgba(37, 95, 218, 0.12);
+}
+
+[data-show-search="false"] [data-search-region] {
+  display: none;
+}
+
+.spider-navigation {
+  display: grid;
+  gap: 18px;
+}
+
+.spider-nav-section {
+  display: grid;
+  gap: 8px;
+}
+
+.spider-nav-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--spider-line);
-  background: rgba(255,255,255,.9);
-  backdrop-filter: blur(8px);
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
-.spider-toolbar h1 { margin: 0; font-size: 24px; line-height: 1.2; }
-.spider-toolbar p { margin: 4px 0 0; color: var(--spider-muted); font-size: 13px; }
-.spider-actions { display: flex; gap: 8px; align-items: center; }
-.spider-actions input { width: min(340px, 34vw); padding: 10px 11px; border: 1px solid var(--spider-line); border-radius: var(--spider-radius); }
-.spider-actions button { padding: 10px 12px; }
-.spider-view { display: none; padding: 20px; min-height: calc(100vh - 88px); min-width: 0; overflow-x: hidden; }
-.spider-view.is-active { display: block; }
-.spider-overview { display: grid; gap: 20px; min-width: 0; }
-.spider-group { display: grid; gap: 12px; }
-.spider-group-title { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
-.spider-group-title h2 { margin: 0; font-size: 18px; }
-.spider-group-title span { color: var(--spider-muted); font-size: 13px; }
-.spider-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; align-items: start; }
-.spider-catalog { display: grid; gap: 10px; }
-.spider-catalog-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  background: #fff;
+
+.spider-nav-heading strong {
+  display: inline-flex;
+  min-width: 28px;
+  justify-content: center;
   border: 1px solid var(--spider-line);
-  border-radius: var(--spider-radius);
-  padding: 14px;
-}
-.spider-catalog-card h3 { margin: 0; font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
-.spider-catalog-card p { margin: 5px 0 0; color: var(--spider-muted); font-size: 13px; }
-.spider-catalog-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.spider-open-button {
-  border: 1px solid #bfd4ff;
-  color: var(--spider-blue);
-  background: #eef4ff;
-  border-radius: var(--spider-radius);
-  padding: 9px 12px;
-  cursor: pointer;
-  font-weight: 650;
-}
-.spider-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
-.spider-detail-main { display: grid; gap: 16px; min-width: 0; }
-.spider-detail-title { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
-.spider-detail-title h2 { margin: 0; font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
-.spider-detail-title p { margin: 6px 0 0; color: var(--spider-muted); }
-.spider-local-graph-frame { width: 100%; height: 360px; max-width: 100%; border: 1px solid var(--spider-line); background: #fff; border-radius: var(--spider-radius); overflow: auto; }
-.spider-local-graph { display: block; min-width: 100%; min-height: 100%; }
-.spider-detail-empty-state { display: grid; place-items: center; min-height: calc(100vh - 180px); text-align: center; color: var(--spider-muted); }
-.spider-detail-empty-state h2 { margin: 0 0 8px; color: var(--spider-ink); }
-.spider-section, .spider-process-card {
-  background: #fff;
-  border: 1px solid var(--spider-line);
-  border-radius: var(--spider-radius);
-  padding: 16px;
-  min-width: 0;
-}
-.spider-process-card { display: grid; gap: 14px; }
-.spider-card-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
-.spider-card-header h3, .spider-section h2, .spider-detail h2 { margin: 0; font-size: 18px; line-height: 1.25; }
-.spider-card-header p { margin: 5px 0 0; color: var(--spider-muted); font-size: 13px; }
-.spider-card-meta { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.spider-timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; }
-.spider-timeline li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; }
-.spider-step-number {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
   border-radius: 999px;
-  background: #eef4ff;
-  color: var(--spider-blue);
-  font-size: 12px;
-  font-weight: 750;
+  background: var(--spider-panel-soft);
+  color: var(--spider-text);
+  font-size: 0.76rem;
+  padding: 2px 8px;
 }
-.spider-step, .spider-stage {
-  border: 1px solid var(--spider-line);
-  border-radius: var(--spider-radius);
-  padding: 9px 10px;
-  background: var(--spider-soft);
-  color: var(--spider-ink);
-  text-align: left;
-  cursor: pointer;
-  min-width: 0;
+
+.spider-nav-list {
+  display: grid;
+  gap: 7px;
+}
+
+.spider-nav-item {
   width: 100%;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 10px;
+  text-align: left;
+}
+
+.spider-nav-item:hover {
+  border-color: var(--spider-line);
+  background: var(--spider-panel-soft);
+}
+
+.spider-nav-item.is-active {
+  border-color: rgba(37, 95, 218, 0.45);
+  background: var(--spider-blue-soft);
+  box-shadow: inset 3px 0 0 var(--spider-blue);
+}
+
+.spider-nav-title {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--spider-text);
+  font-size: 0.94rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.spider-nav-meta {
+  display: block;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.spider-empty-list {
+  border: 1px dashed var(--spider-line);
+  border-radius: 9px;
+  color: var(--spider-muted);
+  font-size: 0.84rem;
+  padding: 11px;
+}
+
+.spider-json-link {
+  display: none;
+  width: 100%;
+  margin-top: 22px;
+  border: 1px solid var(--spider-line);
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--spider-text);
+  cursor: pointer;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+[data-show-json="true"] .spider-json-link {
+  display: block;
+}
+
+.spider-main {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.spider-detail {
+  width: min(100%, 1120px);
+}
+
+.spider-empty-state,
+.spider-json-view,
+.spider-detail-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.spider-empty-state {
+  min-height: calc(100vh - 56px);
+  align-content: center;
+  justify-items: start;
+}
+
+.spider-empty-kicker,
+.spider-chip,
+.spider-node-kind {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 9px;
+}
+
+.spider-empty-kicker {
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
+}
+
+.spider-empty-state h1,
+.spider-detail-header h1 {
+  margin: 0;
+  color: var(--spider-text);
+  font-size: clamp(1.8rem, 3vw, 2.75rem);
+  line-height: 1.05;
+}
+
+.spider-empty-state p,
+.spider-detail-header p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--spider-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.spider-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.spider-count {
+  border: 1px solid var(--spider-line);
+  border-radius: 10px;
+  background: var(--spider-panel);
+  padding: 10px 12px;
+}
+
+.spider-count strong {
+  display: block;
+  color: var(--spider-text);
+  font-size: 1.1rem;
+}
+
+.spider-count span {
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+}
+
+.spider-detail-header {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.spider-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.spider-chip {
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
+}
+
+.spider-chip.flow {
+  background: var(--spider-green-soft);
+  color: var(--spider-green);
+}
+
+.spider-chip.pipeline {
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
+}
+
+.spider-chip.profile {
+  background: var(--spider-purple-soft);
+  color: var(--spider-purple);
+}
+
+.spider-content-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.spider-panel {
+  min-width: 0;
+  border: 1px solid var(--spider-line);
+  border-radius: 12px;
+  background: var(--spider-panel);
+  box-shadow: var(--spider-shadow);
+  padding: 18px;
+}
+
+.spider-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.spider-panel h2 {
+  margin: 0;
+  color: var(--spider-text);
+  font-size: 1rem;
+}
+
+.spider-panel-note {
+  color: var(--spider-muted);
+  font-size: 0.84rem;
+}
+
+.spider-definition {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.3fr) minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.spider-definition dt {
+  color: var(--spider-muted);
+  font-size: 0.84rem;
+}
+
+.spider-definition dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--spider-text);
+  font-size: 0.9rem;
+}
+
+.spider-profile-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.spider-evidence {
+  margin-top: 16px;
+  border-top: 1px solid var(--spider-line);
+  padding-top: 14px;
+}
+
+[data-show-evidence="false"] .spider-evidence {
+  display: none;
+}
+
+.spider-outline {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spider-outline-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--spider-line);
+  border-radius: 10px;
+  background: var(--spider-panel-soft);
+  padding: 12px;
+}
+
+.spider-step-number {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: #ffffff;
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.spider-outline-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--spider-text);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.spider-outline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.spider-meta-pill {
   max-width: 100%;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--spider-muted);
+  font-size: 0.76rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
 }
-.spider-step strong, .spider-stage strong { display: block; overflow-wrap: anywhere; }
-.spider-step span, .spider-stage span { display: block; color: var(--spider-muted); font-size: 12px; margin-top: 2px; }
-.spider-step:hover, .spider-stage:hover { border-color: #9db7ff; background: #f2f6ff; }
-.spider-stage-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
-.spider-empty { border: 1px dashed var(--spider-line); border-radius: var(--spider-radius); padding: 16px; color: var(--spider-muted); background: #fff; }
-.spider-graph-frame { height: calc(100vh - 128px); border: 1px solid var(--spider-line); background: #fff; border-radius: var(--spider-radius); overflow: auto; }
-.spider-graph { display: block; min-width: 100%; min-height: 100%; touch-action: none; }
-.spider-node rect { fill: #fff; stroke: var(--spider-line); stroke-width: 1.4; rx: 8; }
-.spider-node text { fill: var(--spider-ink); font-size: 13px; font-weight: 650; pointer-events: none; }
-.spider-node .kind { fill: var(--spider-muted); font-size: 11px; font-weight: 500; }
-.spider-node.is-selected rect { stroke: var(--spider-blue); stroke-width: 2.4; fill: #eef4ff; }
-.spider-node[data-kind='spider.flow'] rect { stroke: var(--spider-green); }
-.spider-node[data-kind='spider.pipeline'] rect { stroke: var(--spider-blue); }
-.spider-node[data-kind='spider.flow-branch'] rect, .spider-node[data-kind='spider.flow-condition'] rect { stroke: var(--spider-yellow); }
-.spider-node[data-kind='spider.flow-profile'] rect { stroke: var(--spider-violet); }
-.spider-edge { stroke: #98a2b3; stroke-width: 1.4; fill: none; marker-end: url(#spider-arrow); }
-.spider-edge.next { stroke: var(--spider-green); stroke-width: 2; }
-.spider-edge.uses-profile { stroke: var(--spider-violet); stroke-dasharray: 6 5; }
-.spider-edge.contains { stroke: #c2c8d2; }
-.spider-lane-title { fill: var(--spider-muted); font-size: 13px; font-weight: 750; }
-.spider-list { display: grid; gap: 14px; }
-.spider-section dl, .spider-detail dl { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 8px; margin: 0; }
-.spider-section dt, .spider-detail dt { color: var(--spider-muted); }
-.spider-section dd, .spider-detail dd { margin: 0; overflow-wrap: anywhere; }
-.spider-detail-header { border-bottom: 1px solid var(--spider-line); padding-bottom: 14px; margin-bottom: 16px; }
-.spider-detail-header h2 { margin-top: 6px; overflow-wrap: anywhere; }
-.spider-detail-section { display: grid; gap: 8px; margin: 0 0 18px; }
-.spider-detail-section h3 { margin: 0; font-size: 14px; color: var(--spider-muted); text-transform: uppercase; letter-spacing: 0; }
-.spider-detail-section p { margin: 0; line-height: 1.4; }
-.spider-detail-empty { color: var(--spider-muted); }
-.spider-chip { display: inline-flex; align-items: center; border: 1px solid var(--spider-line); border-radius: 999px; padding: 3px 8px; font-size: 12px; color: var(--spider-muted); margin: 2px 4px 2px 0; background: #fff; }
-.spider-chip.is-flow { color: var(--spider-green); border-color: #a7d6cf; background: #f0fdfa; }
-.spider-chip.is-pipeline { color: var(--spider-blue); border-color: #bfd4ff; background: #eef4ff; }
-.spider-chip.is-warning { color: var(--spider-yellow); border-color: #f0cf85; background: #fffbeb; }
-.spider-chip.is-profile { color: var(--spider-violet); border-color: #d6bcfa; background: #f5f3ff; }
-.spider-code { display: block; max-width: 100%; overflow-wrap: anywhere; color: #344054; background: var(--spider-soft); border: 1px solid var(--spider-line); border-radius: var(--spider-radius); padding: 8px; font-family: Consolas, Menlo, monospace; font-size: 12px; }
-pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #0f172a; color: #dbeafe; border-radius: var(--spider-radius); padding: 16px; min-height: calc(100vh - 128px); overflow: auto; }
-@media (max-width: 1180px) {
-  .spider-shell { grid-template-columns: 260px minmax(0, 1fr); }
-  .spider-detail { grid-column: 1 / -1; min-height: auto; border-width: 1px 0 0 0; }
+
+.spider-kind-step,
+.spider-kind-stage {
+  background: var(--spider-green-soft);
+  color: var(--spider-green);
 }
-@media (max-width: 760px) {
-  .spider-shell { display: block; }
-  .spider-nav, .spider-detail { min-height: auto; border-width: 0 0 1px 0; }
-  .spider-toolbar { align-items: stretch; flex-direction: column; }
-  .spider-actions { align-items: stretch; flex-direction: column; }
-  .spider-actions input { width: 100%; }
-  .spider-card-grid { grid-template-columns: 1fr; }
-  .spider-catalog-card { grid-template-columns: 1fr; }
-  .spider-open-button { width: 100%; }
+
+.spider-kind-condition {
+  background: var(--spider-amber-soft);
+  color: var(--spider-amber);
+}
+
+.spider-kind-branch {
+  background: var(--spider-purple-soft);
+  color: var(--spider-purple);
+}
+
+.spider-graph-panel {
+  overflow: visible;
+}
+
+.spider-process-graph {
+  width: 100%;
+  overflow: visible;
+}
+
+.spider-architecture-graph {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.spider-edge {
+  stroke: #8da0b8;
+  stroke-width: 2;
+}
+
+.spider-node rect {
+  fill: #ffffff;
+  stroke: var(--spider-line-strong);
+  stroke-width: 1.4;
+}
+
+.spider-node.is-root rect {
+  fill: var(--spider-blue-soft);
+  stroke: var(--spider-blue);
+}
+
+.spider-node.is-flow rect {
+  fill: var(--spider-green-soft);
+  stroke: var(--spider-green);
+}
+
+.spider-node.is-condition rect {
+  fill: var(--spider-amber-soft);
+  stroke: var(--spider-amber);
+}
+
+.spider-node.is-branch rect,
+.spider-node.is-profile rect {
+  fill: var(--spider-purple-soft);
+  stroke: var(--spider-purple);
+}
+
+.spider-node text {
+  fill: var(--spider-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.spider-node .spider-node-subtitle {
+  fill: var(--spider-muted);
+}
+
+.spider-json {
+  overflow: auto;
+  max-height: calc(100vh - 150px);
+  margin: 0;
+  border: 1px solid var(--spider-line);
+  border-radius: 12px;
+  background: #101827;
+  color: #edf3ff;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  padding: 18px;
+}
+
+.spider-hidden {
+  display: none !important;
+}
+
+@media (max-width: 880px) {
+  .spider-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .spider-sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--spider-line);
+  }
+
+  .spider-main {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .spider-main {
+    padding: 16px;
+  }
+
+  .spider-definition {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .spider-outline-row {
+    grid-template-columns: 1fr;
+  }
 }
 """;
 
         /// <summary>
-        /// Creates the client script used to render and interact with the graph.
+        /// Creates the client-side script used to navigate the manifest.
         /// </summary>
-        /// <returns>The client script content.</returns>
-        private static string CreateJavaScript()
+        /// <returns>The script text.</returns>
+        private string CreateScript()
             => """
-(function () {
-  'use strict';
+(() => {
+  const root = document.getElementById("spider-documentation-app");
+  const manifestElement = document.getElementById("spider-manifest-data");
+  const manifest = JSON.parse(manifestElement.textContent || "{}");
+  const components = manifest.components || [];
+  const relations = manifest.relations || [];
+  const byId = new Map(components.map((component) => [component.id, component]));
+  const detail = document.getElementById("spider-detail");
+  const flowList = document.getElementById("spider-flow-list");
+  const pipelineList = document.getElementById("spider-pipeline-list");
+  const flowCount = document.getElementById("spider-flow-count");
+  const pipelineCount = document.getElementById("spider-pipeline-count");
+  const searchInput = document.getElementById("spider-search");
+  const jsonLink = document.getElementById("spider-json-link");
+  const showGraph = root.dataset.showGraph === "true";
+  const showJson = root.dataset.showJson === "true";
+  const showSearch = root.dataset.showSearch === "true";
+  const flows = components.filter((component) => component.kind === "spider.flow").sort(compareByName);
+  const pipelines = components.filter((component) => component.kind === "spider.pipeline").sort(compareByName);
+  let selectedId = "";
+  let query = "";
 
-  const root = document.getElementById('spider-architecture-app');
-  const data = JSON.parse(document.getElementById('spider-manifest-data').textContent);
-  const components = data.components || [];
-  const relations = data.relations || [];
-  const byId = new Map(components.map(component => [component.id, component]));
-  const containsRelations = relations.filter(relation => relation.kind === 'contains');
-  const contains = groupBy(containsRelations, relation => relation.sourceId);
-  const nextRelations = relations.filter(relation => relation.kind === 'next');
-  const title = document.getElementById('spider-view-title');
-  const subtitle = document.getElementById('spider-view-subtitle');
-  const fitButton = document.getElementById('spider-fit');
-
-  const state = {
-    view: 'overview',
-    selectedId: null,
-    query: '',
-    mutedKinds: new Set(),
-    scale: 1
-  };
-
-  const kindLabels = {
-    'spider.pipeline': 'Pipelines',
-    'spider.pipeline-stage': 'Pipeline stages',
-    'spider.flow': 'Business flows',
-    'spider.flow-step': 'Flow steps',
-    'spider.flow-condition': 'Conditions',
-    'spider.flow-branch': 'Branches',
-    'spider.flow-profile': 'Profiles'
-  };
-
-  const kindNames = {
-    'spider.pipeline': 'Pipeline',
-    'spider.pipeline-stage': 'Pipeline stage',
-    'spider.flow': 'Flow',
-    'spider.flow-step': 'Step',
-    'spider.flow-condition': 'Condition',
-    'spider.flow-branch': 'Branch',
-    'spider.flow-profile': 'Profile'
-  };
-
-  const stageNames = {
-    'pre-process': 'Pre-process',
-    'middleware': 'Middleware',
-    'target': 'Target',
-    'parallel': 'Parallel work',
-    'post-success': 'Success post-process',
-    'post-failure': 'Failure post-process'
-  };
-
-  function groupBy(items, keySelector) {
-    return items.reduce((groups, item) => {
-      const key = keySelector(item);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(item);
-      return groups;
-    }, {});
+  if (!showSearch && searchInput) {
+    searchInput.value = "";
   }
 
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+  if (!showJson && jsonLink) {
+    jsonLink.classList.add("spider-hidden");
   }
 
-  function metadata(component, key) {
-    return component && component.metadata ? component.metadata[key] : undefined;
-  }
-
-  function shortType(value) {
-    if (!value) return '';
-    const text = String(value);
-    const index = text.lastIndexOf('.');
-    return index >= 0 ? text.slice(index + 1) : text;
-  }
-
-  function friendlyKind(component) {
-    return kindNames[component.kind] || component.kind.replace('spider.', '');
-  }
-
-  function chipClass(component) {
-    if (component.kind === 'spider.flow') return ' is-flow';
-    if (component.kind === 'spider.pipeline') return ' is-pipeline';
-    if (component.kind === 'spider.flow-condition' || component.kind === 'spider.flow-branch') return ' is-warning';
-    if (component.kind === 'spider.flow-profile') return ' is-profile';
-    return '';
-  }
-
-  function getChildren(parent) {
-    return (contains[parent.id] || [])
-      .map(relation => byId.get(relation.targetId))
-      .filter(Boolean);
-  }
-
-  function getProfiles(flow) {
-    return relations
-      .filter(relation => relation.kind === 'uses-profile' && relation.sourceId === flow.id)
-      .map(relation => byId.get(relation.targetId))
-      .filter(Boolean);
-  }
-
-  function orderChildren(children) {
-    if (children.length < 2) return children;
-
-    const hasOrder = children.every(child => metadata(child, 'order') != null);
-    if (hasOrder) {
-      return children.slice().sort((left, right) => Number(metadata(left, 'order')) - Number(metadata(right, 'order')));
-    }
-
-    const ids = new Set(children.map(child => child.id));
-    const targets = new Set(nextRelations.filter(relation => ids.has(relation.sourceId) && ids.has(relation.targetId)).map(relation => relation.targetId));
-    const start = children.find(child => !targets.has(child.id)) || children[0];
-    const ordered = [start];
-    const seen = new Set([start.id]);
-    let current = start;
-
-    while (current) {
-      const next = nextRelations.find(relation => relation.sourceId === current.id && ids.has(relation.targetId));
-      if (!next || seen.has(next.targetId)) break;
-      const nextComponent = byId.get(next.targetId);
-      if (!nextComponent) break;
-      ordered.push(nextComponent);
-      seen.add(nextComponent.id);
-      current = nextComponent;
-    }
-
-    children.forEach(child => {
-      if (!seen.has(child.id)) ordered.push(child);
-    });
-    return ordered;
-  }
-
-  function componentMatches(component) {
-    if (state.mutedKinds.has(component.kind)) return false;
-    const query = state.query.trim().toLowerCase();
-    if (!query) return true;
-    const haystack = [component.id, component.kind, component.displayName, JSON.stringify(component.metadata || {})].join(' ').toLowerCase();
-    return haystack.includes(query);
-  }
-
-  function sequenceMatches(parent) {
-    if (componentMatches(parent)) return true;
-    return getChildren(parent).some(componentMatches) || getProfiles(parent).some(componentMatches);
-  }
-
-  function visibleComponents() {
-    return components.filter(componentMatches);
-  }
-
-  function selectComponent(id) {
-    state.selectedId = id;
-    renderDetail();
-    renderProcessDetail();
-    if (state.view === 'graph') renderGraph();
-  }
-
-  function openProcess(id) {
-    state.selectedId = id;
-    showView('detail');
-    renderDetail();
-    renderProcessDetail();
-  }
-
-  function showView(viewName) {
-    state.view = viewName;
-    if (viewName === 'overview' || viewName === 'flows' || viewName === 'pipelines') {
-      state.selectedId = null;
-    }
-    const navButton = document.querySelector(`.spider-tabs button[data-view='${viewName}']`);
-    document.querySelectorAll('.spider-tabs button').forEach(tab => tab.classList.toggle('is-active', tab === navButton));
-    document.querySelectorAll('.spider-view').forEach(view => view.classList.toggle('is-active', view.id === `spider-view-${viewName}`));
-    const selected = byId.get(state.selectedId);
-    if (viewName === 'detail' && selected) {
-      title.textContent = selected.displayName;
-      subtitle.textContent = `${friendlyKind(selected)} detail`;
-    } else if (navButton) {
-      title.textContent = navButton.dataset.title || navButton.textContent;
-      subtitle.textContent = navButton.dataset.subtitle || '';
-    }
-    fitButton.hidden = viewName !== 'graph';
-    renderDetail();
-    if (viewName === 'graph') renderGraph();
-  }
-
-  function renderSummary() {
-    const counts = {
-      Components: components.length,
-      Relations: relations.length,
-      Flows: components.filter(component => component.kind === 'spider.flow').length,
-      Pipelines: components.filter(component => component.kind === 'spider.pipeline').length
-    };
-    document.getElementById('spider-summary').innerHTML = Object.entries(counts)
-      .map(([label, value]) => `<div class='spider-metric'><strong>${value}</strong><span>${label}</span></div>`)
-      .join('');
-  }
-
-  function renderFilters() {
-    const counts = groupBy(components, component => component.kind);
-    const container = document.getElementById('spider-kind-filters');
-    container.innerHTML = Object.keys(counts).sort().map(kind => {
-      const muted = state.mutedKinds.has(kind) ? ' is-muted' : '';
-      return `<button type='button' class='${muted}' data-kind='${escapeHtml(kind)}'><span>${escapeHtml(kindLabels[kind] || kind)}</span><strong>${counts[kind].length}</strong></button>`;
-    }).join('');
-
-    container.querySelectorAll('button').forEach(button => {
-      button.addEventListener('click', () => {
-        const kind = button.dataset.kind;
-        if (state.mutedKinds.has(kind)) state.mutedKinds.delete(kind);
-        else state.mutedKinds.add(kind);
-        renderAll();
-      });
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      query = searchInput.value.trim().toLowerCase();
+      renderNavigation();
     });
   }
 
-  function renderOverview() {
-    const container = document.getElementById('spider-view-overview');
-    const flows = components.filter(component => component.kind === 'spider.flow' && sequenceMatches(component));
-    const pipelines = components.filter(component => component.kind === 'spider.pipeline' && sequenceMatches(component));
-
-    container.innerHTML = `
-      <div class='spider-overview'>
-        ${renderOverviewGroup('Business Flows', 'Select a flow to inspect its steps, graph, source evidence, and metadata.', flows, renderFlowCard)}
-        ${renderOverviewGroup('Execution Pipelines', 'Select a pipeline to inspect the cross-cutting stages around execution.', pipelines, renderPipelineCard)}
-      </div>`;
-    bindSelectableCards(container);
+  if (jsonLink) {
+    jsonLink.addEventListener("click", () => {
+      selectedId = "__json";
+      renderNavigation();
+      renderJson();
+    });
   }
 
-  function renderOverviewGroup(groupTitle, description, items, renderer) {
-    if (!items.length) {
+  document.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-select-id]");
+    if (!item) {
+      return;
+    }
+
+    openProcess(item.getAttribute("data-select-id"));
+  });
+
+  window.addEventListener("hashchange", openFromHash);
+
+  renderNavigation();
+  openFromHash();
+
+  if (!selectedId) {
+    renderEmpty();
+  }
+
+  function openFromHash() {
+    const id = decodeURIComponent(window.location.hash.replace(/^#\/?/, ""));
+    if (!id || !byId.has(id)) {
+      return;
+    }
+
+    openProcess(id, true);
+  }
+
+  function openProcess(id, skipHash) {
+    const component = byId.get(id);
+    if (!component) {
+      return;
+    }
+
+    selectedId = id;
+    if (!skipHash) {
+      window.history.replaceState(null, "", "#" + encodeURIComponent(id));
+    }
+
+    renderNavigation();
+    renderDetail(component);
+    resetDetailScroll();
+  }
+
+  function renderNavigation() {
+    renderNavigationList(pipelineList, pipelines, "pipelines");
+    renderNavigationList(flowList, flows, "flows");
+    pipelineCount.textContent = String(filterProcesses(pipelines).length);
+    flowCount.textContent = String(filterProcesses(flows).length);
+  }
+
+  function renderNavigationList(container, source, emptyLabel) {
+    const items = filterProcesses(source);
+
+    if (items.length === 0) {
+      container.innerHTML = `<div class="spider-empty-list">No ${escapeHtml(emptyLabel)} found.</div>`;
+      return;
+    }
+
+    container.innerHTML = items.map((item) => {
+      const children = orderChildren(item);
+      const signature = getSignature(item);
+      const countLabel = item.kind === "spider.pipeline"
+        ? `${children.length} stages`
+        : `${children.length} steps`;
+      const activeClass = item.id === selectedId ? " is-active" : "";
+
       return `
-        <section class='spider-group'>
-          <div class='spider-group-title'><div><h2>${escapeHtml(groupTitle)}</h2><span>${escapeHtml(description)}</span></div></div>
-          <div class='spider-empty'>No matching items.</div>
-        </section>`;
+        <button class="spider-nav-item${activeClass}" type="button" data-select-id="${escapeAttribute(item.id)}">
+          <span class="spider-nav-title">${escapeHtml(item.displayName || item.id)}</span>
+          <span class="spider-nav-meta">${escapeHtml(signature)} - ${escapeHtml(countLabel)}</span>
+        </button>`;
+    }).join("");
+  }
+
+  function filterProcesses(items) {
+    if (!query) {
+      return items;
     }
 
-    return `
-      <section class='spider-group'>
-        <div class='spider-group-title'>
-          <div><h2>${escapeHtml(groupTitle)}</h2><span>${escapeHtml(description)}</span></div>
-          <span>${items.length} item${items.length === 1 ? '' : 's'}</span>
+    return items.filter((item) => createSearchText(item).includes(query));
+  }
+
+  function renderEmpty() {
+    detail.innerHTML = `
+      <div class="spider-empty-state">
+        <span class="spider-empty-kicker">Spider</span>
+        <h1>Architecture map</h1>
+        <p>Select a flow or pipeline from the side menu.</p>
+        <div class="spider-counts">
+          <div class="spider-count"><strong>${pipelines.length}</strong><span>Pipelines</span></div>
+          <div class="spider-count"><strong>${flows.length}</strong><span>Flows</span></div>
         </div>
-        <div class='spider-catalog'>${items.map(renderer).join('')}</div>
-      </section>`;
-  }
-
-  function renderFlowCard(flow) {
-    const steps = orderChildren(getChildren(flow));
-    const profiles = getProfiles(flow);
-    const request = shortType(metadata(flow, 'request'));
-    const response = shortType(metadata(flow, 'response'));
-    const signature = response ? `${request} -> ${response}` : request;
-
-    return `
-      <article class='spider-catalog-card spider-process-card' data-id='${escapeHtml(flow.id)}'>
-        <div>
-          <h3>${escapeHtml(flow.displayName)}</h3>
-          <p>${escapeHtml(signature || 'No request metadata')}</p>
-          <div class='spider-catalog-meta'>
-            <span class='spider-chip is-flow'>Flow</span>
-            <span class='spider-chip'>${steps.length} step${steps.length === 1 ? '' : 's'}</span>
-            ${profiles.map(profile => `<span class='spider-chip is-profile'>${escapeHtml(profile.displayName)}</span>`).join('')}
-          </div>
-        </div>
-        <button type='button' class='spider-open-button' data-open-id='${escapeHtml(flow.id)}'>Open</button>
-      </article>`;
-  }
-
-  function renderPipelineCard(pipeline) {
-    const stages = orderChildren(getChildren(pipeline));
-    const request = shortType(metadata(pipeline, 'request'));
-    const response = shortType(metadata(pipeline, 'response'));
-    const signature = response ? `${request} -> ${response}` : request;
-
-    return `
-      <article class='spider-catalog-card spider-process-card' data-id='${escapeHtml(pipeline.id)}'>
-        <div>
-          <h3>${escapeHtml(pipeline.displayName)}</h3>
-          <p>${escapeHtml(signature || 'No request metadata')}</p>
-          <div class='spider-catalog-meta'>
-            <span class='spider-chip is-pipeline'>Pipeline</span>
-            <span class='spider-chip'>${stages.length} stage${stages.length === 1 ? '' : 's'}</span>
-          </div>
-        </div>
-        <button type='button' class='spider-open-button' data-open-id='${escapeHtml(pipeline.id)}'>Open</button>
-      </article>`;
-  }
-
-  function renderTimeline(steps) {
-    if (!steps.length) return `<div class='spider-empty'>No documented steps.</div>`;
-
-    return `
-      <ol class='spider-timeline'>
-        ${steps.map((step, index) => `
-          <li>
-            <span class='spider-step-number'>${index + 1}</span>
-            ${renderStepButton(step)}
-          </li>`).join('')}
-      </ol>`;
-  }
-
-  function renderStepButton(step) {
-    const role = describeShort(step);
-    return `
-      <button type='button' class='spider-step' data-id='${escapeHtml(step.id)}'>
-        <strong>${escapeHtml(step.displayName)}</strong>
-        <span>${escapeHtml(role)}</span>
-      </button>`;
-  }
-
-  function renderStageButton(stage) {
-    const name = stageNames[metadata(stage, 'stage')] || stage.displayName;
-    const count = metadata(stage, 'count');
-    const detail = count == null ? friendlyKind(stage) : `${count} configured`;
-
-    return `
-      <button type='button' class='spider-stage' data-id='${escapeHtml(stage.id)}'>
-        <strong>${escapeHtml(name)}</strong>
-        <span>${escapeHtml(detail)}</span>
-      </button>`;
-  }
-
-  function describeShort(component) {
-    if (component.kind === 'spider.flow-condition') return metadata(component, 'otherwise') ? `Continue if true, otherwise ${metadata(component, 'otherwise')}` : 'Continue if true';
-    if (component.kind === 'spider.flow-branch') return 'Decision branch';
-    if (component.kind === 'spider.flow-step') return metadata(component, 'operation') || 'Flow step';
-    if (component.kind === 'spider.pipeline-stage') return stageNames[metadata(component, 'stage')] || 'Pipeline stage';
-    return friendlyKind(component);
-  }
-
-  function renderFlows() {
-    const container = document.getElementById('spider-view-flows');
-    const flows = components.filter(component => component.kind === 'spider.flow' && sequenceMatches(component));
-    container.innerHTML = `<div class='spider-catalog'>${flows.map(renderFlowCard).join('') || `<div class='spider-empty'>No matching flows.</div>`}</div>`;
-    bindSelectableCards(container);
-  }
-
-  function renderPipelines() {
-    const container = document.getElementById('spider-view-pipelines');
-    const pipelines = components.filter(component => component.kind === 'spider.pipeline' && sequenceMatches(component));
-    container.innerHTML = `<div class='spider-catalog'>${pipelines.map(renderPipelineCard).join('') || `<div class='spider-empty'>No matching pipelines.</div>`}</div>`;
-    bindSelectableCards(container);
-  }
-
-  function renderProcessDetail() {
-    const container = document.getElementById('spider-view-detail');
-    const selected = byId.get(state.selectedId);
-    const parent = selected ? findProcessForComponent(selected) : null;
-
-    if (!parent) {
-      container.innerHTML = `
-        <div class='spider-detail-empty-state'>
-          <div>
-            <h2>Select a flow or pipeline</h2>
-            <p>Open an item from Overview, Flows, or Pipelines to inspect its process detail.</p>
-          </div>
-        </div>`;
-      return;
-    }
-
-    const children = orderChildren(getChildren(parent));
-    const profiles = parent.kind === 'spider.flow' ? getProfiles(parent) : [];
-    const request = shortType(metadata(parent, 'request'));
-    const response = shortType(metadata(parent, 'response'));
-    const signature = response ? `${request} -> ${response}` : request;
-
-    container.innerHTML = `
-      <div class='spider-detail-layout'>
-        <article class='spider-section spider-detail-main'>
-          <header class='spider-detail-title'>
-            <div>
-              <h2>${escapeHtml(parent.displayName)}</h2>
-              <p>${escapeHtml(signature || friendlyKind(parent))}</p>
-            </div>
-            <div class='spider-card-meta'>
-              <span class='spider-chip${chipClass(parent)}'>${escapeHtml(friendlyKind(parent))}</span>
-              ${profiles.map(profile => `<span class='spider-chip is-profile'>${escapeHtml(profile.displayName)}</span>`).join('')}
-            </div>
-          </header>
-          <section>
-            <h2>${parent.kind === 'spider.pipeline' ? 'Stages' : 'Steps'}</h2>
-            ${parent.kind === 'spider.pipeline' ? `<div class='spider-stage-strip'>${children.map(renderStageButton).join('')}</div>` : renderTimeline(children)}
-          </section>
-          <section>
-            <h2>Graph</h2>
-            <div class='spider-local-graph-frame'>
-              ${renderProcessGraph(parent, children, profiles)}
-            </div>
-          </section>
-        </article>
       </div>`;
-    bindSelectableCards(container);
-  }
-
-  function findProcessForComponent(component) {
-    if (!component) return null;
-    if (component.kind === 'spider.flow' || component.kind === 'spider.pipeline') return component;
-    const parentRelation = containsRelations.find(relation => relation.targetId === component.id);
-    const parent = parentRelation ? byId.get(parentRelation.sourceId) : null;
-    if (parent && (parent.kind === 'spider.flow' || parent.kind === 'spider.pipeline')) return parent;
-    return null;
-  }
-
-  function renderProcessGraph(parent, children, profiles) {
-    const nodes = [parent].concat(children).concat(profiles);
-    const positions = new Map();
-    const y = 80;
-    positions.set(parent.id, { x: 40, y, w: 230, h: 68 });
-    children.forEach((child, index) => {
-      positions.set(child.id, { x: 330 + index * 260, y, w: 230, h: 68 });
-    });
-    profiles.forEach((profile, index) => {
-      positions.set(profile.id, { x: 40 + index * 260, y: 210, w: 230, h: 58 });
-    });
-
-    const ids = new Set(nodes.map(node => node.id));
-    const graphRelations = [];
-    if (children.length) {
-      graphRelations.push({ sourceId: parent.id, targetId: children[0].id, kind: 'contains' });
-      children.slice(1).forEach((child, index) => {
-        graphRelations.push({ sourceId: children[index].id, targetId: child.id, kind: 'next' });
-      });
-    }
-    relations
-      .filter(relation => relation.kind === 'uses-profile' && ids.has(relation.sourceId) && ids.has(relation.targetId))
-      .forEach(relation => graphRelations.push(relation));
-    const maxX = Math.max(780, ...Array.from(positions.values()).map(position => position.x + position.w + 60));
-    const maxY = profiles.length ? 330 : 210;
-
-    return `
-      <svg class='spider-local-graph' viewBox='0 0 ${maxX} ${maxY}' style='width:${maxX}px;height:${maxY}px' role='img' aria-label='Selected process graph'>
-        <defs>
-          <marker id='spider-local-arrow' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>
-            <path d='M 0 0 L 10 5 L 0 10 z' fill='#98a2b3'></path>
-          </marker>
-        </defs>
-        <text class='spider-lane-title' x='40' y='36'>${escapeHtml(parent.kind === 'spider.pipeline' ? 'Pipeline stages' : 'Flow steps')}</text>
-        ${graphRelations.map(relation => renderProcessEdge(relation, positions)).join('')}
-        ${nodes.map(node => renderProcessNode(node, positions.get(node.id))).join('')}
-      </svg>`;
-  }
-
-  function renderProcessEdge(relation, positions) {
-    const source = positions.get(relation.sourceId);
-    const target = positions.get(relation.targetId);
-    if (!source || !target) return '';
-    const x1 = source.x + source.w;
-    const y1 = source.y + source.h / 2;
-    const x2 = target.x;
-    const y2 = target.y + target.h / 2;
-    const mid = Math.max(x1 + 44, (x1 + x2) / 2);
-    return `<path class='spider-edge ${escapeHtml(relation.kind)}' marker-end='url(#spider-local-arrow)' d='M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}'><title>${escapeHtml(relation.kind)}</title></path>`;
-  }
-
-  function renderProcessNode(component, position) {
-    if (!position) return '';
-    const selected = component.id === state.selectedId ? ' is-selected' : '';
-    const lines = splitLabel(component.displayName || component.id, 26);
-    return `
-      <g class='spider-node${selected}' data-id='${escapeHtml(component.id)}' data-kind='${escapeHtml(component.kind)}' transform='translate(${position.x}, ${position.y})'>
-        <rect width='${position.w}' height='${position.h}'></rect>
-        <text x='13' y='24'>${escapeHtml(lines[0] || '')}</text>
-        ${lines[1] ? `<text x='13' y='41'>${escapeHtml(lines[1])}</text>` : ''}
-        <text class='kind' x='13' y='58'>${escapeHtml(friendlyKind(component))}</text>
-      </g>`;
-  }
-
-  function renderSequenceSection(parent) {
-    const children = orderChildren(getChildren(parent));
-    const profiles = parent.kind === 'spider.flow' ? getProfiles(parent) : [];
-    const request = shortType(metadata(parent, 'request'));
-    const response = shortType(metadata(parent, 'response'));
-    const signature = response ? `${request} -> ${response}` : request;
-
-    return `
-      <article class='spider-section'>
-        <div class='spider-card-header'>
-          <div>
-            <h2>${escapeHtml(parent.displayName)}</h2>
-            <p>${escapeHtml(signature)}</p>
-          </div>
-          <div class='spider-card-meta'>
-            <span class='spider-chip${chipClass(parent)}'>${escapeHtml(friendlyKind(parent))}</span>
-            ${profiles.map(profile => `<span class='spider-chip is-profile'>${escapeHtml(profile.displayName)}</span>`).join('')}
-          </div>
-        </div>
-        ${parent.kind === 'spider.pipeline' ? `<div class='spider-stage-strip'>${children.map(renderStageButton).join('')}</div>` : renderTimeline(children)}
-      </article>`;
-  }
-
-  function renderEvidence() {
-    const showEvidence = root.dataset.showEvidence === 'true';
-    const container = document.getElementById('spider-view-evidence');
-    if (!showEvidence) {
-      container.innerHTML = `<div class='spider-section'><h2>Evidence disabled</h2><p>Enable evidence in renderer options to show source locations.</p></div>`;
-      return;
-    }
-
-    const entries = components
-      .filter(componentMatches)
-      .flatMap(component => (component.evidence || []).map(evidence => ({ component, evidence })));
-
-    container.innerHTML = `<div class='spider-list'>${entries.map(entry => `
-      <article class='spider-section'>
-        <h2>${escapeHtml(entry.component.displayName)}</h2>
-        <dl>
-          <dt>Kind</dt><dd>${escapeHtml(friendlyKind(entry.component))}</dd>
-          <dt>Type</dt><dd>${escapeHtml(entry.evidence.typeName)}</dd>
-          <dt>Member</dt><dd>${escapeHtml(entry.evidence.memberName)}</dd>
-          <dt>File</dt><dd>${escapeHtml(entry.evidence.filePath)}</dd>
-          <dt>Line</dt><dd>${escapeHtml(entry.evidence.lineNumber)}</dd>
-        </dl>
-      </article>`).join('') || `<div class='spider-empty'>No matching evidence.</div>`}</div>`;
   }
 
   function renderJson() {
-    const pre = document.getElementById('spider-json');
-    if (root.dataset.showJson !== 'true') {
-      pre.textContent = 'Raw JSON panel disabled.';
-      return;
-    }
-
-    pre.textContent = JSON.stringify(data, null, 2);
+    detail.innerHTML = `
+      <div class="spider-json-view">
+        <header class="spider-detail-header">
+          <div class="spider-header-row">
+            <span class="spider-chip">Manifest</span>
+          </div>
+          <h1>Manifest JSON</h1>
+        </header>
+        <pre class="spider-json">${escapeHtml(JSON.stringify(manifest, null, 2))}</pre>
+      </div>`;
   }
 
-  function renderDetail() {
-    const detail = document.getElementById('spider-detail');
-    const component = byId.get(state.selectedId);
-
-    if (!component) {
-      detail.innerHTML = `
-        <div class='spider-detail-empty'>
-          <h2>Select an item</h2>
-          <p>Choose a flow or pipeline from the catalog to inspect metadata, source evidence, steps, and graph.</p>
-        </div>`;
-      return;
-    }
-
-    state.selectedId = component.id;
-    const metadataEntries = Object.entries(component.metadata || {});
-    const evidence = root.dataset.showEvidence === 'true' ? (component.evidence || []) : [];
-    const parentRelation = containsRelations.find(relation => relation.targetId === component.id);
-    const parent = parentRelation ? byId.get(parentRelation.sourceId) : null;
-    const siblings = parent ? orderChildren(getChildren(parent)) : [];
-    const stepNumber = siblings.findIndex(item => item.id === component.id) + 1;
-    const outgoing = relations.filter(relation => relation.sourceId === component.id);
-    const incoming = relations.filter(relation => relation.targetId === component.id);
+  function renderDetail(component) {
+    const children = orderChildren(component);
+    const profiles = getRelated(component.id, "uses-profile");
+    const graph = showGraph
+      ? `<section class="spider-panel spider-graph-panel">
+          <div class="spider-panel-header">
+            <h2>Graph</h2>
+            <span class="spider-panel-note">Top to bottom</span>
+          </div>
+          <div class="spider-process-graph">${renderVerticalGraph(component, children)}</div>
+        </section>`
+      : "";
 
     detail.innerHTML = `
-      <header class='spider-detail-header'>
-        <span class='spider-chip${chipClass(component)}'>${escapeHtml(friendlyKind(component))}</span>
-        <h2>${escapeHtml(component.displayName)}</h2>
-      </header>
-      <section class='spider-detail-section'>
-        <h3>Role</h3>
-        <p>${escapeHtml(describeLong(component, parent, stepNumber))}</p>
-      </section>
-      ${metadataEntries.length ? `<section class='spider-detail-section'><h3>Metadata</h3><dl>${metadataEntries.map(([key, value]) => `<dt>${escapeHtml(cleanKey(key))}</dt><dd>${escapeHtml(value)}</dd>`).join('')}</dl></section>` : ''}
-      ${evidence.length ? `<section class='spider-detail-section'><h3>Source</h3><dl>${evidence.map(item => `<dt>Member</dt><dd>${escapeHtml(item.memberName)}</dd><dt>File</dt><dd>${escapeHtml(item.filePath)}:${escapeHtml(item.lineNumber)}</dd>`).join('')}</dl></section>` : ''}
-      <section class='spider-detail-section'>
-        <h3>Relationships</h3>
-        <p>${incoming.length} incoming, ${outgoing.length} outgoing</p>
-        <div>${outgoing.concat(incoming).map(relation => `<span class='spider-chip'>${escapeHtml(relation.kind)}</span>`).join('') || `<span class='spider-detail-empty'>No direct relations.</span>`}</div>
-      </section>
-      <section class='spider-detail-section'>
-        <h3>Technical id</h3>
-        <code class='spider-code'>${escapeHtml(component.id)}</code>
+      <article class="spider-detail-shell">
+        <header class="spider-detail-header">
+          <div class="spider-header-row">
+            <span class="spider-chip ${component.kind === "spider.flow" ? "flow" : "pipeline"}">${escapeHtml(getProcessKind(component))}</span>
+            <span class="spider-chip">${escapeHtml(getSignature(component))}</span>
+          </div>
+          <h1>${escapeHtml(component.displayName || component.id)}</h1>
+          <p>${escapeHtml(getProcessSummary(component, children))}</p>
+        </header>
+        <div class="spider-content-grid">
+          ${renderDetailsPanel(component, profiles)}
+          ${renderSequencePanel(component, children)}
+          ${graph}
+        </div>
+      </article>`;
+  }
+
+  function resetDetailScroll() {
+    const main = root.querySelector(".spider-main");
+    if (main) {
+      main.scrollTop = 0;
+    }
+
+    window.scrollTo(0, 0);
+  }
+
+  function renderDetailsPanel(component, profiles) {
+    const metadataRows = Object.entries(component.metadata || {})
+      .filter(([key]) => key !== "request" && key !== "response" && key !== "hasResponse")
+      .map(([key, value]) => `<dt>${escapeHtml(formatLabel(key))}</dt><dd>${escapeHtml(value)}</dd>`)
+      .join("");
+    const baseRows = [
+      ["Id", component.id],
+      ["Request", getMetadata(component, "request") || "Not declared"],
+      ["Response", getMetadata(component, "response") || (getMetadata(component, "hasResponse") === "false" ? "No response" : "Not declared")]
+    ].map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`).join("");
+    const profileRows = profiles.length === 0
+      ? ""
+      : `<div class="spider-profile-row">${profiles.map((profile) => `<span class="spider-chip profile">${escapeHtml(profile.displayName || profile.id)}</span>`).join("")}</div>`;
+    const evidence = renderEvidence(component);
+
+    return `
+      <section class="spider-panel">
+        <div class="spider-panel-header">
+          <h2>Details</h2>
+        </div>
+        <dl class="spider-definition">${baseRows}${metadataRows}</dl>
+        ${profileRows}
+        ${evidence}
       </section>`;
   }
 
-  function cleanKey(key) {
-    return key
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/-/g, ' ')
-      .replace(/^./, value => value.toUpperCase());
-  }
-
-  function describeLong(component, parent, stepNumber) {
-    if (component.kind === 'spider.flow') return 'A method-level business process composed with Spider.';
-    if (component.kind === 'spider.pipeline') return 'A cross-cutting execution pipeline attached around a service call.';
-    if (component.kind === 'spider.pipeline-stage') return `${stageNames[metadata(component, 'stage')] || component.displayName} inside ${parent ? parent.displayName : 'the pipeline'}.`;
-    if (component.kind === 'spider.flow-condition') return `Step ${stepNumber} in ${parent ? parent.displayName : 'the flow'}; the flow continues only when the condition passes.`;
-    if (component.kind === 'spider.flow-branch') return `Step ${stepNumber} in ${parent ? parent.displayName : 'the flow'}; this step chooses one of the configured routes.`;
-    if (component.kind === 'spider.flow-step') return `Step ${stepNumber} in ${parent ? parent.displayName : 'the flow'}.`;
-    if (component.kind === 'spider.flow-profile') return 'A reusable execution profile selected by one or more flows.';
-    return friendlyKind(component);
-  }
-
-  function layoutNodes(nodes) {
-    const positions = new Map();
-    const lanes = [];
-    let laneIndex = 0;
-
-    function placeSequence(rootNode, children, titleText) {
-      const y = 86 + laneIndex * 150;
-      const ordered = orderChildren(children);
-      lanes.push({ title: titleText, y: y - 30 });
-      positions.set(rootNode.id, { x: 60, y, w: 230, h: 68 });
-      ordered.forEach((child, index) => {
-        positions.set(child.id, { x: 350 + index * 260, y, w: 230, h: 68 });
-      });
-      laneIndex++;
+  function renderEvidence(component) {
+    const evidence = component.evidence || [];
+    if (evidence.length === 0) {
+      return "";
     }
 
-    nodes.filter(component => component.kind === 'spider.pipeline')
-      .forEach(pipeline => placeSequence(pipeline, getChildren(pipeline), 'Execution pipeline'));
+    const first = evidence[0];
+    const source = first.filePath
+      ? `${first.filePath}${first.lineNumber ? ":" + first.lineNumber : ""}`
+      : "Not available";
 
-    nodes.filter(component => component.kind === 'spider.flow')
-      .forEach(flow => placeSequence(flow, getChildren(flow), 'Business flow'));
-
-    const profiles = nodes.filter(component => component.kind === 'spider.flow-profile');
-    if (profiles.length) {
-      const y = 86 + laneIndex * 150;
-      lanes.push({ title: 'Flow profiles', y: y - 30 });
-      profiles.forEach((profile, index) => {
-        positions.set(profile.id, { x: 60 + (index % 4) * 260, y: y + Math.floor(index / 4) * 88, w: 230, h: 58 });
-      });
-      laneIndex += Math.max(1, Math.ceil(profiles.length / 4));
-    }
-
-    nodes.forEach((component, index) => {
-      if (!positions.has(component.id)) {
-        const y = 86 + laneIndex * 150 + Math.floor(index / 4) * 88;
-        positions.set(component.id, { x: 60 + (index % 4) * 260, y, w: 230, h: 58 });
-      }
-    });
-
-    return { positions, lanes };
-  }
-
-  function renderGraph() {
-    if (root.dataset.showGraph !== 'true') return;
-    const svg = document.getElementById('spider-architecture-graph');
-    const nodes = visibleComponents();
-    const visibleIds = new Set(nodes.map(node => node.id));
-    const layout = layoutNodes(nodes);
-    const positions = layout.positions;
-    const graphRelations = relations.filter(relation => {
-      if (!visibleIds.has(relation.sourceId) || !visibleIds.has(relation.targetId)) return false;
-      if (relation.kind === 'next' || relation.kind === 'uses-profile') return true;
-      if (relation.kind !== 'contains') return false;
-      const parent = byId.get(relation.sourceId);
-      if (!parent) return false;
-      const first = orderChildren(getChildren(parent))[0];
-      return first && first.id === relation.targetId;
-    });
-    const maxX = Math.max(900, ...Array.from(positions.values()).map(position => position.x + position.w + 70));
-    const maxY = Math.max(560, ...Array.from(positions.values()).map(position => position.y + position.h + 80));
-    svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
-    svg.style.width = `${maxX * state.scale}px`;
-    svg.style.height = `${maxY * state.scale}px`;
-    svg.innerHTML = `
-      <defs>
-        <marker id='spider-arrow' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>
-          <path d='M 0 0 L 10 5 L 0 10 z' fill='#98a2b3'></path>
-        </marker>
-      </defs>
-      ${layout.lanes.map(lane => `<text class='spider-lane-title' x='60' y='${lane.y}'>${escapeHtml(lane.title)}</text>`).join('')}
-      ${graphRelations.map(relation => renderEdge(relation, positions)).join('')}
-      ${nodes.map(node => renderNode(node, positions.get(node.id))).join('')}
-    `;
-
-    svg.querySelectorAll('.spider-node').forEach(node => {
-      node.addEventListener('click', () => selectComponent(node.dataset.id));
-    });
-  }
-
-  function renderEdge(relation, positions) {
-    const source = positions.get(relation.sourceId);
-    const target = positions.get(relation.targetId);
-    if (!source || !target) return '';
-    const x1 = source.x + source.w;
-    const y1 = source.y + source.h / 2;
-    const x2 = target.x;
-    const y2 = target.y + target.h / 2;
-    const mid = Math.max(x1 + 55, (x1 + x2) / 2);
-    return `<path class='spider-edge ${escapeHtml(relation.kind)}' d='M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}'><title>${escapeHtml(relation.kind)}</title></path>`;
-  }
-
-  function renderNode(component, position) {
-    if (!position) return '';
-    const selected = component.id === state.selectedId ? ' is-selected' : '';
-    const lines = splitLabel(component.displayName || component.id, 26);
     return `
-      <g class='spider-node${selected}' data-id='${escapeHtml(component.id)}' data-kind='${escapeHtml(component.kind)}' transform='translate(${position.x}, ${position.y})'>
-        <rect width='${position.w}' height='${position.h}'></rect>
-        <text x='13' y='24'>${escapeHtml(lines[0] || '')}</text>
-        ${lines[1] ? `<text x='13' y='41'>${escapeHtml(lines[1])}</text>` : ''}
-        <text class='kind' x='13' y='58'>${escapeHtml(friendlyKind(component))}</text>
-      </g>`;
+      <div class="spider-evidence">
+        <dl class="spider-definition">
+          <dt>Member</dt><dd>${escapeHtml(first.memberName || "Not available")}</dd>
+          <dt>Source</dt><dd>${escapeHtml(source)}</dd>
+        </dl>
+      </div>`;
   }
 
-  function splitLabel(value, length) {
-    const words = String(value || '').split(/\s+/);
-    const lines = [''];
-    words.forEach(word => {
-      const index = lines.length - 1;
-      const next = lines[index] ? `${lines[index]} ${word}` : word;
-      if (next.length > length && lines.length < 2) lines.push(word);
-      else lines[index] = next;
-    });
-    return lines.map(line => line.length > length ? `${line.slice(0, length - 1)}...` : line);
+  function renderSequencePanel(component, children) {
+    const label = component.kind === "spider.pipeline" ? "Stages" : "Steps";
+    const rows = children.length === 0
+      ? `<div class="spider-empty-list">No ${label.toLowerCase()} discovered.</div>`
+      : `<ol class="spider-outline">${children.map(renderSequenceRow).join("")}</ol>`;
+
+    return `
+      <section class="spider-panel">
+        <div class="spider-panel-header">
+          <h2>${escapeHtml(label)}</h2>
+          <span class="spider-panel-note">${children.length} total</span>
+        </div>
+        ${rows}
+      </section>`;
   }
 
-  function bindSelectableCards(scope) {
-    scope.querySelectorAll('[data-open-id]').forEach(item => {
-      item.addEventListener('click', event => {
-        event.stopPropagation();
-        openProcess(item.dataset.openId);
-      });
-    });
-    scope.querySelectorAll('.spider-catalog-card[data-id]').forEach(item => {
-      item.addEventListener('click', () => openProcess(item.dataset.id));
-    });
-    scope.querySelectorAll('.spider-step[data-id], .spider-stage[data-id], .spider-node[data-id]').forEach(item => {
-      item.addEventListener('click', event => {
-        event.stopPropagation();
-        selectComponent(item.dataset.id);
-      });
-    });
+  function renderSequenceRow(child, index) {
+    const pills = createMetadataPills(child);
+    return `
+      <li class="spider-outline-row">
+        <span class="spider-step-number">${String(index + 1).padStart(2, "0")}</span>
+        <div>
+          <div class="spider-outline-title">
+            <span>${escapeHtml(child.displayName || child.id)}</span>
+            <span class="spider-node-kind ${getKindClass(child)}">${escapeHtml(getChildKind(child))}</span>
+          </div>
+          ${pills ? `<div class="spider-outline-meta">${pills}</div>` : ""}
+        </div>
+      </li>`;
   }
 
-  function bindInteractions() {
-    document.querySelectorAll('.spider-tabs button').forEach(button => {
-      if (button.dataset.view === 'json' && root.dataset.showJson !== 'true') button.hidden = true;
-      if (button.dataset.view === 'graph' && root.dataset.showGraph !== 'true') button.hidden = true;
-      button.addEventListener('click', () => {
-        showView(button.dataset.view);
-      });
-    });
+  function renderVerticalGraph(component, children) {
+    const nodes = [component].concat(children);
+    const width = 820;
+    const nodeWidth = 560;
+    const nodeHeight = 68;
+    const nodeX = 130;
+    const top = 24;
+    const gap = 104;
+    const height = Math.max(210, top + nodes.length * gap);
+    const center = nodeX + (nodeWidth / 2);
+    const edges = [];
+    const renderedNodes = [];
 
-    const search = document.getElementById('spider-search');
-    if (root.dataset.showSearch !== 'true') search.hidden = true;
-    search.addEventListener('input', () => {
-      state.query = search.value;
-      renderAll();
-    });
+    for (let index = 0; index < nodes.length; index++) {
+      const node = nodes[index];
+      const y = top + (index * gap);
+      const className = index === 0 ? "is-root" : getGraphClass(node);
+      const subtitle = index === 0 ? getSignature(node) : getChildSubtitle(node);
 
-    fitButton.addEventListener('click', () => {
-      const frame = document.querySelector('.spider-graph-frame');
-      const svg = document.getElementById('spider-architecture-graph');
-      const viewBox = svg.getAttribute('viewBox').split(/\s+/).map(Number);
-      const graphWidth = viewBox[2] || frame.clientWidth;
-      state.scale = Math.max(0.35, Math.min(1, (frame.clientWidth - 24) / graphWidth));
-      renderGraph();
-    });
-    fitButton.hidden = true;
+      renderedNodes.push(`
+        <g class="spider-node ${className}" transform="translate(${nodeX}, ${y})">
+          <title>${escapeHtml(node.displayName || node.id)}</title>
+          <rect width="${nodeWidth}" height="${nodeHeight}" rx="12" />
+          <text x="22" y="30" font-size="15" font-weight="800">${escapeHtml(truncate(node.displayName || node.id, 56))}</text>
+          <text class="spider-node-subtitle" x="22" y="51" font-size="12">${escapeHtml(truncate(subtitle, 66))}</text>
+        </g>`);
+
+      if (index < nodes.length - 1) {
+        const y1 = y + nodeHeight;
+        const y2 = y + gap;
+        edges.push(`<path class="spider-edge" d="M ${center} ${y1} L ${center} ${y2 - 8}" marker-end="url(#spider-arrow)" />`);
+      }
+    }
+
+    return `
+      <svg class="spider-architecture-graph" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(component.displayName || "Spider process graph")}" preserveAspectRatio="xMidYMin meet">
+        <defs>
+          <marker id="spider-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#8da0b8"></path>
+          </marker>
+        </defs>
+        ${edges.join("")}
+        ${renderedNodes.join("")}
+      </svg>`;
   }
 
-  function renderAll() {
-    renderSummary();
-    renderFilters();
-    renderOverview();
-    renderFlows();
-    renderPipelines();
-    renderEvidence();
-    renderJson();
-    renderProcessDetail();
-    renderDetail();
-    renderGraph();
+  function orderChildren(component) {
+    const children = relations
+      .filter((relation) => relation.kind === "contains" && relation.sourceId === component.id)
+      .map((relation) => byId.get(relation.targetId))
+      .filter(Boolean);
+
+    if (children.length <= 1) {
+      return children;
+    }
+
+    const allHaveOrder = children.every((child) => Number.isFinite(Number(getMetadata(child, "order"))));
+    if (allHaveOrder) {
+      return children.slice().sort((left, right) => Number(getMetadata(left, "order")) - Number(getMetadata(right, "order")));
+    }
+
+    const ids = new Set(children.map((child) => child.id));
+    const next = relations.filter((relation) => relation.kind === "next" && ids.has(relation.sourceId) && ids.has(relation.targetId));
+    if (next.length === 0) {
+      return children;
+    }
+
+    const targets = new Set(next.map((relation) => relation.targetId));
+    const bySource = new Map(next.map((relation) => [relation.sourceId, relation.targetId]));
+    const ordered = [];
+    let current = children.find((child) => !targets.has(child.id)) || children[0];
+
+    while (current && !ordered.some((item) => item.id === current.id)) {
+      ordered.push(current);
+      const nextId = bySource.get(current.id);
+      current = nextId ? byId.get(nextId) : null;
+    }
+
+    for (const child of children) {
+      if (!ordered.some((item) => item.id === child.id)) {
+        ordered.push(child);
+      }
+    }
+
+    return ordered;
   }
 
-  bindInteractions();
-  renderAll();
+  function getRelated(sourceId, kind) {
+    return relations
+      .filter((relation) => relation.kind === kind && relation.sourceId === sourceId)
+      .map((relation) => byId.get(relation.targetId))
+      .filter(Boolean)
+      .sort(compareByName);
+  }
+
+  function createMetadataPills(component) {
+    return Object.entries(component.metadata || {})
+      .filter(([key]) => key !== "order")
+      .map(([key, value]) => `<span class="spider-meta-pill">${escapeHtml(formatLabel(key))}: ${escapeHtml(value)}</span>`)
+      .join("");
+  }
+
+  function createSearchText(component) {
+    const values = [
+      component.id,
+      component.kind,
+      component.displayName,
+      ...Object.values(component.metadata || {})
+    ];
+
+    for (const child of orderChildren(component)) {
+      values.push(child.id, child.kind, child.displayName, ...Object.values(child.metadata || {}));
+    }
+
+    return values.filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function getSignature(component) {
+    const request = shortName(getMetadata(component, "request"));
+    const response = shortName(getMetadata(component, "response"));
+
+    if (request && response) {
+      return `${request} -> ${response}`;
+    }
+
+    if (request && getMetadata(component, "hasResponse") === "false") {
+      return `${request} -> no response`;
+    }
+
+    return request || response || "No signature";
+  }
+
+  function getProcessSummary(component, children) {
+    const noun = component.kind === "spider.pipeline" ? "pipeline" : "flow";
+    const childNoun = component.kind === "spider.pipeline" ? "stage" : "step";
+    return `${capitalize(noun)} with ${children.length} ${childNoun}${children.length === 1 ? "" : "s"}.`;
+  }
+
+  function getChildSubtitle(component) {
+    if (component.kind === "spider.pipeline-stage") {
+      const count = getMetadata(component, "count") || "0";
+      return `${count} configured action${count === "1" ? "" : "s"}`;
+    }
+
+    return getMetadata(component, "delegate") || getMetadata(component, "operation") || getChildKind(component);
+  }
+
+  function getProcessKind(component) {
+    return component.kind === "spider.pipeline" ? "Pipeline" : "Flow";
+  }
+
+  function getChildKind(component) {
+    if (component.kind === "spider.pipeline-stage") {
+      return "Stage";
+    }
+
+    if (component.kind === "spider.flow-condition") {
+      return "Condition";
+    }
+
+    if (component.kind === "spider.flow-branch") {
+      return "Branch";
+    }
+
+    return "Step";
+  }
+
+  function getKindClass(component) {
+    if (component.kind === "spider.flow-condition") {
+      return "spider-kind-condition";
+    }
+
+    if (component.kind === "spider.flow-branch") {
+      return "spider-kind-branch";
+    }
+
+    return component.kind === "spider.pipeline-stage" ? "spider-kind-stage" : "spider-kind-step";
+  }
+
+  function getGraphClass(component) {
+    if (component.kind === "spider.flow-condition") {
+      return "is-condition";
+    }
+
+    if (component.kind === "spider.flow-branch") {
+      return "is-branch";
+    }
+
+    if (component.kind === "spider.flow") {
+      return "is-flow";
+    }
+
+    return "";
+  }
+
+  function getMetadata(component, key) {
+    return component && component.metadata ? component.metadata[key] || "" : "";
+  }
+
+  function compareByName(left, right) {
+    return (left.displayName || left.id).localeCompare(right.displayName || right.id);
+  }
+
+  function shortName(value) {
+    if (!value) {
+      return "";
+    }
+
+    const index = value.lastIndexOf(".");
+    return index < 0 ? value : value.substring(index + 1);
+  }
+
+  function formatLabel(value) {
+    return String(value || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function capitalize(value) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  function truncate(value, length) {
+    const text = String(value || "");
+    return text.length > length ? text.slice(0, Math.max(0, length - 1)) + "..." : text;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value);
+  }
 })();
 """;
     }
