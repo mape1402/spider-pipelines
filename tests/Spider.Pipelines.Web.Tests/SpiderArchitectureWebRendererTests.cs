@@ -64,6 +64,11 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("↗ Linked flow", html);
             Assert.Contains("spider-link-dot", html);
             Assert.Contains("spider-chip tag", html);
+            Assert.Contains("spider-graph-tooltip", html);
+            Assert.Contains("data-tooltip-name", html);
+            Assert.Contains("data-tooltip-description", html);
+            Assert.Contains("data-tooltip-tags", html);
+            Assert.Contains("Validate request", html);
             Assert.Contains("Creates a customer and persists the result.", html);
             Assert.Contains("customer", html);
             Assert.Contains("validation", html);
@@ -171,6 +176,7 @@ namespace Spider.Pipelines.Web.Tests
                         new Dictionary<string, string>
                         {
                             ["delegate"] = "Validate",
+                            ["name"] = "Validate request",
                             ["description"] = "Checks whether the customer request is valid.",
                             ["tags"] = "validation"
                         }),
