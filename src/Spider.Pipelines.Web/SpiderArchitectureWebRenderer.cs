@@ -938,6 +938,7 @@ button {
 }
 
 .spider-graph-wrap {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
@@ -945,6 +946,46 @@ button {
   border-radius: 8px;
   background: #ffffff;
   padding: 16px;
+}
+
+.spider-graph-tooltip {
+  position: fixed;
+  z-index: 20;
+  max-width: 240px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.96);
+  box-shadow: 0 10px 26px rgba(17, 24, 39, 0.2);
+  color: #ffffff;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  opacity: 0;
+  padding: 8px 10px;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 0.08s ease;
+  visibility: hidden;
+}
+
+.spider-graph-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.spider-tooltip-label {
+  color: #aeb8c7;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.spider-tooltip-value {
+  margin-top: 2px;
+}
+
+.spider-tooltip-row + .spider-tooltip-row {
+  margin-top: 7px;
 }
 
 .spider-architecture-graph {
@@ -1601,13 +1642,18 @@ button {
                 <span class="spider-legend-item">↗ Linked flow</span>
               </div>
             </div>
-            <div class="spider-graph-wrap spider-process-graph">${graph}</div>
+            <div class="spider-graph-wrap spider-process-graph">
+              ${graph}
+              <div id="spider-graph-tooltip" class="spider-graph-tooltip" role="tooltip"></div>
+            </div>
           </section>
           <aside id="spider-node-detail" class="spider-node-detail">
             ${renderNodeDetail(selectedNode, process, selectedIndex)}
           </aside>
         </div>
       </article>`;
+
+    bindGraphTooltip();
   }
 
   function renderProcessSummary(process, children, profiles) {
@@ -1847,6 +1893,10 @@ button {
     const subtitleLimit = width > 220
       ? (linkedFlow ? 27 : 34)
       : (linkedFlow ? 19 : 24);
+    const tooltipAttributes = renderGraphTooltipAttributes(node);
+    const nativeTitle = tooltipAttributes
+      ? ""
+      : `<title>${escapeHtml(node.displayName || node.id)}</title>`;
     const linkBadge = linkedFlow
       ? `
         <g class="spider-graph-link" data-open-process="${escapeAttribute(linkedFlow.id)}" transform="translate(${width - 20}, 9)">
@@ -1856,8 +1906,8 @@ button {
         </g>`
       : "";
     return `
-      <g class="spider-graph-node${graphClass}${selected}" data-node-id="${escapeAttribute(node.id)}" transform="translate(${x}, ${y})">
-        <title>${escapeHtml(node.displayName || node.id)}</title>
+      <g class="spider-graph-node${graphClass}${selected}" data-node-id="${escapeAttribute(node.id)}"${tooltipAttributes} transform="translate(${x}, ${y})">
+        ${nativeTitle}
         <rect class="spider-node-box" width="${width}" height="${height}" rx="7"></rect>
         <rect class="spider-node-accent" width="4" height="${height}" rx="2"></rect>
         <text class="spider-node-index" x="14" y="${height > 48 ? 30 : 28}" font-size="9.5" font-weight="700">${escapeHtml(numberText)}</text>
@@ -1870,6 +1920,125 @@ button {
   function renderGraphEdge(fromX, fromY, toX, toY) {
     const midY = fromY + Math.max(16, Math.round((toY - fromY) / 2));
     return `<path class="spider-edge" d="M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY - 7}" marker-end="url(#spider-arrow)" />`;
+  }
+
+  function bindGraphTooltip() {
+    const graphWrap = content.querySelector(".spider-graph-wrap");
+    const tooltip = document.getElementById("spider-graph-tooltip");
+    if (!graphWrap || !tooltip) {
+      return;
+    }
+
+    graphWrap.addEventListener("mouseover", (event) => {
+      const node = findTooltipNode(event.target, graphWrap);
+      if (node) {
+        showGraphTooltip(tooltip, node, event);
+      }
+    });
+
+    graphWrap.addEventListener("mousemove", (event) => {
+      const node = findTooltipNode(event.target, graphWrap);
+      if (node) {
+        moveGraphTooltip(tooltip, event);
+      }
+    });
+
+    graphWrap.addEventListener("mouseout", (event) => {
+      const node = findTooltipNode(event.target, graphWrap);
+      if (node && (!event.relatedTarget || !node.contains(event.relatedTarget))) {
+        hideGraphTooltip(tooltip);
+      }
+    });
+
+    graphWrap.addEventListener("focusin", (event) => {
+      const node = findTooltipNode(event.target, graphWrap);
+      if (node) {
+        showGraphTooltip(tooltip, node, null);
+      }
+    });
+
+    graphWrap.addEventListener("focusout", () => hideGraphTooltip(tooltip));
+  }
+
+  function findTooltipNode(target, graphWrap) {
+    if (!target || !target.closest) {
+      return null;
+    }
+
+    const node = target.closest(".spider-graph-node");
+    if (!node || !graphWrap.contains(node)) {
+      return null;
+    }
+
+    return hasGraphTooltip(node) ? node : null;
+  }
+
+  function hasGraphTooltip(node) {
+    return Boolean(node.dataset.tooltipName || node.dataset.tooltipDescription || node.dataset.tooltipTags);
+  }
+
+  function showGraphTooltip(tooltip, node, event) {
+    tooltip.innerHTML = renderGraphTooltipContent(node.dataset);
+    tooltip.classList.add("is-visible");
+
+    if (event) {
+      moveGraphTooltip(tooltip, event);
+      return;
+    }
+
+    const rect = node.getBoundingClientRect();
+    moveGraphTooltipToPoint(tooltip, rect.right + 8, rect.top + 8);
+  }
+
+  function moveGraphTooltip(tooltip, event) {
+    moveGraphTooltipToPoint(tooltip, event.clientX + 12, event.clientY + 12);
+  }
+
+  function moveGraphTooltipToPoint(tooltip, preferredLeft, preferredTop) {
+    const margin = 8;
+    const rect = tooltip.getBoundingClientRect();
+    let left = preferredLeft;
+    let top = preferredTop;
+
+    if (left + rect.width + margin > window.innerWidth) {
+      left = preferredLeft - rect.width - 24;
+    }
+
+    if (top + rect.height + margin > window.innerHeight) {
+      top = preferredTop - rect.height - 24;
+    }
+
+    tooltip.style.left = `${Math.max(margin, left)}px`;
+    tooltip.style.top = `${Math.max(margin, top)}px`;
+  }
+
+  function hideGraphTooltip(tooltip) {
+    tooltip.classList.remove("is-visible");
+  }
+
+  function renderGraphTooltipContent(dataset) {
+    const rows = [];
+    if (dataset.tooltipName) {
+      rows.push(renderTooltipRow("Name", dataset.tooltipName));
+    }
+
+    if (dataset.tooltipDescription) {
+      rows.push(renderTooltipRow("Description", dataset.tooltipDescription));
+    }
+
+    if (dataset.tooltipTags) {
+      rows.push(renderTooltipRow("Tags", dataset.tooltipTags));
+    }
+
+    return rows.join("");
+  }
+
+  function renderTooltipRow(label, value) {
+    return `
+      <div class="spider-tooltip-row">
+        <div class="spider-tooltip-label">${escapeHtml(label)}</div>
+        <div class="spider-tooltip-value">${escapeHtml(value)}</div>
+      </div>`;
   }
 
   function selectNode(id) {
@@ -2397,6 +2566,29 @@ button {
 
   function getMetadata(component, key) {
     return component && component.metadata ? component.metadata[key] || "" : "";
+  }
+
+  function renderGraphTooltipAttributes(component) {
+    const name = getMetadata(component, "name");
+    const description = getMetadata(component, "description");
+    const tags = getTags(component);
+    if (!name && !description && !tags.length) {
+      return "";
+    }
+
+    const accessible = [
+      name,
+      description,
+      tags.length ? `Tags: ${tags.join(", ")}` : ""
+    ].filter(Boolean).join(" - ");
+
+    return [
+      ` tabindex="0"`,
+      ` aria-label="${escapeAttribute(accessible)}"`,
+      name ? ` data-tooltip-name="${escapeAttribute(name)}"` : "",
+      description ? ` data-tooltip-description="${escapeAttribute(description)}"` : "",
+      tags.length ? ` data-tooltip-tags="${escapeAttribute(tags.join(", "))}"` : ""
+    ].join("");
   }
 
   function getTags(component) {
