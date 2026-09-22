@@ -1,4 +1,5 @@
 using Spider.Pipelines.Architecture;
+using Spider.Pipelines.RuntimeTracing;
 
 namespace Spider.Pipelines.Web.Tests
 {
@@ -117,7 +118,87 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("data-show-graph=\"false\"", html);
             Assert.Contains("data-show-json=\"false\"", html);
             Assert.Contains("data-show-search=\"false\"", html);
+            Assert.Contains("data-show-runtime=\"false\"", html);
             Assert.Contains("<title>Service Map</title>", html);
+        }
+
+        [Fact]
+        public void Render_WhenRuntimeTracesAreEnabled_ShouldRenderRuntimeNavigationAndTraceData()
+        {
+            var renderer = new SpiderArchitectureWebRenderer();
+            var options = new SpiderArchitectureWebOptions
+            {
+                IncludeRuntimeTraces = true,
+                RuntimeTracesEndpoint = "/_spider/runtime/traces",
+                RuntimeTraceSummaries = new[]
+                {
+                    new SpiderTraceSummary
+                    {
+                        TraceId = "trace-1",
+                        RootDisplayName = "Create customer",
+                        RequestType = "CustomerCommand",
+                        Status = SpiderTraceStatus.Completed,
+                        StartedAt = DateTimeOffset.UtcNow,
+                        EventCount = 2
+                    }
+                },
+                RuntimeTraces = new[]
+                {
+                    new SpiderTrace
+                    {
+                        TraceId = "trace-1",
+                        Status = SpiderTraceStatus.Completed,
+                        StartedAt = DateTimeOffset.UtcNow,
+                        Events = new[]
+                        {
+                            new SpiderTraceEvent
+                            {
+                                TraceId = "trace-1",
+                                SpanId = "span-1",
+                                DisplayName = "Create customer",
+                                Operation = "Flow",
+                                Kind = SpiderTraceEventKind.FlowStarted,
+                                Status = SpiderTraceStatus.Running,
+                                Timestamp = DateTimeOffset.UtcNow
+                            },
+                            new SpiderTraceEvent
+                            {
+                                TraceId = "trace-1",
+                                SpanId = "span-1",
+                                DisplayName = "Create customer",
+                                Operation = "Flow",
+                                Kind = SpiderTraceEventKind.FlowCompleted,
+                                Status = SpiderTraceStatus.Completed,
+                                Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(42),
+                                Duration = TimeSpan.FromMilliseconds(42)
+                            }
+                        }
+                    }
+                }
+            };
+
+            var html = renderer.Render(CreateManifest(), options);
+
+            Assert.Contains("data-show-runtime=\"true\"", html);
+            Assert.Contains("data-runtime-endpoint=\"/_spider/runtime/traces\"", html);
+            Assert.Contains("spider-runtime-trace-data", html);
+            Assert.Contains("data-menu-view=\"runtime\"", html);
+            Assert.Contains("Runtime traces", html);
+            Assert.Contains("spider-runtime-execution-list", html);
+            Assert.Contains("spider-runtime-row", html);
+            Assert.Contains("spider-runtime-overview", html);
+            Assert.Contains("spider-runtime-span", html);
+            Assert.Contains("Execution timeline", html);
+            Assert.Contains("Started paired with terminal events", html);
+            Assert.Contains("Raw events", html);
+            Assert.Contains("spider-status-chip", html);
+            Assert.Contains("buildRuntimeSpans", html);
+            Assert.Contains("createRuntimeOverview", html);
+            Assert.Contains("renderRuntimeSpan", html);
+            Assert.Contains("preserveMainScroll", html);
+            Assert.Contains("trace-1", html);
+            Assert.Contains("Create customer", html);
+            Assert.Contains("refreshRuntimeData", html);
         }
 
         [Fact]

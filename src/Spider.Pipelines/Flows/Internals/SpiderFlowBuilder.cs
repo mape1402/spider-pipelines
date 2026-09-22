@@ -1,6 +1,7 @@
 namespace Spider.Pipelines.Flows.Internals
 {
     using Spider.Pipelines.Flows;
+    using Spider.Pipelines.RuntimeTracing;
 
     /// <summary>
     /// Builds and executes a composed flow without a response contract.
@@ -10,23 +11,26 @@ namespace Spider.Pipelines.Flows.Internals
     internal sealed class SpiderFlowBuilder<TRequest, TCurrent> : ISpiderFlowBuilder<TRequest, TCurrent>
     {
         private readonly FlowBuilderState _state;
+        private readonly ISpiderRuntimeTracer _tracer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SpiderFlowBuilder{TRequest, TCurrent}"/> class.
         /// </summary>
         /// <param name="state">The immutable builder state.</param>
-        public SpiderFlowBuilder(FlowBuilderState state)
+        /// <param name="tracer">The runtime tracer.</param>
+        public SpiderFlowBuilder(FlowBuilderState state, ISpiderRuntimeTracer tracer)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
+            _tracer = tracer;
         }
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> UsingProfile(string profileName)
-            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithProfile(profileName));
+            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithProfile(profileName), _tracer);
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Describe(string description)
-            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithMetadata("description", description));
+            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithMetadata("description", description), _tracer);
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Tags(params string[] tags)
@@ -34,12 +38,12 @@ namespace Spider.Pipelines.Flows.Internals
             if (tags == null)
                 throw new ArgumentNullException(nameof(tags));
 
-            return new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithMetadata("tags", string.Join(",", tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Select(tag => tag.Trim()))));
+            return new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithMetadata("tags", string.Join(",", tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Select(tag => tag.Trim()))), _tracer);
         }
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Metadata(string key, string value)
-            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithMetadata(key, value));
+            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.WithMetadata(key, value), _tracer);
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> Then<TNext>(Func<TCurrent, TNext> step)
@@ -188,13 +192,13 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public Task RunAsync(TRequest request, CancellationToken cancellationToken = default)
-            => FlowRunner.RunAsync(_state.Steps, request, cancellationToken);
+            => FlowRunner.RunAsync(_state.Name, _state.Metadata, _state.Steps, request, _tracer, cancellationToken);
 
         private ISpiderFlowBuilder<TRequest, TNext> Add<TNext>(IFlowStep step)
-            => new SpiderFlowBuilder<TRequest, TNext>(_state.AddStep(step));
+            => new SpiderFlowBuilder<TRequest, TNext>(_state.AddStep(step), _tracer);
 
         private ISpiderFlowBuilder<TRequest, TCurrent> AddCurrent(IFlowStep step)
-            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.AddStep(step));
+            => new SpiderFlowBuilder<TRequest, TCurrent>(_state.AddStep(step), _tracer);
 
         private static void ConfigureMetadata(Action<IFlowMetadataBuilder> configure)
         {
@@ -214,23 +218,26 @@ namespace Spider.Pipelines.Flows.Internals
     internal sealed class SpiderFlowBuilder<TRequest, TCurrent, TResponse> : ISpiderFlowBuilder<TRequest, TCurrent, TResponse>
     {
         private readonly FlowBuilderState _state;
+        private readonly ISpiderRuntimeTracer _tracer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SpiderFlowBuilder{TRequest, TCurrent, TResponse}"/> class.
         /// </summary>
         /// <param name="state">The immutable builder state.</param>
-        public SpiderFlowBuilder(FlowBuilderState state)
+        /// <param name="tracer">The runtime tracer.</param>
+        public SpiderFlowBuilder(FlowBuilderState state, ISpiderRuntimeTracer tracer)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
+            _tracer = tracer;
         }
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> UsingProfile(string profileName)
-            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithProfile(profileName));
+            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithProfile(profileName), _tracer);
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Describe(string description)
-            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithMetadata("description", description));
+            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithMetadata("description", description), _tracer);
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Tags(params string[] tags)
@@ -238,12 +245,12 @@ namespace Spider.Pipelines.Flows.Internals
             if (tags == null)
                 throw new ArgumentNullException(nameof(tags));
 
-            return new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithMetadata("tags", string.Join(",", tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Select(tag => tag.Trim()))));
+            return new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithMetadata("tags", string.Join(",", tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Select(tag => tag.Trim()))), _tracer);
         }
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Metadata(string key, string value)
-            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithMetadata(key, value));
+            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.WithMetadata(key, value), _tracer);
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> Then<TNext>(Func<TCurrent, TNext> step)
@@ -388,7 +395,7 @@ namespace Spider.Pipelines.Flows.Internals
         /// <inheritdoc/>
         public async Task<TResponse> RunAsync(TRequest request, CancellationToken cancellationToken = default)
         {
-            var state = await FlowRunner.RunAsync(_state.Steps, request, cancellationToken);
+            var state = await FlowRunner.RunAsync(_state.Name, _state.Metadata, _state.Steps, request, _tracer, cancellationToken);
             if (state.ActiveValue == null && (!typeof(TResponse).IsValueType || Nullable.GetUnderlyingType(typeof(TResponse)) != null))
                 return default;
 
@@ -399,10 +406,10 @@ namespace Spider.Pipelines.Flows.Internals
         }
 
         private ISpiderFlowBuilder<TRequest, TNext, TResponse> Add<TNext>(IFlowStep step)
-            => new SpiderFlowBuilder<TRequest, TNext, TResponse>(_state.AddStep(step));
+            => new SpiderFlowBuilder<TRequest, TNext, TResponse>(_state.AddStep(step), _tracer);
 
         private ISpiderFlowBuilder<TRequest, TCurrent, TResponse> AddCurrent(IFlowStep step)
-            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.AddStep(step));
+            => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.AddStep(step), _tracer);
 
         private static void ConfigureMetadata(Action<IFlowMetadataBuilder> configure)
         {

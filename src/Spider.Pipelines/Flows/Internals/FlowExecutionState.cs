@@ -1,5 +1,7 @@
 namespace Spider.Pipelines.Flows.Internals
 {
+    using Spider.Pipelines.RuntimeTracing;
+
     /// <summary>
     /// Stores runtime state for a composed flow execution.
     /// </summary>
@@ -12,13 +14,15 @@ namespace Spider.Pipelines.Flows.Internals
         /// </summary>
         /// <param name="initialType">The declared initial request type.</param>
         /// <param name="initialValue">The initial request value.</param>
-        public FlowExecutionState(Type initialType, object initialValue)
+        /// <param name="tracer">The runtime tracer for the flow execution.</param>
+        public FlowExecutionState(Type initialType, object initialValue, ISpiderRuntimeTracer tracer)
         {
             if (initialType == null)
                 throw new ArgumentNullException(nameof(initialType));
 
             ActiveValue = initialValue;
             ActiveType = initialType;
+            Tracer = tracer;
             AddHistory(ActiveType, initialValue, null);
         }
 
@@ -36,6 +40,11 @@ namespace Spider.Pipelines.Flows.Internals
         /// Gets a value indicating whether flow execution should stop.
         /// </summary>
         public bool IsStopped { get; private set; }
+
+        /// <summary>
+        /// Gets the runtime tracer for the current flow execution.
+        /// </summary>
+        public ISpiderRuntimeTracer Tracer { get; }
 
         /// <summary>
         /// Updates the active value and appends it to history.

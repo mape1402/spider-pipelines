@@ -1,9 +1,12 @@
 namespace Microsoft.Extensions.DependencyInjection
 {
+    using Microsoft.Extensions.DependencyInjection.Extensions;
     using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Core;
     using Spider.Pipelines.Core.Internals;
     using Spider.Pipelines.Flows;
+    using Spider.Pipelines.RuntimeTracing;
+    using Spider.Pipelines.RuntimeTracing.Internals;
 
     /// <summary>
     /// Provides extension methods for registering Spider pipeline services with the dependency injection container.
@@ -19,6 +22,8 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             services.AddScoped<ISpider, InternalSpider>();
             services.AddScoped(typeof(IServiceBridge<>), typeof(ServiceBridge<>));
+            services.TryAddSingleton<ISpiderTraceContextAccessor, SpiderTraceContextAccessor>();
+            services.TryAddSingleton<ISpiderRuntimeTracer>(NullSpiderRuntimeTracer.Instance);
             services.AddSingleton(provider =>
             {
                 var registry = new FlowProfileRegistry();
@@ -43,6 +48,49 @@ namespace Microsoft.Extensions.DependencyInjection
 
             var builder = services.AddSpider();
             configure(builder);
+            return builder;
+        }
+
+        /// <summary>
+        /// Adds Spider runtime tracing services with the default in-memory trace store.
+        /// </summary>
+        /// <param name="services">The service collection to add runtime tracing services to.</param>
+        /// <returns>The runtime tracing builder.</returns>
+        public static SpiderRuntimeTracingBuilder AddSpiderRuntimeTracing(this IServiceCollection services)
+            => AddSpiderRuntimeTracing(services, null);
+
+        /// <summary>
+        /// Adds Spider runtime tracing services and applies runtime tracing configuration.
+        /// </summary>
+        /// <param name="services">The service collection to add runtime tracing services to.</param>
+        /// <param name="configure">The runtime tracing configuration.</param>
+        /// <returns>The runtime tracing builder.</returns>
+        public static SpiderRuntimeTracingBuilder AddSpiderRuntimeTracing(
+            this IServiceCollection services,
+            Action<SpiderRuntimeTracingBuilder> configure)
+        {
+            if (services == null)
+                throw new ArgumentNullException(nameof(services));
+
+            services.RemoveAll<ISpiderRuntimeTracer>();
+            services.RemoveAll<ISpiderTraceDispatcher>();
+            services.RemoveAll<ISpiderTraceLiveStream>();
+            services.RemoveAll<SpiderRuntimeTracingOptions>();
+
+            var options = new SpiderRuntimeTracingOptions();
+            var builder = new SpiderRuntimeTracingBuilder(services, options);
+            configure?.Invoke(builder);
+
+            if (!builder.HasStoreConfigured)
+                builder.UseInMemoryStore();
+
+            services.AddSingleton(options);
+            services.TryAddSingleton<ISpiderTraceContextAccessor, SpiderTraceContextAccessor>();
+            services.AddSingleton<ISpiderTraceLiveStream, InMemorySpiderTraceLiveStream>();
+            services.AddSingleton<SpiderRuntimeTracer>();
+            services.AddSingleton<ISpiderRuntimeTracer>(provider => provider.GetRequiredService<SpiderRuntimeTracer>());
+            services.AddSingleton<ISpiderTraceDispatcher>(provider => provider.GetRequiredService<SpiderRuntimeTracer>());
+
             return builder;
         }
 

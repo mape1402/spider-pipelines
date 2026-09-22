@@ -1,6 +1,7 @@
 namespace Spider.Pipelines.Flows.Internals
 {
     using Spider.Pipelines.Flows;
+    using Spider.Pipelines.RuntimeTracing;
 
     /// <summary>
     /// Builds branch definitions for a composed flow.
@@ -249,12 +250,21 @@ namespace Spider.Pipelines.Flows.Internals
         {
             _routes = routes ?? throw new ArgumentNullException(nameof(routes));
             _otherwise = otherwise ?? throw new ArgumentNullException(nameof(otherwise));
+            Descriptor = new FlowStepDescriptor(
+                "Branch",
+                "Branch",
+                "spider.flow-branch",
+                typeof(TCurrent),
+                typeof(TCurrent));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public async Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {
             var current = (TCurrent)state.ActiveValue;
             var selected = _otherwise;
+            var selectedName = "Otherwise";
 
             foreach (var route in _routes)
             {
@@ -262,18 +272,29 @@ namespace Spider.Pipelines.Flows.Internals
                     continue;
 
                 selected = route.Steps;
+                selectedName = "When";
                 break;
             }
 
-            foreach (var step in selected)
+            if (state.Tracer != null && state.Tracer.IsEnabled)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (state.IsStopped)
-                    break;
-
-                await step.ExecuteAsync(state, cancellationToken);
+                await state.Tracer.AddEventAsync(new SpiderTraceEvent
+                {
+                    TraceId = null,
+                    SpanId = null,
+                    ComponentKind = "spider.flow-branch-route",
+                    DisplayName = selectedName,
+                    Operation = "Branch.Selected",
+                    Kind = SpiderTraceEventKind.FlowBranchSelected,
+                    Status = SpiderTraceStatus.Completed,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["route"] = selectedName
+                    }
+                }, cancellationToken);
             }
+
+            await FlowRunner.RunStepsAsync(selected, state, cancellationToken);
         }
     }
 }

@@ -1,7 +1,9 @@
 namespace Spider.Pipelines.Boundaries.Internals
 {
+    using Microsoft.Extensions.DependencyInjection;
     using Spider.Pipelines.Core;
     using Spider.Pipelines.Extensions;
+    using Spider.Pipelines.RuntimeTracing;
 
     /// <summary>
     /// Runs registered execution boundaries around a complete pipeline execution.
@@ -96,7 +98,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>The boundaries that opened successfully.</returns>
-        private static async Task<IReadOnlyCollection<IPipelineExecutionBoundary>> BeginBoundariesAsync(
+        private async Task<IReadOnlyCollection<IPipelineExecutionBoundary>> BeginBoundariesAsync(
             IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
@@ -107,7 +109,14 @@ namespace Spider.Pipelines.Boundaries.Internals
             {
                 foreach (var boundary in boundaries)
                 {
-                    await boundary.BeginAsync(context, cancellationToken);
+                    await TraceBoundaryOperationAsync(
+                        boundary,
+                        "Boundary.Begin",
+                        SpiderTraceEventKind.BoundaryBeginStarted,
+                        SpiderTraceEventKind.BoundaryBeginCompleted,
+                        async () => await boundary.BeginAsync(context, cancellationToken),
+                        context,
+                        cancellationToken);
                     openedBoundaries.Add(boundary);
                 }
 
@@ -174,7 +183,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="outcome">The captured pipeline outcome.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>The exception that should be surfaced from termination, or <c>null</c> when termination succeeds.</returns>
-        private static async Task<Exception> TerminateBoundariesAndCaptureExceptionAsync(
+        private async Task<Exception> TerminateBoundariesAndCaptureExceptionAsync(
             IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             BoundaryOutcome outcome,
@@ -199,7 +208,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="outcome">The captured pipeline outcome.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static Task TerminateBoundariesAsync(
+        private Task TerminateBoundariesAsync(
             IReadOnlyCollection<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             BoundaryOutcome outcome,
@@ -219,13 +228,20 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CompleteBoundariesAsync(
+        private async Task CompleteBoundariesAsync(
             IEnumerable<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
             foreach (var boundary in boundaries.Reverse())
-                await boundary.CompleteAsync(context, cancellationToken);
+                await TraceBoundaryOperationAsync(
+                    boundary,
+                    "Boundary.Complete",
+                    SpiderTraceEventKind.BoundaryCompleteStarted,
+                    SpiderTraceEventKind.BoundaryCompleteCompleted,
+                    async () => await boundary.CompleteAsync(context, cancellationToken),
+                    context,
+                    cancellationToken);
         }
 
         /// <summary>
@@ -236,14 +252,21 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="exception">The exception that faulted the pipeline.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesAsync(
+        private async Task FaultBoundariesAsync(
             IEnumerable<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             Exception exception,
             CancellationToken cancellationToken)
         {
             foreach (var boundary in boundaries.Reverse())
-                await boundary.FaultAsync(context, exception, cancellationToken);
+                await TraceBoundaryOperationAsync(
+                    boundary,
+                    "Boundary.Fault",
+                    SpiderTraceEventKind.BoundaryFaultStarted,
+                    SpiderTraceEventKind.BoundaryFaultCompleted,
+                    async () => await boundary.FaultAsync(context, exception, cancellationToken),
+                    context,
+                    cancellationToken);
         }
 
         /// <summary>
@@ -254,7 +277,7 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="exception">The original begin exception.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task FaultBoundariesPreservingOriginalAsync(
+        private async Task FaultBoundariesPreservingOriginalAsync(
             IEnumerable<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             Exception exception,
@@ -277,13 +300,20 @@ namespace Spider.Pipelines.Boundaries.Internals
         /// <param name="context">The boundary execution context.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        private static async Task CancelBoundariesAsync(
+        private async Task CancelBoundariesAsync(
             IEnumerable<IPipelineExecutionBoundary> boundaries,
             PipelineExecutionContext context,
             CancellationToken cancellationToken)
         {
             foreach (var boundary in boundaries.Reverse())
-                await boundary.CancelAsync(context, cancellationToken);
+                await TraceBoundaryOperationAsync(
+                    boundary,
+                    "Boundary.Cancel",
+                    SpiderTraceEventKind.BoundaryCancelStarted,
+                    SpiderTraceEventKind.BoundaryCancelCompleted,
+                    async () => await boundary.CancelAsync(context, cancellationToken),
+                    context,
+                    cancellationToken);
         }
 
         /// <summary>
@@ -294,6 +324,68 @@ namespace Spider.Pipelines.Boundaries.Internals
         {
             if (exception != null)
                 throw exception;
+        }
+
+        /// <summary>
+        /// Executes a boundary operation inside a runtime trace span when tracing is enabled.
+        /// </summary>
+        /// <param name="boundary">The boundary being executed.</param>
+        /// <param name="operation">The boundary operation name.</param>
+        /// <param name="startedKind">The started event kind.</param>
+        /// <param name="completedKind">The completed event kind.</param>
+        /// <param name="executeAsync">The boundary operation to execute.</param>
+        /// <param name="context">The boundary execution context.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        private async Task TraceBoundaryOperationAsync(
+            IPipelineExecutionBoundary boundary,
+            string operation,
+            SpiderTraceEventKind startedKind,
+            SpiderTraceEventKind completedKind,
+            Func<Task> executeAsync,
+            PipelineExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            var tracer = _serviceProvider.GetService<ISpiderRuntimeTracer>();
+            if (tracer == null || !tracer.IsEnabled)
+            {
+                await executeAsync();
+                return;
+            }
+
+            var boundaryType = boundary.GetType();
+            var scope = await tracer.StartSpanAsync(new SpiderTraceSpanDefinition
+            {
+                ComponentKind = "spider.boundary",
+                DisplayName = boundaryType.Name,
+                Operation = operation,
+                InputType = context.RequestType,
+                OutputType = context.ResponseType,
+                StartedKind = startedKind,
+                CompletedKind = completedKind,
+                FaultedKind = completedKind,
+                CancelledKind = completedKind,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["boundaryType"] = boundaryType.FullName
+                }
+            }, cancellationToken);
+
+            try
+            {
+                await executeAsync();
+                await scope.CompleteAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await scope.CancelAsync(cancellationToken);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await scope.FaultAsync(ex, cancellationToken);
+                throw;
+            }
         }
 
         /// <summary>
