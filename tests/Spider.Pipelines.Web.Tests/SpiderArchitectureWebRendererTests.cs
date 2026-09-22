@@ -159,7 +159,16 @@ namespace Spider.Pipelines.Web.Tests
                                 Operation = "Flow",
                                 Kind = SpiderTraceEventKind.FlowStarted,
                                 Status = SpiderTraceStatus.Running,
-                                Timestamp = DateTimeOffset.UtcNow
+                                Timestamp = DateTimeOffset.UtcNow,
+                                Tags = new Dictionary<string, string>
+                                {
+                                    ["customer"] = "customer"
+                                },
+                                Metadata = new Dictionary<string, string>
+                                {
+                                    ["description"] = "Creates the customer response.",
+                                    ["tags"] = "customer,flow"
+                                }
                             },
                             new SpiderTraceEvent
                             {
@@ -170,7 +179,16 @@ namespace Spider.Pipelines.Web.Tests
                                 Kind = SpiderTraceEventKind.FlowCompleted,
                                 Status = SpiderTraceStatus.Completed,
                                 Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(42),
-                                Duration = TimeSpan.FromMilliseconds(42)
+                                Duration = TimeSpan.FromMilliseconds(42),
+                                Tags = new Dictionary<string, string>
+                                {
+                                    ["customer"] = "customer"
+                                },
+                                Metadata = new Dictionary<string, string>
+                                {
+                                    ["description"] = "Creates the customer response.",
+                                    ["tags"] = "customer,flow"
+                                }
                             }
                         }
                     }
@@ -195,9 +213,14 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("buildRuntimeSpans", html);
             Assert.Contains("createRuntimeOverview", html);
             Assert.Contains("renderRuntimeSpan", html);
+            Assert.Contains("getRuntimeDisplayName", html);
+            Assert.Contains("createRuntimeTooltip", html);
+            Assert.Contains("spider-runtime-description", html);
+            Assert.Contains("spider-runtime-tag", html);
             Assert.Contains("preserveMainScroll", html);
             Assert.Contains("trace-1", html);
             Assert.Contains("Create customer", html);
+            Assert.Contains("Creates the customer response.", html);
             Assert.Contains("refreshRuntimeData", html);
         }
 

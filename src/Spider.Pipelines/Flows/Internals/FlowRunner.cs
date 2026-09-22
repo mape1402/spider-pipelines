@@ -22,6 +22,7 @@ namespace Spider.Pipelines.Flows.Internals
                 return state;
             }
 
+            var runtimeMetadata = metadata ?? new Dictionary<string, string>();
             var scope = await tracer.StartSpanAsync(new SpiderTraceSpanDefinition
             {
                 ComponentKind = "spider.flow",
@@ -32,7 +33,8 @@ namespace Spider.Pipelines.Flows.Internals
                 CompletedKind = SpiderTraceEventKind.FlowCompleted,
                 FaultedKind = SpiderTraceEventKind.FlowFaulted,
                 CancelledKind = SpiderTraceEventKind.FlowCancelled,
-                Metadata = metadata ?? new Dictionary<string, string>()
+                Tags = FlowStepDescriptor.CreateTags(runtimeMetadata),
+                Metadata = runtimeMetadata
             }, cancellationToken);
 
             try
@@ -92,7 +94,9 @@ namespace Spider.Pipelines.Flows.Internals
                 StartedKind = SpiderTraceEventKind.FlowStepStarted,
                 CompletedKind = SpiderTraceEventKind.FlowStepCompleted,
                 FaultedKind = SpiderTraceEventKind.FlowStepFaulted,
-                CancelledKind = SpiderTraceEventKind.FlowCancelled
+                CancelledKind = SpiderTraceEventKind.FlowCancelled,
+                Tags = descriptor.Tags,
+                Metadata = descriptor.Metadata
             }, cancellationToken);
 
             try

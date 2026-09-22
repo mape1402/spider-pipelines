@@ -1689,6 +1689,21 @@ button {
   white-space: nowrap;
 }
 
+.spider-runtime-span-title strong.is-unnamed {
+  color: var(--spider-muted);
+  font-style: italic;
+}
+
+.spider-runtime-description {
+  display: block;
+  overflow: hidden;
+  color: var(--spider-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .spider-runtime-span-meta,
 .spider-runtime-time,
 .spider-runtime-meta {
@@ -1700,6 +1715,23 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.spider-runtime-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.spider-runtime-tag {
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1;
+  padding: 4px 7px;
 }
 
 .spider-runtime-span-actions {
@@ -2239,6 +2271,21 @@ button {
 
   function renderRuntimeSpan(span, depth) {
     const statusClass = getStatusClass(span.status);
+    const displayName = getRuntimeDisplayName(span);
+    const technicalName = getRuntimeTechnicalName(span, displayName);
+    const description = getRuntimeDescription(span);
+    const tags = getRuntimeTags(span);
+    const tooltip = createRuntimeTooltip(span, displayName, description, tags);
+    const unnamedClass = isRuntimeUnnamed(span, displayName) ? " is-unnamed" : "";
+    const descriptionHtml = description
+      ? `<span class="spider-runtime-description">${escapeHtml(description)}</span>`
+      : "";
+    const tagHtml = tags.length
+      ? `<span class="spider-runtime-tags">${tags.map((tag) => `<span class="spider-runtime-tag">${escapeHtml(tag)}</span>`).join("")}</span>`
+      : "";
+    const technicalHtml = technicalName
+      ? `<span>${escapeHtml(technicalName)}</span>`
+      : "";
     const markers = span.markers.length
       ? `<div class="spider-runtime-marker-list">${span.markers.map(renderRuntimeMarker).join("")}</div>`
       : "";
@@ -2255,12 +2302,15 @@ button {
           <span class="spider-runtime-dot" aria-hidden="true"></span>
           <span class="spider-runtime-span-main">
             <span class="spider-runtime-span-title">
-              <strong>${escapeHtml(span.displayName)}</strong>
+              <strong class="${unnamedClass.trim()}" title="${escapeAttribute(tooltip)}">${escapeHtml(displayName)}</strong>
               ${renderStatusChip(span.status)}
             </span>
+            ${descriptionHtml}
+            ${tagHtml}
             <span class="spider-runtime-span-meta">
               <span>${escapeHtml(span.kindLabel)}</span>
               <span>${escapeHtml(span.operation || "operation")}</span>
+              ${technicalHtml}
               <span>${escapeHtml(formatTime(span.startedAt))} -> ${escapeHtml(span.completedAt ? formatTime(span.completedAt) : "running")}</span>
               ${span.exception ? `<span>${escapeHtml(span.exception.message)}</span>` : ""}
             </span>
@@ -2276,11 +2326,15 @@ button {
   }
 
   function renderRuntimeMarker(event) {
+    const displayName = getRuntimeDisplayName(event);
+    const description = getRuntimeDescription(event);
+    const tags = getRuntimeTags(event);
+    const tooltip = createRuntimeTooltip(event, displayName, description, tags);
     return `
       <div class="spider-runtime-marker is-${escapeAttribute(getStatusClass(event.status))}">
         <span class="spider-runtime-dot" aria-hidden="true"></span>
         <span>
-          <span class="spider-runtime-name">${escapeHtml(event.displayName || event.operation || event.kind)}</span>
+          <span class="spider-runtime-name" title="${escapeAttribute(tooltip)}">${escapeHtml(displayName)}</span>
           <span class="spider-runtime-meta">${escapeHtml(event.kind)} · ${escapeHtml(event.operation || "")}</span>
         </span>
         <span class="spider-runtime-time">${escapeHtml(formatTime(event.timestamp))}</span>
@@ -2293,6 +2347,16 @@ button {
 
   function renderRuntimeEvent(event) {
     const statusClass = String(event.status || "").toLowerCase();
+    const displayName = getRuntimeDisplayName(event);
+    const description = getRuntimeDescription(event);
+    const tags = getRuntimeTags(event);
+    const tooltip = createRuntimeTooltip(event, displayName, description, tags);
+    const descriptionHtml = description
+      ? `<span class="spider-runtime-meta">${escapeHtml(description)}</span>`
+      : "";
+    const tagHtml = tags.length
+      ? `<span class="spider-runtime-tags">${tags.map((tag) => `<span class="spider-runtime-tag">${escapeHtml(tag)}</span>`).join("")}</span>`
+      : "";
     const link = event.componentId && byId.has(event.componentId)
       ? `<button class="spider-related-button" type="button" data-open-process="${escapeAttribute(event.componentId)}"><span class="spider-related-label">Open component</span><span class="spider-related-name">${escapeHtml(byId.get(event.componentId).displayName || event.componentId)}</span></button>`
       : "";
@@ -2301,7 +2365,9 @@ button {
       <div class="spider-runtime-event is-${escapeAttribute(statusClass)}">
         <span class="spider-runtime-dot" aria-hidden="true"></span>
         <span>
-          <span class="spider-runtime-name">${escapeHtml(event.displayName || event.operation || event.kind)}</span>
+          <span class="spider-runtime-name" title="${escapeAttribute(tooltip)}">${escapeHtml(displayName)}</span>
+          ${descriptionHtml}
+          ${tagHtml}
           <span class="spider-runtime-meta">${escapeHtml(formatTime(event.timestamp))} · ${escapeHtml(event.kind)} · ${escapeHtml(event.operation || "")}</span>
           ${event.exception ? `<span class="spider-runtime-meta">${escapeHtml(event.exception.message)}</span>` : ""}
           ${link}
@@ -3499,6 +3565,8 @@ button {
         span.parentSpanId = event.parentSpanId;
       }
 
+      span.tags = mergeRuntimeMetadata(span.tags, event.tags);
+      span.metadata = mergeRuntimeMetadata(span.metadata, event.metadata);
       return span;
     }
 
@@ -3512,6 +3580,8 @@ button {
       operation: event.operation || "",
       inputType: event.inputType || "",
       outputType: event.outputType || "",
+      tags: event.tags || {},
+      metadata: event.metadata || {},
       startEvent: null,
       terminalEvent: null,
       markers: [],
@@ -3531,6 +3601,8 @@ button {
     span.componentKind = span.componentKind || representative.componentKind || "";
     span.displayName = representative.displayName || span.displayName || "Runtime operation";
     span.operation = representative.operation || span.operation || "";
+    span.tags = mergeRuntimeMetadata(span.tags, representative.tags);
+    span.metadata = mergeRuntimeMetadata(span.metadata, representative.metadata);
     span.kindLabel = getRuntimeKindLabel(span.componentKind);
     span.status = terminal && terminal.status
       ? terminal.status
@@ -3610,6 +3682,93 @@ button {
     }
 
     return "Operation";
+  }
+
+  function getRuntimeDisplayName(item) {
+    const metadataName = getRuntimeMetadataValue(item, "name");
+    if (metadataName) {
+      return metadataName;
+    }
+
+    const displayName = String(item && item.displayName ? item.displayName : "").trim();
+    if (displayName && displayName.toLowerCase() !== "lambda") {
+      return displayName;
+    }
+
+    return item && item.componentKind && String(item.componentKind).includes("flow")
+      ? "Unnamed step"
+      : displayName || item && item.operation || item && item.kind || "Runtime operation";
+  }
+
+  function getRuntimeTechnicalName(item, displayName) {
+    const original = String(item && item.displayName ? item.displayName : "").trim();
+    if (!original || original === displayName) {
+      return "";
+    }
+
+    return original.toLowerCase() === "lambda"
+      ? "delegate: lambda"
+      : original;
+  }
+
+  function getRuntimeDescription(item) {
+    return getRuntimeMetadataValue(item, "description");
+  }
+
+  function getRuntimeTags(item) {
+    const tags = [];
+    const directTags = item && item.tags ? item.tags : {};
+    Object.keys(directTags || {}).forEach((key) => {
+      const value = directTags[key];
+      if (typeof value === "string" && value.trim()) {
+        tags.push(value.trim());
+      } else if (key && key.trim()) {
+        tags.push(key.trim());
+      }
+    });
+
+    const metadataTags = getRuntimeMetadataValue(item, "tags");
+    if (metadataTags) {
+      metadataTags.split(",").map((tag) => tag.trim()).filter(Boolean).forEach((tag) => tags.push(tag));
+    }
+
+    return Array.from(new Set(tags));
+  }
+
+  function getRuntimeMetadataValue(item, key) {
+    const metadata = item && item.metadata ? item.metadata : {};
+    const value = metadata[key];
+    return typeof value === "string" && value.trim() ? value.trim() : "";
+  }
+
+  function createRuntimeTooltip(item, displayName, description, tags) {
+    const values = [];
+    if (displayName) {
+      values.push(displayName);
+    }
+
+    if (description) {
+      values.push(description);
+    }
+
+    if (tags && tags.length) {
+      values.push(`Tags: ${tags.join(", ")}`);
+    }
+
+    const technicalName = getRuntimeTechnicalName(item, displayName);
+    if (technicalName) {
+      values.push(technicalName);
+    }
+
+    return values.join("\\n");
+  }
+
+  function isRuntimeUnnamed(item, displayName) {
+    return displayName === "Unnamed step" && !getRuntimeMetadataValue(item, "name");
+  }
+
+  function mergeRuntimeMetadata(left, right) {
+    return Object.assign({}, left || {}, right || {});
   }
 
   function getRuntimeSignature(inputType, outputType) {

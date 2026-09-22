@@ -47,14 +47,11 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> Then<TNext>(Func<TCurrent, TNext> step)
-            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current))));
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> Then<TNext>(Func<TCurrent, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step)
@@ -62,10 +59,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Then(Func<TCurrent, CancellationToken, Task> step)
@@ -73,10 +67,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Then(Func<TCurrent, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Then(Action<TCurrent> step)
@@ -84,14 +75,15 @@ namespace Spider.Pipelines.Flows.Internals
             {
                 step(current);
                 return Task.CompletedTask;
-            }));
+            }, descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Then(Action<TCurrent> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>((current, _) =>
+            {
+                step(current);
+                return Task.CompletedTask;
+            }, CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Then(Action<TCurrent, CancellationToken> step)
@@ -99,25 +91,23 @@ namespace Spider.Pipelines.Flows.Internals
             {
                 step(current, token);
                 return Task.CompletedTask;
-            }));
+            }, descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> Then(Action<TCurrent, CancellationToken> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>((current, token) =>
+            {
+                step(current, token);
+                return Task.CompletedTask;
+            }, CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> ThenWith<TValue, TNext>(Func<TValue, TNext> step)
-            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value))));
+            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> ThenWith<TValue, TNext>(Func<TValue, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue, TNext>(step);
-        }
+            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ThenWith<TValue>(Func<TValue, CancellationToken, Task> step)
@@ -125,21 +115,15 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ThenWith<TValue>(Func<TValue, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue>(step);
-        }
+            => AddCurrent(new HistoryEffectStep<TValue>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> ThenWith<TValue1, TValue2, TNext>(Func<TValue1, TValue2, TNext> step)
-            => Add<TNext>(new HistoryTransformStep<TValue1, TValue2, TNext>((value1, value2, _) => Task.FromResult(step(value1, value2))));
+            => Add<TNext>(new HistoryTransformStep<TValue1, TValue2, TNext>((value1, value2, _) => Task.FromResult(step(value1, value2)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> ThenWith<TValue1, TValue2, TNext>(Func<TValue1, TValue2, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue1, TValue2, TNext>(step);
-        }
+            => Add<TNext>(new HistoryTransformStep<TValue1, TValue2, TNext>((value1, value2, _) => Task.FromResult(step(value1, value2)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step)
@@ -147,10 +131,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue1, TValue2>(step);
-        }
+            => AddCurrent(new HistoryEffectStep<TValue1, TValue2>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ContinueIf(Func<TCurrent, bool> condition, FlowStop otherwise)
@@ -164,8 +145,10 @@ namespace Spider.Pipelines.Flows.Internals
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ContinueIf(Func<TCurrent, bool> condition, FlowStop otherwise, Action<IFlowMetadataBuilder> configure)
         {
-            ConfigureMetadata(configure);
-            return ContinueIf(condition, otherwise);
+            if (otherwise == null)
+                throw new ArgumentNullException(nameof(otherwise));
+
+            return AddCurrent(new StopContinueIfStep<TCurrent>(condition, CaptureMetadata(configure)));
         }
 
         /// <inheritdoc/>
@@ -174,10 +157,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent> ContinueIf(Func<TCurrent, bool> condition, FlowThrow otherwise, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ContinueIf(condition, otherwise);
-        }
+            => AddCurrent(new ThrowContinueIfStep<TCurrent>(condition, otherwise, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext> Branch<TNext>(Action<IFlowBranchBuilder<TCurrent, TNext>> configure)
@@ -200,12 +180,14 @@ namespace Spider.Pipelines.Flows.Internals
         private ISpiderFlowBuilder<TRequest, TCurrent> AddCurrent(IFlowStep step)
             => new SpiderFlowBuilder<TRequest, TCurrent>(_state.AddStep(step), _tracer);
 
-        private static void ConfigureMetadata(Action<IFlowMetadataBuilder> configure)
+        private static IReadOnlyDictionary<string, string> CaptureMetadata(Action<IFlowMetadataBuilder> configure)
         {
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
 
-            configure(new FlowMetadataBuilder());
+            var builder = new FlowMetadataBuilder();
+            configure(builder);
+            return new Dictionary<string, string>(builder.MetadataValues, StringComparer.Ordinal);
         }
     }
 
@@ -254,14 +236,11 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> Then<TNext>(Func<TCurrent, TNext> step)
-            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current))));
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> Then<TNext>(Func<TCurrent, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step)
@@ -269,10 +248,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Then(Func<TCurrent, CancellationToken, Task> step)
@@ -280,10 +256,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Then(Func<TCurrent, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Then(Action<TCurrent> step)
@@ -291,14 +264,15 @@ namespace Spider.Pipelines.Flows.Internals
             {
                 step(current);
                 return Task.CompletedTask;
-            }));
+            }, descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Then(Action<TCurrent> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>((current, _) =>
+            {
+                step(current);
+                return Task.CompletedTask;
+            }, CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Then(Action<TCurrent, CancellationToken> step)
@@ -306,25 +280,23 @@ namespace Spider.Pipelines.Flows.Internals
             {
                 step(current, token);
                 return Task.CompletedTask;
-            }));
+            }, descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> Then(Action<TCurrent, CancellationToken> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>((current, token) =>
+            {
+                step(current, token);
+                return Task.CompletedTask;
+            }, CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> ThenWith<TValue, TNext>(Func<TValue, TNext> step)
-            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value))));
+            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> ThenWith<TValue, TNext>(Func<TValue, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue, TNext>(step);
-        }
+            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ThenWith<TValue>(Func<TValue, CancellationToken, Task> step)
@@ -332,21 +304,15 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ThenWith<TValue>(Func<TValue, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue>(step);
-        }
+            => AddCurrent(new HistoryEffectStep<TValue>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> ThenWith<TValue1, TValue2, TNext>(Func<TValue1, TValue2, TNext> step)
-            => Add<TNext>(new HistoryTransformStep<TValue1, TValue2, TNext>((value1, value2, _) => Task.FromResult(step(value1, value2))));
+            => Add<TNext>(new HistoryTransformStep<TValue1, TValue2, TNext>((value1, value2, _) => Task.FromResult(step(value1, value2)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> ThenWith<TValue1, TValue2, TNext>(Func<TValue1, TValue2, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue1, TValue2, TNext>(step);
-        }
+            => Add<TNext>(new HistoryTransformStep<TValue1, TValue2, TNext>((value1, value2, _) => Task.FromResult(step(value1, value2)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step)
@@ -354,10 +320,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue1, TValue2>(step);
-        }
+            => AddCurrent(new HistoryEffectStep<TValue1, TValue2>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ContinueIf(Func<TCurrent, bool> condition, FlowReturn<TCurrent, TResponse> otherwise)
@@ -365,10 +328,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ContinueIf(Func<TCurrent, bool> condition, FlowReturn<TCurrent, TResponse> otherwise, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ContinueIf(condition, otherwise);
-        }
+            => AddCurrent(new ReturnContinueIfStep<TCurrent, TResponse>(condition, otherwise, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ContinueIf(Func<TCurrent, bool> condition, FlowThrow otherwise)
@@ -376,10 +336,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TCurrent, TResponse> ContinueIf(Func<TCurrent, bool> condition, FlowThrow otherwise, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ContinueIf(condition, otherwise);
-        }
+            => AddCurrent(new ThrowContinueIfStep<TCurrent>(condition, otherwise, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TNext, TResponse> Branch<TNext>(Action<IFlowBranchBuilder<TCurrent, TNext>> configure)
@@ -411,12 +368,14 @@ namespace Spider.Pipelines.Flows.Internals
         private ISpiderFlowBuilder<TRequest, TCurrent, TResponse> AddCurrent(IFlowStep step)
             => new SpiderFlowBuilder<TRequest, TCurrent, TResponse>(_state.AddStep(step), _tracer);
 
-        private static void ConfigureMetadata(Action<IFlowMetadataBuilder> configure)
+        private static IReadOnlyDictionary<string, string> CaptureMetadata(Action<IFlowMetadataBuilder> configure)
         {
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
 
-            configure(new FlowMetadataBuilder());
+            var builder = new FlowMetadataBuilder();
+            configure(builder);
+            return new Dictionary<string, string>(builder.MetadataValues, StringComparer.Ordinal);
         }
     }
 }

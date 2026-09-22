@@ -70,6 +70,38 @@ namespace Spider.Pipelines.Tests.RuntimeTracing
         }
 
         [Fact]
+        public async Task ComposeFlow_WhenStepMetadataIsConfigured_ShouldEmitDescriptiveRuntimeMetadata()
+        {
+            var services = new ServiceCollection();
+            services.AddSpider();
+            services.AddSpiderRuntimeTracing();
+            using var provider = services.BuildServiceProvider();
+            var spider = provider.GetRequiredService<ISpider>();
+
+            var response = await spider
+                .ComposeFlow<CustomerCommand, CustomerResult>("Create customer")
+                .Then(command => new CustomerResult(command.Email), step => step
+                    .Named("Map customer response")
+                    .Describe("Maps the command into the response contract.")
+                    .Tags("mapping", "customer"))
+                .RunAsync(new CustomerCommand("ada@example.com"), CancellationToken.None);
+
+            await provider.GetRequiredService<ISpiderTraceDispatcher>().FlushAsync();
+
+            var trace = await GetOnlyTraceAsync(provider);
+            var started = Assert.Single(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowStepStarted);
+            var completed = Assert.Single(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowStepCompleted);
+
+            Assert.Equal("ada@example.com", response.Email);
+            Assert.Equal("Map customer response", started.DisplayName);
+            Assert.Equal("Map customer response", completed.DisplayName);
+            Assert.Equal("Maps the command into the response contract.", started.Metadata["description"]);
+            Assert.Equal("mapping,customer", started.Metadata["tags"]);
+            Assert.Equal("mapping", started.Tags["mapping"]);
+            Assert.Equal("customer", started.Tags["customer"]);
+        }
+
+        [Fact]
         public async Task Pipeline_WhenRuntimeTracingIsEnabled_ShouldEmitPipelineStageAndBoundaryEvents()
         {
             var services = new ServiceCollection();
