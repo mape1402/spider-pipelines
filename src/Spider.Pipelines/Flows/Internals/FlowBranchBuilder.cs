@@ -11,33 +11,34 @@ namespace Spider.Pipelines.Flows.Internals
     internal sealed class FlowBranchBuilder<TCurrent, TNext> : IFlowBranchBuilder<TCurrent, TNext>
     {
         private readonly List<FlowBranchRoute<TCurrent>> _routes = new();
-        private IReadOnlyList<IFlowStep> _otherwise;
+        private readonly Dictionary<string, string> _metadata = new(StringComparer.Ordinal);
+        private FlowBranchRoute<TCurrent> _otherwise;
 
         /// <inheritdoc/>
         public IFlowBranchBuilder<TCurrent, TNext> Named(string name)
         {
-            new FlowMetadataBuilder().Named(name);
+            CaptureMetadata(builder => builder.Named(name), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchBuilder<TCurrent, TNext> Describe(string description)
         {
-            new FlowMetadataBuilder().Describe(description);
+            CaptureMetadata(builder => builder.Describe(description), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchBuilder<TCurrent, TNext> Tags(params string[] tags)
         {
-            new FlowMetadataBuilder().Tags(tags);
+            CaptureMetadata(builder => builder.Tags(tags), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchBuilder<TCurrent, TNext> Metadata(string key, string value)
         {
-            new FlowMetadataBuilder().Metadata(key, value);
+            CaptureMetadata(builder => builder.Metadata(key, value), _metadata);
             return this;
         }
 
@@ -54,7 +55,11 @@ namespace Spider.Pipelines.Flows.Internals
 
             var route = new FlowBranchRouteBuilder<TCurrent, TNext>(new List<IFlowStep>());
             configure(route);
-            _routes.Add(new FlowBranchRoute<TCurrent>(condition, route.Steps));
+            _routes.Add(new FlowBranchRoute<TCurrent>(
+                condition,
+                route.DisplayNameOr("When"),
+                route.MetadataValues,
+                route.Steps));
             return this;
         }
 
@@ -66,7 +71,11 @@ namespace Spider.Pipelines.Flows.Internals
 
             var route = new FlowBranchRouteBuilder<TCurrent, TNext>(new List<IFlowStep>());
             configure(route);
-            _otherwise = route.Steps;
+            _otherwise = new FlowBranchRoute<TCurrent>(
+                _ => true,
+                route.DisplayNameOr("Otherwise"),
+                route.MetadataValues,
+                route.Steps);
             return this;
         }
 
@@ -79,7 +88,17 @@ namespace Spider.Pipelines.Flows.Internals
             if (_otherwise == null)
                 throw new InvalidOperationException("A flow branch requires an Otherwise route.");
 
-            return new FlowBranchStep<TCurrent>(_routes, _otherwise);
+            return new FlowBranchStep<TCurrent>(_routes, _otherwise, _metadata);
+        }
+
+        private static void CaptureMetadata(
+            Action<IFlowMetadataBuilder> configure,
+            IDictionary<string, string> metadata)
+        {
+            var builder = new FlowMetadataBuilder();
+            configure(builder);
+            foreach (var pair in builder.MetadataValues)
+                metadata[pair.Key] = pair.Value;
         }
     }
 
@@ -91,6 +110,7 @@ namespace Spider.Pipelines.Flows.Internals
     internal sealed class FlowBranchRouteBuilder<TCurrent, TBranchResult> : IFlowBranchRouteBuilder<TCurrent, TBranchResult>
     {
         private readonly List<IFlowStep> _steps;
+        private readonly Dictionary<string, string> _metadata = new(StringComparer.Ordinal);
 
         public FlowBranchRouteBuilder(List<IFlowStep> steps)
         {
@@ -99,44 +119,43 @@ namespace Spider.Pipelines.Flows.Internals
 
         public IReadOnlyList<IFlowStep> Steps => _steps;
 
+        public IReadOnlyDictionary<string, string> MetadataValues => _metadata;
+
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Named(string name)
         {
-            new FlowMetadataBuilder().Named(name);
+            CaptureMetadata(builder => builder.Named(name), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Describe(string description)
         {
-            new FlowMetadataBuilder().Describe(description);
+            CaptureMetadata(builder => builder.Describe(description), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Tags(params string[] tags)
         {
-            new FlowMetadataBuilder().Tags(tags);
+            CaptureMetadata(builder => builder.Tags(tags), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Metadata(string key, string value)
         {
-            new FlowMetadataBuilder().Metadata(key, value);
+            CaptureMetadata(builder => builder.Metadata(key, value), _metadata);
             return this;
         }
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, TNext> step)
-            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current))));
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step)
@@ -144,10 +163,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, CancellationToken, Task<TNext>> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Func<TCurrent, CancellationToken, Task> step)
@@ -155,10 +171,7 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Func<TCurrent, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>(step, CaptureMetadata(configure)));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Action<TCurrent> step)
@@ -166,25 +179,23 @@ namespace Spider.Pipelines.Flows.Internals
             {
                 step(current);
                 return Task.CompletedTask;
-            }));
+            }, descriptorDelegate: step));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> Then(Action<TCurrent> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return Then(step);
-        }
+            => AddCurrent(new ActiveEffectStep<TCurrent>((current, _) =>
+            {
+                step(current);
+                return Task.CompletedTask;
+            }, CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> ThenWith<TValue, TNext>(Func<TValue, TNext> step)
-            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value))));
+            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value)), descriptorDelegate: step));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> ThenWith<TValue, TNext>(Func<TValue, TNext> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue, TNext>(step);
-        }
+            => Add<TNext>(new HistoryTransformStep<TValue, TNext>((value, _) => Task.FromResult(step(value)), CaptureMetadata(configure), step));
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step)
@@ -192,10 +203,12 @@ namespace Spider.Pipelines.Flows.Internals
 
         /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TCurrent, TBranchResult> ThenWith<TValue1, TValue2>(Func<TValue1, TValue2, CancellationToken, Task> step, Action<IFlowMetadataBuilder> configure)
-        {
-            ConfigureMetadata(configure);
-            return ThenWith<TValue1, TValue2>(step);
-        }
+            => AddCurrent(new HistoryEffectStep<TValue1, TValue2>(step, CaptureMetadata(configure)));
+
+        public string DisplayNameOr(string fallback)
+            => _metadata.TryGetValue("name", out var name) && !string.IsNullOrWhiteSpace(name)
+                ? name
+                : fallback;
 
         private IFlowBranchRouteBuilder<TNext, TBranchResult> Add<TNext>(IFlowStep step)
         {
@@ -209,12 +222,23 @@ namespace Spider.Pipelines.Flows.Internals
             return this;
         }
 
-        private static void ConfigureMetadata(Action<IFlowMetadataBuilder> configure)
+        private static IReadOnlyDictionary<string, string> CaptureMetadata(Action<IFlowMetadataBuilder> configure)
         {
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
 
-            configure(new FlowMetadataBuilder());
+            var builder = new FlowMetadataBuilder();
+            configure(builder);
+            return new Dictionary<string, string>(builder.MetadataValues, StringComparer.Ordinal);
+        }
+
+        private static void CaptureMetadata(
+            Action<IFlowMetadataBuilder> configure,
+            IDictionary<string, string> metadata)
+        {
+            var values = CaptureMetadata(configure);
+            foreach (var pair in values)
+                metadata[pair.Key] = pair.Value;
         }
     }
 
@@ -224,15 +248,36 @@ namespace Spider.Pipelines.Flows.Internals
     /// <typeparam name="TCurrent">The active value type used by the branch condition.</typeparam>
     internal sealed class FlowBranchRoute<TCurrent>
     {
-        public FlowBranchRoute(Func<TCurrent, bool> condition, IReadOnlyList<IFlowStep> steps)
+        public FlowBranchRoute(
+            Func<TCurrent, bool> condition,
+            string displayName,
+            IReadOnlyDictionary<string, string> metadata,
+            IReadOnlyList<IFlowStep> steps)
         {
             Condition = condition ?? throw new ArgumentNullException(nameof(condition));
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? "Route" : displayName;
+            Metadata = metadata == null
+                ? new Dictionary<string, string>()
+                : new Dictionary<string, string>(metadata, StringComparer.Ordinal);
             Steps = steps ?? throw new ArgumentNullException(nameof(steps));
         }
 
         public Func<TCurrent, bool> Condition { get; }
 
+        public string DisplayName { get; }
+
+        public IReadOnlyDictionary<string, string> Metadata { get; }
+
         public IReadOnlyList<IFlowStep> Steps { get; }
+
+        public IReadOnlyDictionary<string, string> CreateTraceMetadata()
+        {
+            var metadata = new Dictionary<string, string>(Metadata, StringComparer.Ordinal)
+            {
+                ["route"] = DisplayName
+            };
+            return metadata;
+        }
     }
 
     /// <summary>
@@ -242,11 +287,12 @@ namespace Spider.Pipelines.Flows.Internals
     internal sealed class FlowBranchStep<TCurrent> : IFlowStep
     {
         private readonly IReadOnlyList<FlowBranchRoute<TCurrent>> _routes;
-        private readonly IReadOnlyList<IFlowStep> _otherwise;
+        private readonly FlowBranchRoute<TCurrent> _otherwise;
 
         public FlowBranchStep(
             IReadOnlyList<FlowBranchRoute<TCurrent>> routes,
-            IReadOnlyList<IFlowStep> otherwise)
+            FlowBranchRoute<TCurrent> otherwise,
+            IReadOnlyDictionary<string, string> metadata)
         {
             _routes = routes ?? throw new ArgumentNullException(nameof(routes));
             _otherwise = otherwise ?? throw new ArgumentNullException(nameof(otherwise));
@@ -255,7 +301,8 @@ namespace Spider.Pipelines.Flows.Internals
                 "Branch",
                 "spider.flow-branch",
                 typeof(TCurrent),
-                typeof(TCurrent));
+                typeof(TCurrent),
+                metadata);
         }
 
         public FlowStepDescriptor Descriptor { get; }
@@ -264,15 +311,13 @@ namespace Spider.Pipelines.Flows.Internals
         {
             var current = (TCurrent)state.ActiveValue;
             var selected = _otherwise;
-            var selectedName = "Otherwise";
 
             foreach (var route in _routes)
             {
                 if (!route.Condition(current))
                     continue;
 
-                selected = route.Steps;
-                selectedName = "When";
+                selected = route;
                 break;
             }
 
@@ -283,18 +328,16 @@ namespace Spider.Pipelines.Flows.Internals
                     TraceId = null,
                     SpanId = null,
                     ComponentKind = "spider.flow-branch-route",
-                    DisplayName = selectedName,
+                    DisplayName = selected.DisplayName,
                     Operation = "Branch.Selected",
                     Kind = SpiderTraceEventKind.FlowBranchSelected,
                     Status = SpiderTraceStatus.Completed,
-                    Metadata = new Dictionary<string, string>
-                    {
-                        ["route"] = selectedName
-                    }
+                    Tags = FlowStepDescriptor.CreateTags(selected.Metadata),
+                    Metadata = selected.CreateTraceMetadata()
                 }, cancellationToken);
             }
 
-            await FlowRunner.RunStepsAsync(selected, state, cancellationToken);
+            await FlowRunner.RunStepsAsync(selected.Steps, state, cancellationToken);
         }
     }
 }
