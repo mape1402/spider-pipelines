@@ -856,6 +856,12 @@ button {
   color: var(--spider-red-strong);
 }
 
+.spider-status-not-executed {
+  border-color: var(--spider-line);
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+}
+
 .spider-runtime-row.is-running .spider-runtime-dot,
 .spider-runtime-span-card.is-running .spider-runtime-dot {
   background: var(--spider-blue);
@@ -1313,6 +1319,22 @@ button {
   stroke-width: 1.35;
 }
 
+.spider-edge.is-runtime-completed {
+  stroke: var(--spider-blue);
+  stroke-width: 1.8;
+}
+
+.spider-edge.is-runtime-faulted {
+  stroke: var(--spider-red);
+  stroke-width: 2;
+}
+
+.spider-edge.is-runtime-not-executed {
+  stroke: var(--spider-line-strong);
+  stroke-dasharray: 5 5;
+  opacity: 0.55;
+}
+
 .spider-graph-node {
   cursor: pointer;
 }
@@ -1373,6 +1395,50 @@ button {
 
 .spider-graph-node.is-selected.is-condition .spider-node-box {
   stroke: var(--spider-red-strong);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-not-executed {
+  opacity: 0.58;
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-not-executed .spider-node-box {
+  fill: var(--spider-panel-soft);
+  stroke: var(--spider-line);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-not-executed .spider-node-accent {
+  fill: var(--spider-muted);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-completed .spider-node-box,
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-running .spider-node-box {
+  fill: var(--spider-blue-soft);
+  stroke: rgba(29, 95, 191, 0.42);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-completed .spider-node-accent,
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-running .spider-node-accent {
+  fill: var(--spider-blue);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-faulted .spider-node-box,
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-cancelled .spider-node-box {
+  fill: var(--spider-red-soft);
+  stroke: rgba(230, 36, 45, 0.58);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-faulted .spider-node-accent,
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-cancelled .spider-node-accent {
+  fill: var(--spider-red);
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-selected .spider-node-box {
+  stroke-width: 2.4;
+  filter: drop-shadow(0 8px 14px rgba(29, 95, 191, 0.18));
+}
+
+.spider-architecture-graph.is-runtime-graph .spider-graph-node.is-selected.is-runtime-faulted .spider-node-box {
+  filter: drop-shadow(0 8px 14px rgba(230, 36, 45, 0.18));
 }
 
 .spider-graph-node.is-route .spider-node-box,
@@ -1441,6 +1507,18 @@ button {
 
 .spider-legend-swatch.stage {
   background: var(--spider-black);
+}
+
+.spider-legend-swatch.runtime-completed {
+  background: var(--spider-blue);
+}
+
+.spider-legend-swatch.runtime-faulted {
+  background: var(--spider-red);
+}
+
+.spider-legend-swatch.runtime-muted {
+  background: var(--spider-muted);
 }
 
 .spider-node-detail {
@@ -1594,6 +1672,49 @@ button {
   gap: 12px;
 }
 
+.spider-runtime-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+
+.spider-runtime-timeline-panel,
+.spider-runtime-context {
+  min-width: 0;
+}
+
+.spider-runtime-context {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 108px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.spider-runtime-graph-panel {
+  min-height: 430px;
+}
+
+.spider-runtime-graph-wrap {
+  min-height: 350px;
+  max-height: 48vh;
+  overflow: auto;
+  padding: 14px;
+}
+
+.spider-runtime-graph-wrap .spider-architecture-graph {
+  width: min(100%, var(--spider-graph-width, 520px));
+  max-width: 100%;
+}
+
+.spider-runtime-node-detail {
+  padding: 12px;
+}
+
 .spider-runtime-overview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1632,38 +1753,303 @@ button {
   gap: 10px;
 }
 
-.spider-runtime-span {
+.spider-runtime-timeline.is-main {
+  position: relative;
+  gap: 0;
+  padding: 12px 0 18px;
+}
+
+.spider-runtime-timeline.is-main::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 50%;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--spider-line-strong);
+  transform: translateX(-50%);
+}
+
+.spider-runtime-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px minmax(0, 1fr);
+  align-items: center;
+  min-height: 112px;
+}
+
+.spider-runtime-timeline-side {
+  min-width: 0;
+}
+
+.spider-runtime-timeline-left {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 18px;
+}
+
+.spider-runtime-timeline-right {
+  display: flex;
+  justify-content: flex-start;
+  padding-left: 18px;
+}
+
+.spider-runtime-timeline-center {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 118px;
+}
+
+.spider-runtime-timeline-center::before,
+.spider-runtime-timeline-center::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  border-top: 2px dashed var(--spider-line-strong);
+}
+
+.spider-runtime-timeline-center::before {
+  right: 50%;
+  transform: translateX(-31px);
+}
+
+.spider-runtime-timeline-center::after {
+  left: 50%;
+  transform: translateX(31px);
+}
+
+.spider-runtime-timeline-item.is-left .spider-runtime-timeline-center::after,
+.spider-runtime-timeline-item.is-right .spider-runtime-timeline-center::before {
+  display: none;
+}
+
+.spider-runtime-timeline-number {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 3px solid var(--spider-blue);
+  border-radius: 999px;
+  background: var(--spider-panel);
+  color: var(--spider-blue);
+  font-size: 0.92rem;
+  font-weight: 850;
+  box-shadow: 0 0 0 5px var(--spider-bg), 0 8px 18px rgba(17, 24, 39, 0.08);
+}
+
+.spider-runtime-timeline-item.is-faulted .spider-runtime-timeline-number {
+  border-color: var(--spider-red);
+  color: var(--spider-red);
+}
+
+.spider-runtime-timeline-item.is-running .spider-runtime-timeline-number {
+  animation: spiderPulse 1.4s ease-in-out infinite;
+}
+
+.spider-runtime-timeline-card {
   display: grid;
   gap: 6px;
-  padding-left: calc(var(--runtime-depth, 0) * 18px);
+  width: min(100%, 340px);
+  border: 1px solid rgba(29, 95, 191, 0.24);
+  border-radius: 8px;
+  background: var(--spider-panel);
+  cursor: pointer;
+  padding: 12px 13px;
+  text-align: left;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.05);
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+
+.spider-runtime-timeline-card:hover {
+  border-color: rgba(29, 95, 191, 0.45);
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08);
+  transform: translateY(-1px);
+}
+
+.spider-runtime-timeline-card.is-selected {
+  border-color: var(--spider-blue);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.14), 0 12px 24px rgba(17, 24, 39, 0.08);
+}
+
+.spider-runtime-timeline-card.is-faulted {
+  border-color: rgba(230, 36, 45, 0.48);
+  background: var(--spider-red-soft);
+}
+
+.spider-runtime-timeline-card.is-faulted.is-selected {
+  border-color: var(--spider-red);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.14), 0 12px 24px rgba(17, 24, 39, 0.08);
+}
+
+.spider-runtime-timeline-card.is-running {
+  background: var(--spider-blue-soft);
+}
+
+.spider-runtime-timeline-card strong {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-runtime-timeline-kind {
+  width: fit-content;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+  font-size: 0.68rem;
+  font-weight: 780;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.spider-runtime-timeline-description,
+.spider-runtime-timeline-fault {
+  margin: 0;
+  color: var(--spider-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.spider-runtime-timeline-fault {
+  color: var(--spider-red);
+  font-weight: 700;
+}
+
+.spider-runtime-timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--spider-muted);
+  font-size: 0.72rem;
+}
+
+.spider-runtime-span {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  padding-left: calc(var(--runtime-depth, 0) * 28px);
 }
 
 .spider-runtime-span-card,
 .spider-runtime-event {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 86px 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  border: 1px solid var(--spider-line);
+  gap: 11px;
+  border: 0;
   border-radius: 8px;
-  background: var(--spider-panel);
-  padding: 9px 10px;
+  background: transparent;
+  padding: 0;
+}
+
+.spider-runtime-span-card {
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.spider-runtime-span-card:hover {
+  transform: translateY(-1px);
 }
 
 .spider-runtime-span-card.is-faulted,
 .spider-runtime-event.is-faulted {
-  border-color: rgba(230, 36, 45, 0.38);
-  background: var(--spider-red-soft);
+  background: transparent;
 }
 
 .spider-runtime-span-card.is-running,
 .spider-runtime-event.is-running {
-  border-color: rgba(29, 95, 191, 0.34);
-  background: var(--spider-blue-soft);
+  background: transparent;
 }
 
 .spider-runtime-span-card.is-completed {
-  border-color: rgba(29, 95, 191, 0.22);
+  border-color: transparent;
+}
+
+.spider-runtime-timeblock {
+  display: grid;
+  gap: 2px;
+  color: var(--spider-muted);
+  font-size: 0.7rem;
+  line-height: 1.1;
+  text-align: right;
+}
+
+.spider-runtime-timeblock strong {
+  color: var(--spider-text);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.spider-runtime-timeblock small {
+  color: var(--spider-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.spider-runtime-rail {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+}
+
+.spider-runtime-rail::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  bottom: -9px;
+  left: 50%;
+  width: 2px;
+  background: var(--spider-line-strong);
+  transform: translateX(-50%);
+}
+
+.spider-runtime-span-card .spider-runtime-dot {
+  position: relative;
+  z-index: 1;
+}
+
+.spider-runtime-span-card .spider-runtime-span-main {
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel);
+  box-shadow: 0 6px 15px rgba(17, 24, 39, 0.04);
+  padding: 10px 12px;
+}
+
+.spider-runtime-span-card.is-completed .spider-runtime-span-main {
+  border-color: rgba(29, 95, 191, 0.25);
+}
+
+.spider-runtime-span-card.is-running .spider-runtime-span-main {
+  border-color: rgba(29, 95, 191, 0.38);
+  background: var(--spider-blue-soft);
+}
+
+.spider-runtime-span-card.is-faulted .spider-runtime-span-main {
+  border-color: rgba(230, 36, 45, 0.48);
+  background: var(--spider-red-soft);
+}
+
+.spider-runtime-span-card.is-selected .spider-runtime-span-main {
+  border-color: var(--spider-blue);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.14), 0 8px 18px rgba(17, 24, 39, 0.06);
+}
+
+.spider-runtime-span-card.is-selected.is-faulted .spider-runtime-span-main {
+  border-color: var(--spider-red);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.15), 0 8px 18px rgba(17, 24, 39, 0.06);
 }
 
 .spider-runtime-span-main {
@@ -1737,7 +2123,8 @@ button {
 .spider-runtime-span-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  align-self: center;
+  justify-content: flex-start;
   gap: 6px;
 }
 
@@ -1786,6 +2173,96 @@ button {
   padding: 12px;
 }
 
+.spider-runtime-raw-wide {
+  overflow: hidden;
+}
+
+.spider-runtime-raw-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 12px;
+  border-top: 1px solid var(--spider-line);
+  padding: 12px;
+}
+
+.spider-runtime-raw-list.is-inline {
+  border-top: 0;
+  padding: 0;
+}
+
+.spider-runtime-raw-list.is-empty {
+  display: block;
+}
+
+.spider-runtime-raw-list .spider-runtime-event {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  border: 1px solid var(--spider-line);
+  border-left: 4px solid var(--spider-blue);
+  border-radius: 8px;
+  background: var(--spider-panel-soft);
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.04);
+  min-width: 0;
+  padding: 12px 13px;
+}
+
+.spider-runtime-raw-list .spider-runtime-event.is-faulted,
+.spider-runtime-raw-list .spider-runtime-event.is-cancelled {
+  border-left-color: var(--spider-red);
+  background: var(--spider-red-soft);
+}
+
+.spider-runtime-raw-list .spider-runtime-event.is-running,
+.spider-runtime-raw-list .spider-runtime-event.is-started {
+  border-left-color: var(--spider-blue);
+  background: var(--spider-blue-soft);
+}
+
+.spider-runtime-event-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.spider-runtime-event-kind {
+  overflow: hidden;
+  color: var(--spider-muted);
+  font-size: 0.72rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-runtime-event-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.spider-runtime-event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--spider-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.spider-runtime-event-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.spider-runtime-event-fault {
+  color: var(--spider-red);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .spider-runtime-name {
   overflow: hidden;
   color: var(--spider-text);
@@ -1803,6 +2280,20 @@ button {
   .spider-detail-layout {
     grid-template-columns: minmax(240px, 300px) minmax(320px, 1fr);
     min-height: 0;
+  }
+
+  .spider-runtime-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .spider-runtime-context {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .spider-runtime-graph-wrap {
+    max-height: 420px;
   }
 
   .spider-detail-layout.is-inspector-collapsed {
@@ -1882,6 +2373,61 @@ button {
   .spider-search {
     width: 100%;
   }
+
+  .spider-runtime-span-card,
+  .spider-runtime-event {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+
+  .spider-runtime-span-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .spider-runtime-timeline.is-main {
+    padding-left: 0;
+  }
+
+  .spider-runtime-timeline.is-main::before {
+    left: 24px;
+  }
+
+  .spider-runtime-timeline-item {
+    grid-template-columns: 48px minmax(0, 1fr);
+    min-height: 0;
+    padding: 8px 0;
+  }
+
+  .spider-runtime-timeline-left,
+  .spider-runtime-timeline-right {
+    grid-column: 2;
+    justify-content: flex-start;
+    padding-left: 12px;
+    padding-right: 0;
+  }
+
+  .spider-runtime-timeline-center {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 86px;
+  }
+
+  .spider-runtime-timeline-center::before,
+  .spider-runtime-timeline-center::after {
+    display: none;
+  }
+
+  .spider-runtime-timeline-card {
+    width: 100%;
+  }
+
+  .spider-runtime-raw-list {
+    grid-template-columns: 1fr;
+  }
+
+  .spider-runtime-span {
+    padding-left: calc(var(--runtime-depth, 0) * 10px);
+  }
 }
 """;
 
@@ -1925,6 +2471,8 @@ button {
     query: "",
     runtimeTraceId: "",
     runtimeTraceSignature: "",
+    runtimeSelectedComponentId: "",
+    runtimeSelectedItemKey: "",
     runtimeListSignature: "",
     inspectorCollapsed: false
   };
@@ -1974,6 +2522,12 @@ button {
       if (process) {
         renderProcessDetail(process, orderChildren(process));
       }
+      return;
+    }
+
+    const runtimeItem = event.target.closest("[data-runtime-item-key]");
+    if (runtimeItem && state.view === "runtime" && state.mode === "trace") {
+      selectRuntimeItem(runtimeItem.getAttribute("data-runtime-item-key"));
       return;
     }
 
@@ -2057,6 +2611,8 @@ button {
     state.processId = "";
     state.nodeId = "";
     state.query = "";
+    state.runtimeSelectedComponentId = "";
+    state.runtimeSelectedItemKey = "";
     if (!skipHash) {
       setHash(state.view);
     }
@@ -2201,6 +2757,11 @@ button {
 
     state.view = "runtime";
     state.mode = "trace";
+    if (state.runtimeTraceId !== traceId) {
+      state.runtimeSelectedComponentId = "";
+      state.runtimeSelectedItemKey = "";
+    }
+
     state.runtimeTraceId = traceId;
     state.runtimeTraceSignature = signature;
     if (!skipHash) {
@@ -2217,6 +2778,8 @@ button {
 
   function renderTraceDetail(trace) {
     const overview = createRuntimeOverview(trace, findSummary(trace.traceId));
+    const graphContext = createRuntimeGraphContext(overview);
+    overview.graphContext = graphContext;
     setActiveMenu("runtime");
     setTopbarTitle(trace.traceId);
 
@@ -2243,22 +2806,30 @@ button {
           ${renderRuntimeMetric("Flows", String(overview.flowCount))}
           ${renderRuntimeMetric("Boundaries", String(overview.boundaryCount))}
         </section>
-        <section class="spider-panel">
-          <div class="spider-panel-header">
-            <h2>Execution timeline</h2>
-            <span class="spider-panel-note">Started paired with terminal events</span>
-          </div>
-          <div class="spider-runtime-timeline">
-            ${overview.rootSpans.length ? overview.rootSpans.map((span) => renderRuntimeSpan(span, 0)).join("") : renderRuntimeRawEvents(trace)}
-          </div>
-        </section>
-        <details class="spider-runtime-raw">
+        <div class="spider-runtime-workspace">
+          <section class="spider-panel spider-runtime-timeline-panel">
+            <div class="spider-panel-header">
+              <h2>Execution timeline</h2>
+              <span class="spider-panel-note">Runtime order, nested spans, selected branch, and faults</span>
+            </div>
+            <div class="spider-runtime-timeline is-main">
+              ${overview.rootSpans.length ? renderRuntimeTimeline(overview, graphContext) : renderRuntimeRawEventList(trace, true)}
+            </div>
+          </section>
+          <aside class="spider-runtime-context">
+            ${renderRuntimeGraphPanel(graphContext)}
+            <section id="spider-runtime-node-detail" class="spider-panel spider-runtime-node-detail">
+              ${renderRuntimeNodeDetail(graphContext)}
+            </section>
+          </aside>
+        </div>
+        <details class="spider-runtime-raw spider-runtime-raw-wide">
           <summary>Raw events</summary>
-          <div class="spider-runtime-timeline">
-            ${renderRuntimeRawEvents(trace)}
-          </div>
+          ${renderRuntimeRawEventList(trace, false)}
         </details>
       </article>`;
+
+    bindGraphTooltip();
   }
 
   function renderRuntimeMetric(label, value) {
@@ -2269,7 +2840,277 @@ button {
       </div>`;
   }
 
-  function renderRuntimeSpan(span, depth) {
+  function renderRuntimeGraphPanel(graphContext) {
+    if (!graphContext || !showGraph) {
+      return `
+        <section class="spider-panel spider-runtime-graph-panel">
+          <div class="spider-panel-header">
+            <h2>Execution graph</h2>
+          </div>
+          <div class="spider-empty-list">No graph metadata matched this trace.</div>
+        </section>`;
+    }
+
+    const graph = renderVerticalGraph(graphContext.process, graphContext.children, graphContext);
+    return `
+      <section class="spider-panel spider-runtime-graph-panel">
+        <div class="spider-panel-header">
+          <div>
+            <h2>Execution graph</h2>
+            <span class="spider-panel-note">${escapeHtml(graphContext.process.displayName || graphContext.process.id)}</span>
+          </div>
+          <div class="spider-graph-legend" aria-label="Runtime graph legend">
+            <span class="spider-legend-item"><i class="spider-legend-swatch runtime-completed"></i>Executed</span>
+            <span class="spider-legend-item"><i class="spider-legend-swatch runtime-faulted"></i>Faulted</span>
+            <span class="spider-legend-item"><i class="spider-legend-swatch runtime-muted"></i>Not run</span>
+          </div>
+        </div>
+        <div class="spider-graph-wrap spider-process-graph spider-runtime-graph-wrap">
+          ${graph}
+          <div id="spider-graph-tooltip" class="spider-graph-tooltip" role="tooltip"></div>
+        </div>
+      </section>`;
+  }
+
+  function renderRuntimeNodeDetail(graphContext) {
+    if (!graphContext) {
+      return `
+        <div class="spider-panel-header">
+          <h2>Runtime context</h2>
+        </div>
+        <div class="spider-empty-list">Select a timeline item after graph metadata is available.</div>`;
+    }
+
+    if (graphContext.selectedRuntimeItem) {
+      return renderRuntimeItemDetail(graphContext.selectedRuntimeItem.value, graphContext);
+    }
+
+    const componentId = state.runtimeSelectedComponentId || graphContext.defaultComponentId;
+    const component = byId.get(componentId) || graphContext.process;
+    const span = graphContext.spanByComponentId.get(component.id) || null;
+    const nodeState = graphContext.nodeStates.get(component.id) || "not-executed";
+    const description = getMetadata(component, "description") || (span ? getRuntimeDescription(span) : "");
+    const tagChips = renderTagChips(component) || (span ? renderRuntimeTagsAsChips(getRuntimeTags(span)) : "");
+    const evidence = component.evidence || [];
+    const declaredIn = evidence.length ? formatDeclaredIn(evidence[0]) : "";
+    const source = evidence.length && evidence[0].filePath
+      ? `${evidence[0].filePath}${evidence[0].lineNumber ? ":" + evidence[0].lineNumber : ""}`
+      : "";
+    const runtimeRows = span ? [
+      ["Runtime status", span.status],
+      ["Duration", formatDuration(span.durationMs)],
+      ["Operation", span.operation],
+      ["Input", shortName(span.inputType || "")],
+      ["Output", shortName(span.outputType || "")],
+      ["Span id", shortTraceId(span.spanId)]
+    ] : [["Runtime status", "Not executed in this trace"]];
+    const fault = span && span.exception ? `
+      <div class="spider-detail-section">
+        <dl class="spider-definition">
+          <dt>Exception</dt><dd>${escapeHtml(span.exception.message || "Faulted")}</dd>
+        </dl>
+      </div>` : "";
+    const evidenceRows = declaredIn || source ? `
+      <div class="spider-detail-section spider-evidence">
+        <dl class="spider-definition">
+          ${declaredIn ? `<dt>Declared in</dt><dd>${escapeHtml(declaredIn)}</dd>` : ""}
+          ${source ? `<dt>Source file</dt><dd>${escapeHtml(source)}</dd>` : ""}
+        </dl>
+      </div>` : "";
+
+    return `
+      <div class="spider-node-header">
+        <span class="spider-node-kind ${getKindClass(component)}">${escapeHtml(getFriendlyKind(component))}</span>
+        <h2>${escapeHtml(component.displayName || component.id)}</h2>
+        <div class="spider-detail-actions">
+          <span class="spider-status-chip spider-status-${escapeAttribute(getStatusClass(nodeState))}">${escapeHtml(formatRuntimeGraphState(nodeState))}</span>
+        </div>
+        ${description ? `<p class="spider-node-description">${escapeHtml(description)}</p>` : ""}
+        ${tagChips ? `<div class="spider-node-tags">${tagChips}</div>` : ""}
+      </div>
+      <dl class="spider-definition">
+        ${runtimeRows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "Not declared")}</dd>`).join("")}
+        <dt>Component id</dt><dd>${escapeHtml(component.id)}</dd>
+      </dl>
+      ${fault}
+      ${evidenceRows}`;
+  }
+
+  function renderRuntimeItemDetail(item, graphContext) {
+    const componentId = item.resolvedComponentId || item.componentId || "";
+    const component = componentId ? byId.get(componentId) : null;
+    const displayName = getRuntimeDisplayName(item);
+    const description = component && getMetadata(component, "description")
+      ? getMetadata(component, "description")
+      : getRuntimeDescription(item);
+    const tagChips = component && renderTagChips(component)
+      ? renderTagChips(component)
+      : renderRuntimeTagsAsChips(getRuntimeTags(item));
+    const nodeState = component
+      ? graphContext.nodeStates.get(component.id) || normalizeStatus(item.status)
+      : normalizeStatus(item.status);
+    const runtimeRows = [
+      ["Runtime status", item.status || "Started"],
+      ["Duration", formatDuration(item.durationMs)],
+      ["Operation", item.operation || "Not declared"],
+      ["Event kind", item.kind || item.type || "Span"],
+      ["Input", shortName(item.inputType || "")],
+      ["Output", shortName(item.outputType || "")],
+      ["Span id", shortTraceId(item.spanId)],
+      ["Component id", componentId || "Runtime only"]
+    ];
+    const fault = item.exception ? `
+      <div class="spider-detail-section">
+        <dl class="spider-definition">
+          <dt>Exception</dt><dd>${escapeHtml(item.exception.message || "Faulted")}</dd>
+        </dl>
+      </div>` : "";
+    const evidence = component && component.evidence ? component.evidence : [];
+    const declaredIn = evidence.length ? formatDeclaredIn(evidence[0]) : "";
+    const source = evidence.length && evidence[0].filePath
+      ? `${evidence[0].filePath}${evidence[0].lineNumber ? ":" + evidence[0].lineNumber : ""}`
+      : "";
+    const evidenceRows = declaredIn || source ? `
+      <div class="spider-detail-section spider-evidence">
+        <dl class="spider-definition">
+          ${declaredIn ? `<dt>Declared in</dt><dd>${escapeHtml(declaredIn)}</dd>` : ""}
+          ${source ? `<dt>Source file</dt><dd>${escapeHtml(source)}</dd>` : ""}
+        </dl>
+      </div>` : "";
+    const manifestRows = component ? `
+      <div class="spider-detail-section">
+        <dl class="spider-definition">
+          <dt>Manifest type</dt><dd>${escapeHtml(getFriendlyKind(component))}</dd>
+          <dt>Manifest node</dt><dd>${escapeHtml(component.displayName || component.id)}</dd>
+        </dl>
+      </div>` : "";
+
+    return `
+      <div class="spider-node-header">
+        <span class="spider-node-kind ${component ? getKindClass(component) : "spider-kind-step"}">${escapeHtml(getRuntimeKindLabel(item.componentKind))}</span>
+        <h2>${escapeHtml(displayName)}</h2>
+        <div class="spider-detail-actions">
+          <span class="spider-status-chip spider-status-${escapeAttribute(getStatusClass(nodeState))}">${escapeHtml(formatRuntimeGraphState(nodeState))}</span>
+        </div>
+        ${description ? `<p class="spider-node-description">${escapeHtml(description)}</p>` : ""}
+        ${tagChips ? `<div class="spider-node-tags">${tagChips}</div>` : ""}
+      </div>
+      <dl class="spider-definition">
+        ${runtimeRows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "Not declared")}</dd>`).join("")}
+      </dl>
+      ${fault}
+      ${manifestRows}
+      ${evidenceRows}`;
+  }
+
+  function renderRuntimeTagsAsChips(tags) {
+    return (tags || [])
+      .map((tag) => `<span class="spider-chip tag">${escapeHtml(tag)}</span>`)
+      .join("");
+  }
+
+  function renderRuntimeTimeline(overview, graphContext) {
+    const items = createRuntimeTimelineItems(overview.rootSpans);
+    return items.map((item, index) => renderRuntimeTimelineItem(item, index, graphContext)).join("");
+  }
+
+  function createRuntimeTimelineItems(rootSpans) {
+    const items = [];
+    const visit = (span, depth) => {
+      items.push({ type: "span", value: span, depth, timestamp: span.startedAt });
+      (span.markers || []).forEach((marker) => {
+        items.push({ type: "marker", value: marker, depth: depth + 1, timestamp: marker.timestamp });
+      });
+      (span.children || []).forEach((child) => visit(child, depth + 1));
+    };
+
+    (rootSpans || []).forEach((span) => visit(span, 0));
+    return items.sort((left, right) => compareRuntimeValues(left.timestamp, right.timestamp));
+  }
+
+  function createRuntimeItemKey(item) {
+    const value = item && item.value ? item.value : {};
+    if (item && item.type === "span") {
+      return `span:${value.spanId || value.componentId || value.displayName || value.startedAt || ""}`;
+    }
+
+    return [
+      "event",
+      value.spanId || "",
+      value.kind || "",
+      value.timestamp || "",
+      value.operation || "",
+      value.displayName || ""
+    ].join(":");
+  }
+
+  function findRuntimeTimelineItem(rootSpans, key) {
+    if (!key) {
+      return null;
+    }
+
+    return createRuntimeTimelineItems(rootSpans).find((item) => createRuntimeItemKey(item) === key) || null;
+  }
+
+  function renderRuntimeTimelineItem(item, index, graphContext) {
+    const value = item.value || {};
+    const itemKey = createRuntimeItemKey(item);
+    const statusClass = getStatusClass(value.status);
+    const displayName = getRuntimeDisplayName(value);
+    const description = getRuntimeDescription(value);
+    const tags = getRuntimeTags(value);
+    const tooltip = createRuntimeTooltip(value, displayName, description, tags);
+    const componentId = value.resolvedComponentId || value.componentId || "";
+    const componentAttribute = componentId
+      ? ` data-runtime-component-id="${escapeAttribute(componentId)}"`
+      : "";
+    const itemAttribute = ` data-runtime-item-key="${escapeAttribute(itemKey)}"`;
+    const selectedClass = itemKey && itemKey === state.runtimeSelectedItemKey ? " is-selected" : "";
+    const sideClass = index % 2 === 0 ? " is-left" : " is-right";
+    const depthLabel = item.depth ? `<span>Depth ${escapeHtml(String(item.depth))}</span>` : "";
+    const descriptionHtml = description
+      ? `<p class="spider-runtime-timeline-description">${escapeHtml(description)}</p>`
+      : "";
+    const tagHtml = tags.length
+      ? `<div class="spider-runtime-tags">${tags.map((tag) => `<span class="spider-runtime-tag">${escapeHtml(tag)}</span>`).join("")}</div>`
+      : "";
+    const exceptionHtml = value.exception
+      ? `<p class="spider-runtime-timeline-fault">${escapeHtml(value.exception.message || "Faulted")}</p>`
+      : "";
+    const duration = value.durationMs !== undefined && value.durationMs !== null
+      ? formatDuration(value.durationMs)
+      : item.type === "marker" ? "event" : "running";
+    const technicalName = getRuntimeTechnicalName(value, displayName);
+    const technicalHtml = technicalName
+      ? `<span>${escapeHtml(technicalName)}</span>`
+      : "";
+    const content = `
+      <button class="spider-runtime-timeline-card is-${escapeAttribute(statusClass)}${selectedClass}" type="button"${itemAttribute}${componentAttribute}>
+        <span class="spider-runtime-timeline-kind">${escapeHtml(getRuntimeKindLabel(value.componentKind))}</span>
+        <strong title="${escapeAttribute(tooltip)}">${escapeHtml(displayName)}</strong>
+        ${descriptionHtml}
+        ${tagHtml}
+        ${exceptionHtml}
+        <span class="spider-runtime-timeline-meta">
+          <span>${escapeHtml(value.operation || item.type)}</span>
+          ${technicalHtml}
+          ${depthLabel}
+          <span>${escapeHtml(formatTime(item.timestamp))}</span>
+          <span>${escapeHtml(duration)}</span>
+        </span>
+      </button>`;
+
+    return `
+      <div class="spider-runtime-timeline-item${sideClass} is-${escapeAttribute(statusClass)}" style="--timeline-index: '${escapeAttribute(String(index + 1).padStart(2, "0"))}'">
+        <div class="spider-runtime-timeline-side spider-runtime-timeline-left">${sideClass === " is-left" ? content : ""}</div>
+        <div class="spider-runtime-timeline-center">
+          <span class="spider-runtime-timeline-number">${escapeHtml(String(index + 1).padStart(2, "0"))}</span>
+        </div>
+        <div class="spider-runtime-timeline-side spider-runtime-timeline-right">${sideClass === " is-right" ? content : ""}</div>
+      </div>`;
+  }
+
+  function renderRuntimeSpan(span, depth, graphContext) {
     const statusClass = getStatusClass(span.status);
     const displayName = getRuntimeDisplayName(span);
     const technicalName = getRuntimeTechnicalName(span, displayName);
@@ -2290,7 +3131,12 @@ button {
       ? `<div class="spider-runtime-marker-list">${span.markers.map(renderRuntimeMarker).join("")}</div>`
       : "";
     const children = span.children.length
-      ? span.children.map((child) => renderRuntimeSpan(child, depth + 1)).join("")
+      ? span.children.map((child) => renderRuntimeSpan(child, depth + 1, graphContext)).join("")
+      : "";
+    const componentId = span.resolvedComponentId || span.componentId || "";
+    const selectedClass = componentId && componentId === state.runtimeSelectedComponentId ? " is-selected" : "";
+    const componentAttribute = componentId
+      ? ` data-node-id="${escapeAttribute(componentId)}"`
       : "";
     const link = span.componentId && byId.has(span.componentId)
       ? `<button class="spider-related-button" type="button" data-open-process="${escapeAttribute(span.componentId)}"><span class="spider-related-label">Open component</span><span class="spider-related-name">${escapeHtml(byId.get(span.componentId).displayName || span.componentId)}</span></button>`
@@ -2298,8 +3144,14 @@ button {
 
     return `
       <div class="spider-runtime-span" style="--runtime-depth: ${escapeAttribute(String(depth))}">
-        <div class="spider-runtime-span-card is-${escapeAttribute(statusClass)}">
-          <span class="spider-runtime-dot" aria-hidden="true"></span>
+        <div class="spider-runtime-span-card is-${escapeAttribute(statusClass)}${selectedClass}"${componentAttribute}>
+          <span class="spider-runtime-timeblock">
+            <strong>${escapeHtml(formatTime(span.startedAt))}</strong>
+            <small>${escapeHtml(formatDuration(span.durationMs))}</small>
+          </span>
+          <span class="spider-runtime-rail" aria-hidden="true">
+            <span class="spider-runtime-dot"></span>
+          </span>
           <span class="spider-runtime-span-main">
             <span class="spider-runtime-span-title">
               <strong class="${unnamedClass.trim()}" title="${escapeAttribute(tooltip)}">${escapeHtml(displayName)}</strong>
@@ -2311,13 +3163,13 @@ button {
               <span>${escapeHtml(span.kindLabel)}</span>
               <span>${escapeHtml(span.operation || "operation")}</span>
               ${technicalHtml}
-              <span>${escapeHtml(formatTime(span.startedAt))} -> ${escapeHtml(span.completedAt ? formatTime(span.completedAt) : "running")}</span>
+              <span>${escapeHtml(span.completedAt ? "completed " + formatTime(span.completedAt) : "still running")}</span>
               ${span.exception ? `<span>${escapeHtml(span.exception.message)}</span>` : ""}
             </span>
             ${link}
           </span>
           <span class="spider-runtime-span-actions">
-            <span class="spider-count-pill">${escapeHtml(formatDuration(span.durationMs))}</span>
+            <span class="spider-count-pill">${escapeHtml(span.children.length ? String(span.children.length) + " nested" : "leaf")}</span>
           </span>
         </div>
         ${markers}
@@ -2341,12 +3193,17 @@ button {
       </div>`;
   }
 
-  function renderRuntimeRawEvents(trace) {
-    return (trace.events || []).map(renderRuntimeEvent).join("");
+  function renderRuntimeRawEventList(trace, inline) {
+    const events = trace.events || [];
+    if (events.length === 0) {
+      return `<div class="spider-runtime-raw-list${inline ? " is-inline" : ""} is-empty"><div class="spider-empty-list">No raw events captured for this trace.</div></div>`;
+    }
+
+    return `<div class="spider-runtime-raw-list${inline ? " is-inline" : ""}">${events.map(renderRuntimeEvent).join("")}</div>`;
   }
 
   function renderRuntimeEvent(event) {
-    const statusClass = String(event.status || "").toLowerCase();
+    const statusClass = getStatusClass(event.status);
     const displayName = getRuntimeDisplayName(event);
     const description = getRuntimeDescription(event);
     const tags = getRuntimeTags(event);
@@ -2357,22 +3214,32 @@ button {
     const tagHtml = tags.length
       ? `<span class="spider-runtime-tags">${tags.map((tag) => `<span class="spider-runtime-tag">${escapeHtml(tag)}</span>`).join("")}</span>`
       : "";
-    const link = event.componentId && byId.has(event.componentId)
-      ? `<button class="spider-related-button" type="button" data-open-process="${escapeAttribute(event.componentId)}"><span class="spider-related-label">Open component</span><span class="spider-related-name">${escapeHtml(byId.get(event.componentId).displayName || event.componentId)}</span></button>`
+    const component = event.componentId && byId.has(event.componentId) ? byId.get(event.componentId) : null;
+    const componentHtml = component
+      ? `<span>${escapeHtml(component.displayName || component.id)}</span>`
+      : event.componentId ? `<span>${escapeHtml(event.componentId)}</span>` : "";
+    const faultHtml = event.exception
+      ? `<span class="spider-runtime-event-fault">${escapeHtml(event.exception.message || "Faulted")}</span>`
       : "";
 
     return `
       <div class="spider-runtime-event is-${escapeAttribute(statusClass)}">
-        <span class="spider-runtime-dot" aria-hidden="true"></span>
-        <span>
+        <div class="spider-runtime-event-top">
+          <span class="spider-runtime-event-kind">${escapeHtml(event.kind || "Runtime event")}</span>
+          ${renderStatusChip(event.status || "Started")}
+        </div>
+        <div class="spider-runtime-event-body">
           <span class="spider-runtime-name" title="${escapeAttribute(tooltip)}">${escapeHtml(displayName)}</span>
           ${descriptionHtml}
           ${tagHtml}
-          <span class="spider-runtime-meta">${escapeHtml(formatTime(event.timestamp))} · ${escapeHtml(event.kind)} · ${escapeHtml(event.operation || "")}</span>
-          ${event.exception ? `<span class="spider-runtime-meta">${escapeHtml(event.exception.message)}</span>` : ""}
-          ${link}
-        </span>
-        ${renderStatusChip(event.status || "Started")}
+          ${faultHtml}
+          <span class="spider-runtime-event-meta">
+            <span>${escapeHtml(formatTime(event.timestamp))}</span>
+            <span>${escapeHtml(event.operation || "operation")}</span>
+            <span>${escapeHtml(shortTraceId(event.spanId))}</span>
+            ${componentHtml}
+          </span>
+        </div>
       </div>`;
   }
 
@@ -2419,6 +3286,8 @@ button {
     state.mode = "detail";
     state.processId = id;
     state.nodeId = children.length ? children[0].id : id;
+    state.runtimeSelectedComponentId = "";
+    state.runtimeSelectedItemKey = "";
     if (!skipHash) {
       setHash(id);
     }
@@ -2610,7 +3479,7 @@ button {
       </div>`;
   }
 
-  function renderVerticalGraph(process, children) {
+  function renderVerticalGraph(process, children, graphContext) {
     const branchWidth = getGraphBranchWidth(children);
     const width = Math.max(420, branchWidth);
     const nodeWidth = 250;
@@ -2623,36 +3492,36 @@ button {
     const renderedNodes = [];
     let y = top;
 
-    renderedNodes.push(renderGraphNode(process, "0", nodeX, y, nodeWidth, nodeHeight, " is-root", getSignature(process)));
-    let previousExit = { x: center, y: y + nodeHeight };
+    renderedNodes.push(renderGraphNode(process, "0", nodeX, y, nodeWidth, nodeHeight, " is-root", getSignature(process), graphContext));
+    let previousExit = { x: center, y: y + nodeHeight, id: process.id };
     y += gap;
 
     for (let index = 0; index < children.length; index++) {
       const node = children[index];
       const number = String(index + 1).padStart(2, "0");
 
-      edges.push(renderGraphEdge(previousExit.x, previousExit.y, center, y));
+      edges.push(renderGraphEdge(previousExit.x, previousExit.y, center, y, previousExit.id, node.id, graphContext));
 
       if (node.kind === "spider.flow-branch" && getBranchRoutes(node).length) {
-        renderedNodes.push(renderGraphNode(node, number, nodeX, y, nodeWidth, nodeHeight, getGraphClass(node), getNodeSubtitle(node)));
-        const branchExit = { x: center, y: y + nodeHeight };
-        const layout = renderBranchGraph(node, number, branchExit, y + 86, width);
+        renderedNodes.push(renderGraphNode(node, number, nodeX, y, nodeWidth, nodeHeight, getGraphClass(node), getNodeSubtitle(node), graphContext));
+        const branchExit = { x: center, y: y + nodeHeight, id: node.id };
+        const layout = renderBranchGraph(node, number, branchExit, y + 86, width, graphContext);
         edges.push(...layout.edges);
         renderedNodes.push(...layout.nodes);
-        previousExit = { x: center, y: layout.exitY };
+        previousExit = { x: center, y: layout.exitY, id: node.id };
         y = layout.exitY + 48;
         continue;
       }
 
-      renderedNodes.push(renderGraphNode(node, number, nodeX, y, nodeWidth, nodeHeight, getGraphClass(node), getNodeSubtitle(node)));
-      previousExit = { x: center, y: y + nodeHeight };
+      renderedNodes.push(renderGraphNode(node, number, nodeX, y, nodeWidth, nodeHeight, getGraphClass(node), getNodeSubtitle(node), graphContext));
+      previousExit = { x: center, y: y + nodeHeight, id: node.id };
       y += gap;
     }
 
     const height = Math.max(260, y + 24);
 
     return `
-      <svg class="spider-architecture-graph" style="--spider-graph-width: ${width}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(process.displayName || "Spider process graph")}" preserveAspectRatio="xMidYMin meet">
+      <svg class="spider-architecture-graph${graphContext ? " is-runtime-graph" : ""}" style="--spider-graph-width: ${width}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeAttribute(process.displayName || "Spider process graph")}" preserveAspectRatio="xMidYMin meet">
         <defs>
           <marker id="spider-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa4b2"></path>
@@ -2663,7 +3532,7 @@ button {
       </svg>`;
   }
 
-  function renderBranchGraph(branch, branchNumber, branchExit, startY, width) {
+  function renderBranchGraph(branch, branchNumber, branchExit, startY, width, graphContext) {
     const routes = getBranchRoutes(branch);
     const routeWidth = 190;
     const routeHeight = 46;
@@ -2679,17 +3548,17 @@ button {
       const routeX = startX + (routeIndex * (routeWidth + routeGapX));
       const routeCenter = routeX + (routeWidth / 2);
       const routeNumber = `${branchNumber}.${routeIndex + 1}`;
-      nodes.push(renderGraphNode(route, routeNumber, routeX, startY, routeWidth, routeHeight, getGraphClass(route), getNodeSubtitle(route)));
-      edges.push(renderGraphEdge(branchExit.x, branchExit.y, routeCenter, startY));
+      nodes.push(renderGraphNode(route, routeNumber, routeX, startY, routeWidth, routeHeight, getGraphClass(route), getNodeSubtitle(route), graphContext));
+      edges.push(renderGraphEdge(branchExit.x, branchExit.y, routeCenter, startY, branchExit.id, route.id, graphContext));
 
-      let currentExit = { x: routeCenter, y: startY + routeHeight };
+      let currentExit = { x: routeCenter, y: startY + routeHeight, id: route.id };
       let stepY = startY + routeGapY;
       const steps = getRouteSteps(route);
 
       steps.forEach((step, stepIndex) => {
-        edges.push(renderGraphEdge(currentExit.x, currentExit.y, routeCenter, stepY));
-        nodes.push(renderGraphNode(step, `${routeNumber}.${stepIndex + 1}`, routeX, stepY, routeWidth, routeHeight, " is-route-step", getNodeSubtitle(step)));
-        currentExit = { x: routeCenter, y: stepY + routeHeight };
+        edges.push(renderGraphEdge(currentExit.x, currentExit.y, routeCenter, stepY, currentExit.id, step.id, graphContext));
+        nodes.push(renderGraphNode(step, `${routeNumber}.${stepIndex + 1}`, routeX, stepY, routeWidth, routeHeight, " is-route-step", getNodeSubtitle(step), graphContext));
+        currentExit = { x: routeCenter, y: stepY + routeHeight, id: step.id };
         stepY += routeGapY;
       });
 
@@ -2701,7 +3570,7 @@ button {
     routes.forEach((route) => {
       const exit = route._spiderGraphExit;
       if (exit) {
-        edges.push(renderGraphEdge(exit.x, exit.y, branchExit.x, exitY));
+        edges.push(renderGraphEdge(exit.x, exit.y, branchExit.x, exitY, exit.id, branchExit.id, graphContext));
         delete route._spiderGraphExit;
       }
     });
@@ -2709,11 +3578,13 @@ button {
     return { edges, nodes, exitY };
   }
 
-  function renderGraphNode(node, number, x, y, width, height, extraClass, subtitle) {
-    const selected = node.id === state.nodeId ? " is-selected" : "";
+  function renderGraphNode(node, number, x, y, width, height, extraClass, subtitle, graphContext) {
+    const selected = graphContext
+      ? node.id === state.runtimeSelectedComponentId ? " is-selected" : ""
+      : node.id === state.nodeId ? " is-selected" : "";
     const linkedFlow = getFirstLinkedFlow(node);
     const linkedClass = linkedFlow ? " is-linked-flow" : "";
-    const graphClass = (extraClass || "") + linkedClass;
+    const graphClass = (extraClass || "") + linkedClass + getRuntimeGraphClass(node.id, graphContext);
     const numberText = String(number || "");
     const textX = numberText.length > 4 ? 58 : 43;
     const titleFontSize = numberText.length > 4 ? 9.4 : 10;
@@ -2748,9 +3619,9 @@ button {
       </g>`;
   }
 
-  function renderGraphEdge(fromX, fromY, toX, toY) {
+  function renderGraphEdge(fromX, fromY, toX, toY, fromId, toId, graphContext) {
     const midY = fromY + Math.max(16, Math.round((toY - fromY) / 2));
-    return `<path class="spider-edge" d="M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY - 7}" marker-end="url(#spider-arrow)" />`;
+    return `<path class="spider-edge${getRuntimeEdgeClass(fromId, toId, graphContext)}" d="M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY - 7}" marker-end="url(#spider-arrow)" />`;
   }
 
   function bindGraphTooltip() {
@@ -2873,6 +3744,11 @@ button {
   }
 
   function selectNode(id) {
+    if (state.view === "runtime" && state.mode === "trace") {
+      selectRuntimeGraphNode(id);
+      return;
+    }
+
     const node = byId.get(id);
     const process = byId.get(state.processId);
     if (!node || !process) {
@@ -2892,6 +3768,48 @@ button {
     const detail = document.getElementById("spider-node-detail");
     if (detail) {
       detail.innerHTML = renderNodeDetail(node, process, index);
+    }
+  }
+
+  function selectRuntimeItem(key) {
+    if (!key) {
+      return;
+    }
+
+    state.runtimeSelectedItemKey = key;
+    state.runtimeSelectedComponentId = "";
+    const trace = (runtimeData.traces || []).find((item) => item.traceId === state.runtimeTraceId);
+    if (!trace) {
+      return;
+    }
+
+    preserveMainScroll(() => renderTraceDetail(trace));
+  }
+
+  function selectRuntimeGraphNode(id) {
+    if (!id || !byId.has(id)) {
+      return;
+    }
+
+    state.runtimeSelectedItemKey = "";
+    state.runtimeSelectedComponentId = id;
+    const trace = (runtimeData.traces || []).find((item) => item.traceId === state.runtimeTraceId);
+    if (!trace) {
+      return;
+    }
+
+    document.querySelectorAll(".spider-graph-node").forEach((item) => {
+      item.classList.toggle("is-selected", item.getAttribute("data-node-id") === id);
+    });
+    document.querySelectorAll(".spider-runtime-timeline-card").forEach((item) => {
+      item.classList.remove("is-selected");
+    });
+
+    const overview = createRuntimeOverview(trace, findSummary(trace.traceId));
+    const graphContext = createRuntimeGraphContext(overview);
+    const detail = document.getElementById("spider-runtime-node-detail");
+    if (detail) {
+      detail.innerHTML = renderRuntimeNodeDetail(graphContext);
     }
   }
 
@@ -3517,6 +4435,371 @@ button {
     }).length;
   }
 
+  function createRuntimeGraphContext(overview) {
+    if (!overview || !overview.rootSpans || !overview.rootSpans.length) {
+      return null;
+    }
+
+    const spans = flattenRuntimeSpans(overview.rootSpans);
+    const selectedRuntimeItem = findRuntimeTimelineItem(overview.rootSpans, state.runtimeSelectedItemKey);
+    const process = resolveRuntimeSelectedProcess(selectedRuntimeItem ? selectedRuntimeItem.value : null, spans)
+      || resolveRuntimeGraphProcess(spans, overview);
+    if (!process) {
+      return null;
+    }
+
+    const children = orderChildren(process);
+    const nodes = collectRuntimeGraphNodes(process, children);
+    const nodeStates = new Map(nodes.map((node) => [node.id, "not-executed"]));
+    const spanByComponentId = new Map();
+    const graphContext = {
+      process,
+      children,
+      nodes,
+      nodeStates,
+      spanByComponentId,
+      selectedRuntimeItem,
+      defaultComponentId: process.id,
+      faultComponentId: ""
+    };
+
+    for (const span of spans) {
+      const componentId = resolveRuntimeComponentId(span, graphContext);
+      if (componentId) {
+        span.resolvedComponentId = componentId;
+        spanByComponentId.set(componentId, span);
+        applyRuntimeGraphState(graphContext, componentId, span.status);
+      }
+
+      for (const marker of span.markers || []) {
+        const markerId = resolveRuntimeComponentId(marker, graphContext);
+        if (!markerId) {
+          continue;
+        }
+
+        marker.resolvedComponentId = markerId;
+        if (!spanByComponentId.has(markerId)) {
+          spanByComponentId.set(markerId, marker);
+        }
+
+        applyRuntimeGraphState(graphContext, markerId, marker.status || "Completed");
+      }
+    }
+
+    if (selectedRuntimeItem) {
+      const selectedRuntimeComponentId = resolveRuntimeComponentId(selectedRuntimeItem.value, graphContext);
+      if (selectedRuntimeComponentId) {
+        selectedRuntimeItem.value.resolvedComponentId = selectedRuntimeComponentId;
+        state.runtimeSelectedComponentId = selectedRuntimeComponentId;
+      }
+    } else if (!state.runtimeSelectedComponentId) {
+      state.runtimeSelectedComponentId = graphContext.faultComponentId
+        || findFirstExecutedRuntimeNode(graphContext)
+        || process.id;
+    }
+
+    const selectedStillExists = state.runtimeSelectedComponentId && nodeStates.has(state.runtimeSelectedComponentId);
+    graphContext.defaultComponentId = selectedStillExists
+      ? state.runtimeSelectedComponentId
+      : graphContext.faultComponentId || findFirstExecutedRuntimeNode(graphContext) || process.id;
+    return graphContext;
+  }
+
+  function resolveRuntimeSelectedProcess(selectedItem, spans) {
+    if (selectedItem) {
+      const selectedProcess = findRuntimeProcessCandidate(selectedItem);
+      if (selectedProcess) {
+        return selectedProcess;
+      }
+
+      const parentProcess = findRuntimeAncestorProcess(selectedItem, spans);
+      if (parentProcess) {
+        return parentProcess;
+      }
+    }
+
+    const selected = state.runtimeSelectedComponentId ? byId.get(state.runtimeSelectedComponentId) : null;
+    if (!selected) {
+      return null;
+    }
+
+    if (selected.kind === "spider.flow" || selected.kind === "spider.pipeline") {
+      return selected;
+    }
+
+    return findOwningProcess(selected.id);
+  }
+
+  function findRuntimeAncestorProcess(item, spans) {
+    const bySpanId = new Map((spans || []).map((span) => [span.spanId, span]));
+    let current = item && item.parentSpanId
+      ? bySpanId.get(item.parentSpanId)
+      : item && item.kind ? bySpanId.get(item.spanId) : null;
+    const visited = new Set();
+
+    while (current && !visited.has(current.spanId)) {
+      visited.add(current.spanId);
+      const process = findRuntimeProcessCandidate(current);
+      if (process) {
+        return process;
+      }
+
+      current = current.parentSpanId ? bySpanId.get(current.parentSpanId) : null;
+    }
+
+    return null;
+  }
+
+  function flattenRuntimeSpans(spans) {
+    const flattened = [];
+    const visit = (span) => {
+      flattened.push(span);
+      (span.children || []).forEach(visit);
+    };
+
+    (spans || []).forEach(visit);
+    return flattened;
+  }
+
+  function collectRuntimeGraphNodes(process, children) {
+    const nodes = [process];
+    for (const child of children || []) {
+      nodes.push(child);
+      if (child.kind !== "spider.flow-branch") {
+        continue;
+      }
+
+      for (const route of getBranchRoutes(child)) {
+        nodes.push(route);
+        for (const step of getRouteSteps(route)) {
+          nodes.push(step);
+        }
+      }
+    }
+
+    return nodes;
+  }
+
+  function resolveRuntimeGraphProcess(spans, overview) {
+    const faultSpans = spans
+      .filter((span) => normalizeStatus(span.status) === "faulted")
+      .sort((left, right) => getRuntimeGraphSpecificity(right) - getRuntimeGraphSpecificity(left));
+    const ordered = faultSpans.concat(spans.slice().sort((left, right) => getRuntimeGraphSpecificity(right) - getRuntimeGraphSpecificity(left)));
+    for (const span of ordered) {
+      const process = findRuntimeProcessCandidate(span);
+      if (process) {
+        return process;
+      }
+    }
+
+    const title = normalizeRuntimeName(overview.title);
+    return flows.concat(pipelines).find((process) => normalizeRuntimeName(process.displayName) === title)
+      || null;
+  }
+
+  function getRuntimeGraphSpecificity(item) {
+    const kind = String(item && item.componentKind || "");
+    if (kind.includes("flow-step") || kind.includes("flow-condition")) {
+      return 6;
+    }
+
+    if (kind.includes("flow-branch-route")) {
+      return 5;
+    }
+
+    if (kind.includes("flow-branch")) {
+      return 4;
+    }
+
+    if (kind === "spider.flow") {
+      return 3;
+    }
+
+    if (kind.includes("pipeline-stage")) {
+      return 2;
+    }
+
+    if (kind.includes("pipeline")) {
+      return 1;
+    }
+
+    return 0;
+  }
+
+  function findRuntimeProcessCandidate(item) {
+    if (item.componentId && byId.has(item.componentId)) {
+      const owner = findOwningProcess(item.componentId) || byId.get(item.componentId);
+      if (owner && (owner.kind === "spider.flow" || owner.kind === "spider.pipeline")) {
+        return owner;
+      }
+    }
+
+    const displayName = normalizeRuntimeName(getRuntimeDisplayName(item));
+    const rawDisplayName = normalizeRuntimeName(item.displayName);
+    const signature = normalizeRuntimeName(getRuntimeSignature(item.inputType, item.outputType));
+    const candidates = String(item.componentKind || "").includes("pipeline")
+      ? pipelines
+      : String(item.componentKind || "").includes("flow")
+        ? flows
+        : flows.concat(pipelines);
+
+    return candidates.find((process) =>
+      normalizeRuntimeName(process.displayName) === displayName ||
+      normalizeRuntimeName(process.displayName) === rawDisplayName ||
+      normalizeRuntimeName(getSignature(process)) === signature) || null;
+  }
+
+  function resolveRuntimeComponentId(item, graphContext) {
+    if (!item || !graphContext) {
+      return "";
+    }
+
+    if (item.componentId && graphContext.nodeStates.has(item.componentId)) {
+      return item.componentId;
+    }
+
+    const itemKind = String(item.componentKind || "");
+    const displayName = normalizeRuntimeName(getRuntimeDisplayName(item));
+    if (!displayName) {
+      return "";
+    }
+
+    if ((itemKind === "spider.flow" || itemKind === "spider.pipeline") &&
+        normalizeRuntimeName(graphContext.process.displayName) === displayName) {
+      return graphContext.process.id;
+    }
+
+    const candidates = graphContext.nodes.filter((node) => runtimeKindsMatch(itemKind, node.kind));
+    const exact = candidates.find((node) => normalizeRuntimeName(node.displayName) === displayName);
+    if (exact) {
+      return exact.id;
+    }
+
+    const metadataName = normalizeRuntimeName(getRuntimeMetadataValue(item, "name"));
+    if (metadataName) {
+      const metadataMatch = candidates.find((node) => normalizeRuntimeName(getMetadata(node, "name")) === metadataName);
+      if (metadataMatch) {
+        return metadataMatch.id;
+      }
+    }
+
+    return "";
+  }
+
+  function runtimeKindsMatch(runtimeKind, graphKind) {
+    if (!runtimeKind) {
+      return true;
+    }
+
+    if (runtimeKind === graphKind) {
+      return true;
+    }
+
+    if (runtimeKind === "spider.flow-step") {
+      return graphKind === "spider.flow-step";
+    }
+
+    if (runtimeKind === "spider.flow-condition") {
+      return graphKind === "spider.flow-condition" || graphKind === "spider.flow-step";
+    }
+
+    if (runtimeKind === "spider.flow-branch") {
+      return graphKind === "spider.flow-branch";
+    }
+
+    if (runtimeKind === "spider.flow-branch-route") {
+      return graphKind === "spider.flow-branch-route";
+    }
+
+    if (runtimeKind === "spider.pipeline-stage") {
+      return graphKind === "spider.pipeline-stage";
+    }
+
+    return false;
+  }
+
+  function applyRuntimeGraphState(graphContext, componentId, status) {
+    const current = graphContext.nodeStates.get(componentId) || "not-executed";
+    const next = normalizeStatus(status);
+    const resolved = next === "faulted"
+      ? "faulted"
+      : next === "cancelled"
+        ? "cancelled"
+        : next === "running" || next === "started"
+          ? "running"
+          : "completed";
+
+    graphContext.nodeStates.set(componentId, mostSevereRuntimeState(current, resolved));
+    if (resolved === "faulted" && !graphContext.faultComponentId) {
+      graphContext.faultComponentId = componentId;
+    }
+  }
+
+  function mostSevereRuntimeState(current, next) {
+    const order = {
+      "not-executed": 0,
+      completed: 1,
+      running: 2,
+      cancelled: 3,
+      faulted: 4
+    };
+
+    return (order[next] || 0) >= (order[current] || 0) ? next : current;
+  }
+
+  function findFirstExecutedRuntimeNode(graphContext) {
+    for (const node of graphContext.nodes) {
+      if ((graphContext.nodeStates.get(node.id) || "not-executed") !== "not-executed") {
+        return node.id;
+      }
+    }
+
+    return "";
+  }
+
+  function getRuntimeGraphClass(componentId, graphContext) {
+    if (!graphContext || !componentId) {
+      return "";
+    }
+
+    const status = graphContext.nodeStates.get(componentId) || "not-executed";
+    return ` is-runtime-${status}`;
+  }
+
+  function getRuntimeEdgeClass(fromId, toId, graphContext) {
+    if (!graphContext) {
+      return "";
+    }
+
+    const fromState = graphContext.nodeStates.get(fromId) || "not-executed";
+    const toState = graphContext.nodeStates.get(toId) || "not-executed";
+    if (toState === "faulted") {
+      return " is-runtime-faulted";
+    }
+
+    if (fromState !== "not-executed" && toState !== "not-executed") {
+      return " is-runtime-completed";
+    }
+
+    return " is-runtime-not-executed";
+  }
+
+  function formatRuntimeGraphState(stateValue) {
+    const value = normalizeStatus(stateValue);
+    if (value === "not-executed") {
+      return "Not run";
+    }
+
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  function normalizeRuntimeName(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "")
+      .trim();
+  }
+
   function buildRuntimeSpans(events) {
     const ordered = (events || []).slice().sort(compareRuntimeEvents);
     const bySpan = new Map();
@@ -3798,6 +5081,10 @@ button {
 
   function getStatusClass(status) {
     const value = normalizeStatus(status);
+    if (value === "not-executed") {
+      return "not-executed";
+    }
+
     if (value === "faulted" || value === "cancelled" || value === "completed" || value === "running") {
       return value;
     }
