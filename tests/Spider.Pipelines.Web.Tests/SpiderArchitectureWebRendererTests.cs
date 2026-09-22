@@ -22,7 +22,16 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("Collapse navigation", html);
             Assert.Contains("is-sidebar-collapsed", html);
             Assert.Contains("spider:architecture:sidebar-collapsed", html);
+            Assert.Contains("data-theme=\"light\"", html);
+            Assert.Contains("spider-theme-toggle", html);
+            Assert.Contains("spider-theme-toggle-dot", html);
+            Assert.Contains("spider-theme-toggle-label", html);
+            Assert.Contains("Use dark mode", html);
+            Assert.Contains("spider:architecture:theme", html);
+            Assert.Contains(".spider-shell[data-theme=\"dark\"]", html);
+            Assert.Contains("setTheme(readThemePreference())", html);
             Assert.Contains("spider-topbar", html);
+            Assert.Contains("spider-topbar-actions", html);
             Assert.Contains("data-menu-view=\"pipelines\"", html);
             Assert.Contains("data-menu-view=\"flows\"", html);
             Assert.Contains("#e6242d", html);

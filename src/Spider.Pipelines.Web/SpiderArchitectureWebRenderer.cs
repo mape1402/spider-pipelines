@@ -52,7 +52,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("</head>");
             html.AppendLine("<body>");
             html.AppendLine(
-                $"  <div id=\"spider-documentation-app\" class=\"spider-shell spider-architecture-app\" data-show-evidence=\"{BooleanAttribute(options.IncludeEvidence)}\" data-show-graph=\"{BooleanAttribute(options.IncludeGraph)}\" data-show-json=\"{BooleanAttribute(options.IncludeJsonPanel)}\" data-show-search=\"{BooleanAttribute(options.IncludeSearch)}\">");
+                $"  <div id=\"spider-documentation-app\" class=\"spider-shell spider-architecture-app\" data-theme=\"light\" data-show-evidence=\"{BooleanAttribute(options.IncludeEvidence)}\" data-show-graph=\"{BooleanAttribute(options.IncludeGraph)}\" data-show-json=\"{BooleanAttribute(options.IncludeJsonPanel)}\" data-show-search=\"{BooleanAttribute(options.IncludeSearch)}\">");
             html.AppendLine("    <aside class=\"spider-sidebar\" aria-label=\"Spider architecture navigation\">");
             html.AppendLine("      <div class=\"spider-brand\">");
             html.AppendLine("        <div class=\"spider-logo\" aria-hidden=\"true\">S</div>");
@@ -76,7 +76,10 @@ namespace Spider.Pipelines.Web
             html.AppendLine("          <button id=\"spider-sidebar-toggle\" class=\"spider-sidebar-toggle\" type=\"button\" aria-label=\"Collapse navigation\" aria-expanded=\"true\" title=\"Collapse navigation\"><span class=\"spider-sidebar-toggle-line\"></span><span class=\"spider-sidebar-toggle-line\"></span></button>");
             html.AppendLine("          <div id=\"spider-topbar-title\" class=\"spider-topbar-title\">Pipelines</div>");
             html.AppendLine("        </div>");
-            html.AppendLine("        <div class=\"spider-topbar-badge\">Generated metadata</div>");
+            html.AppendLine("        <div class=\"spider-topbar-actions\">");
+            html.AppendLine("          <button id=\"spider-theme-toggle\" class=\"spider-theme-toggle\" type=\"button\" aria-label=\"Use dark mode\" aria-pressed=\"false\" title=\"Use dark mode\"><span class=\"spider-theme-toggle-dot\" aria-hidden=\"true\"></span><span id=\"spider-theme-toggle-label\">Light</span></button>");
+            html.AppendLine("          <div class=\"spider-topbar-badge\">Generated metadata</div>");
+            html.AppendLine("        </div>");
             html.AppendLine("      </header>");
             html.AppendLine("      <main class=\"spider-main\">");
             html.AppendLine("        <section id=\"spider-content\" class=\"spider-content\" aria-live=\"polite\"></section>");
@@ -128,6 +131,15 @@ namespace Spider.Pipelines.Web
   --spider-bg: #f5f6fa;
   --spider-panel: #ffffff;
   --spider-panel-soft: #f8fafc;
+  --spider-topbar-bg: #ffffff;
+  --spider-input-bg: #ffffff;
+  --spider-graph-bg: #ffffff;
+  --spider-node-bg: #ffffff;
+  --spider-node-soft: #fbfcff;
+  --spider-tooltip-bg: rgba(17, 24, 39, 0.96);
+  --spider-tooltip-text: #ffffff;
+  --spider-tooltip-muted: #aeb8c7;
+  --spider-edge: #9aa4b2;
   --spider-line: #d8dee8;
   --spider-line-strong: #c4ccda;
   --spider-text: #111827;
@@ -151,6 +163,42 @@ namespace Spider.Pipelines.Web
   --spider-shadow: 0 8px 18px rgba(17, 24, 39, 0.06);
   --spider-radius: 8px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+}
+
+.spider-shell[data-theme="dark"] {
+  color-scheme: dark;
+  --spider-sidebar-bg: #070d1a;
+  --spider-sidebar-brand: #050914;
+  --spider-sidebar-border: #1d2638;
+  --spider-sidebar-text: #edf2ff;
+  --spider-sidebar-muted: #95a2b8;
+  --spider-sidebar-hover: rgba(230, 36, 45, 0.14);
+  --spider-sidebar-active: rgba(230, 36, 45, 0.24);
+  --spider-sidebar-active-text: #ffe3e5;
+  --spider-bg: #0e1422;
+  --spider-panel: #141c2b;
+  --spider-panel-soft: #192335;
+  --spider-topbar-bg: #101827;
+  --spider-input-bg: #0f1726;
+  --spider-graph-bg: #0f1726;
+  --spider-node-bg: #151f30;
+  --spider-node-soft: #111b2b;
+  --spider-tooltip-bg: rgba(247, 250, 255, 0.96);
+  --spider-tooltip-text: #101827;
+  --spider-tooltip-muted: #526176;
+  --spider-edge: #64748b;
+  --spider-line: #263349;
+  --spider-line-strong: #34445f;
+  --spider-text: #edf2ff;
+  --spider-muted: #9aa8bd;
+  --spider-black: #e6edf8;
+  --spider-red: #ff4651;
+  --spider-red-strong: #ff6b72;
+  --spider-red-soft: rgba(255, 70, 81, 0.14);
+  --spider-blue: #74a9ff;
+  --spider-blue-strong: #9ac0ff;
+  --spider-blue-soft: rgba(116, 169, 255, 0.14);
+  --spider-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
 
 html,
@@ -416,8 +464,8 @@ button {
   height: var(--spider-topbar-height);
   flex: 0 0 var(--spider-topbar-height);
   gap: 12px;
-  border-bottom: 1px solid #e2e3ef;
-  background: #ffffff;
+  border-bottom: 1px solid var(--spider-line);
+  background: var(--spider-topbar-bg);
   padding: 0 16px;
 }
 
@@ -437,7 +485,7 @@ button {
   flex: 0 0 auto;
   border: 1px solid var(--spider-line);
   border-radius: var(--spider-radius);
-  background: #ffffff;
+  background: var(--spider-input-bg);
   color: var(--spider-text);
   cursor: pointer;
   transition: border-color 0.12s, box-shadow 0.12s, color 0.12s;
@@ -464,6 +512,51 @@ button {
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.spider-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.spider-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-input-bg);
+  color: var(--spider-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 5px 9px;
+  transition: border-color 0.12s, box-shadow 0.12s, color 0.12s, background 0.12s;
+}
+
+.spider-theme-toggle:hover {
+  border-color: rgba(230, 36, 45, 0.36);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.08);
+  color: var(--spider-red);
+}
+
+.spider-theme-toggle-dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--spider-blue);
+  border-radius: 999px;
+  background: var(--spider-red);
+  box-shadow: inset -3px 0 0 var(--spider-input-bg);
+}
+
+.spider-shell[data-theme="dark"] .spider-theme-toggle-dot {
+  border-color: var(--spider-red);
+  background: var(--spider-blue);
+  box-shadow: inset -3px 0 0 var(--spider-panel);
 }
 
 .spider-topbar-badge {
@@ -525,7 +618,7 @@ button {
   width: 100%;
   border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--spider-input-bg);
   color: var(--spider-text);
   outline: none;
   padding: 8px 10px;
@@ -563,7 +656,7 @@ button {
   overflow: hidden;
   border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--spider-panel);
   cursor: pointer;
   padding: 0;
   text-align: left;
@@ -726,7 +819,7 @@ button {
 .spider-empty-state {
   border: 1px dashed var(--spider-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--spider-panel);
   color: var(--spider-muted);
   font-size: 0.88rem;
   padding: 18px;
@@ -735,7 +828,8 @@ button {
 .spider-back-button {
   border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--spider-input-bg);
+  color: var(--spider-text);
   cursor: pointer;
   font-size: 0.84rem;
   padding: 8px 10px;
@@ -782,7 +876,7 @@ button {
   min-width: 0;
   border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--spider-panel);
   box-shadow: var(--spider-shadow);
 }
 
@@ -944,7 +1038,7 @@ button {
   overflow: auto;
   border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--spider-graph-bg);
   padding: 16px;
 }
 
@@ -952,11 +1046,11 @@ button {
   position: fixed;
   z-index: 20;
   max-width: 240px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: rgba(17, 24, 39, 0.96);
+  background: var(--spider-tooltip-bg);
   box-shadow: 0 10px 26px rgba(17, 24, 39, 0.2);
-  color: #ffffff;
+  color: var(--spider-tooltip-text);
   font-size: 0.74rem;
   line-height: 1.35;
   opacity: 0;
@@ -973,7 +1067,7 @@ button {
 }
 
 .spider-tooltip-label {
-  color: #aeb8c7;
+  color: var(--spider-tooltip-muted);
   font-size: 0.66rem;
   font-weight: 750;
   letter-spacing: 0;
@@ -999,7 +1093,7 @@ button {
 
 .spider-edge {
   fill: none;
-  stroke: #9aa4b2;
+  stroke: var(--spider-edge);
   stroke-width: 1.35;
 }
 
@@ -1008,7 +1102,7 @@ button {
 }
 
 .spider-graph-node .spider-node-box {
-  fill: #ffffff;
+  fill: var(--spider-node-bg);
   stroke: var(--spider-line-strong);
   stroke-width: 1;
   filter: drop-shadow(0 4px 8px rgba(23, 32, 51, 0.08));
@@ -1067,7 +1161,7 @@ button {
 
 .spider-graph-node.is-route .spider-node-box,
 .spider-graph-node.is-route-step .spider-node-box {
-  fill: #fbfcff;
+  fill: var(--spider-node-soft);
 }
 
 .spider-graph-node text {
@@ -1084,7 +1178,7 @@ button {
 }
 
 .spider-graph-link .spider-link-dot {
-  fill: #ffffff;
+  fill: var(--spider-node-bg);
   stroke: var(--spider-red);
   stroke-width: 1.4;
 }
@@ -1180,7 +1274,7 @@ button {
   height: 28px;
   border: 1px solid var(--spider-line);
   border-radius: 7px;
-  background: #ffffff;
+  background: var(--spider-input-bg);
   color: var(--spider-muted);
   cursor: pointer;
   font-size: 0.8rem;
@@ -1389,8 +1483,11 @@ button {
   const pipelineCount = document.getElementById("spider-pipeline-count");
   const topbarTitle = document.getElementById("spider-topbar-title");
   const sidebarToggle = document.getElementById("spider-sidebar-toggle");
+  const themeToggle = document.getElementById("spider-theme-toggle");
+  const themeToggleLabel = document.getElementById("spider-theme-toggle-label");
   const jsonLink = document.getElementById("spider-json-link");
   const sidebarStorageKey = "spider:architecture:sidebar-collapsed";
+  const themeStorageKey = "spider:architecture:theme";
   const showGraph = root.dataset.showGraph === "true";
   const showJson = root.dataset.showJson === "true";
   const state = {
@@ -1410,6 +1507,7 @@ button {
   }
 
   setSidebarCollapsed(readSidebarCollapsedPreference());
+  setTheme(readThemePreference());
 
   document.addEventListener("click", (event) => {
     const menu = event.target.closest("[data-menu-view]");
@@ -1462,6 +1560,14 @@ button {
       const collapsed = !root.classList.contains("is-sidebar-collapsed");
       setSidebarCollapsed(collapsed);
       writeSidebarCollapsedPreference(collapsed);
+    });
+  }
+
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const nextTheme = root.dataset.theme === "dark" ? "light" : "dark";
+      setTheme(nextTheme);
+      writeThemePreference(nextTheme);
     });
   }
 
@@ -2686,6 +2792,22 @@ button {
     sidebarToggle.setAttribute("title", collapsed ? "Expand navigation" : "Collapse navigation");
   }
 
+  function setTheme(theme) {
+    const normalized = normalizeTheme(theme);
+    const isDark = normalized === "dark";
+    root.dataset.theme = normalized;
+
+    if (themeToggle) {
+      themeToggle.setAttribute("aria-label", isDark ? "Use light mode" : "Use dark mode");
+      themeToggle.setAttribute("aria-pressed", String(isDark));
+      themeToggle.setAttribute("title", isDark ? "Use light mode" : "Use dark mode");
+    }
+
+    if (themeToggleLabel) {
+      themeToggleLabel.textContent = isDark ? "Dark" : "Light";
+    }
+  }
+
   function readSidebarCollapsedPreference() {
     try {
       return window.localStorage.getItem(sidebarStorageKey) === "true";
@@ -2700,6 +2822,33 @@ button {
     } catch {
       // Ignore blocked storage; the visual state still changes for this page view.
     }
+  }
+
+  function readThemePreference() {
+    try {
+      const stored = window.localStorage.getItem(themeStorageKey);
+      if (stored === "dark" || stored === "light") {
+        return stored;
+      }
+    } catch {
+      // Ignore blocked storage and fall back to the browser preference.
+    }
+
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+
+  function writeThemePreference(theme) {
+    try {
+      window.localStorage.setItem(themeStorageKey, normalizeTheme(theme));
+    } catch {
+      // Ignore blocked storage; the visual state still changes for this page view.
+    }
+  }
+
+  function normalizeTheme(theme) {
+    return theme === "dark" ? "dark" : "light";
   }
 
   function setHash(value) {
