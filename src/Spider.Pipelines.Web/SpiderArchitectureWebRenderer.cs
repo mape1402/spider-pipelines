@@ -38,6 +38,10 @@ namespace Spider.Pipelines.Web
 
             var title = HtmlEncoder.Default.Encode(options.Title ?? "Spider Architecture");
             var manifestJson = _serializer.Serialize(manifest);
+            var runtimeJson = new SpiderRuntimeTraceWebSerializer().Serialize(
+                options.RuntimeTraceSummaries,
+                options.RuntimeTraces);
+            var runtimeEndpoint = HtmlEncoder.Default.Encode(options.RuntimeTracesEndpoint ?? string.Empty);
             var html = new StringBuilder();
 
             html.AppendLine("<!doctype html>");
@@ -52,7 +56,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("</head>");
             html.AppendLine("<body>");
             html.AppendLine(
-                $"  <div id=\"spider-documentation-app\" class=\"spider-shell spider-architecture-app\" data-theme=\"light\" data-show-evidence=\"{BooleanAttribute(options.IncludeEvidence)}\" data-show-graph=\"{BooleanAttribute(options.IncludeGraph)}\" data-show-json=\"{BooleanAttribute(options.IncludeJsonPanel)}\" data-show-search=\"{BooleanAttribute(options.IncludeSearch)}\">");
+                $"  <div id=\"spider-documentation-app\" class=\"spider-shell spider-architecture-app\" data-theme=\"light\" data-show-evidence=\"{BooleanAttribute(options.IncludeEvidence)}\" data-show-graph=\"{BooleanAttribute(options.IncludeGraph)}\" data-show-json=\"{BooleanAttribute(options.IncludeJsonPanel)}\" data-show-search=\"{BooleanAttribute(options.IncludeSearch)}\" data-show-runtime=\"{BooleanAttribute(options.IncludeRuntimeTraces)}\" data-runtime-endpoint=\"{runtimeEndpoint}\">");
             html.AppendLine("    <aside class=\"spider-sidebar\" aria-label=\"Spider architecture navigation\">");
             html.AppendLine("      <div class=\"spider-brand\">");
             html.AppendLine("        <div class=\"spider-logo\" aria-hidden=\"true\">S</div>");
@@ -65,6 +69,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("        <div class=\"spider-menu-section\">Map</div>");
             html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"pipelines\"><span class=\"spider-menu-icon pipeline\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Pipelines</span><small>Execution wrappers</small></span><strong id=\"spider-pipeline-count\">0</strong></button>");
             html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"flows\"><span class=\"spider-menu-icon flow\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Flows</span><small>Business processes</small></span><strong id=\"spider-flow-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item spider-runtime-menu-item\" type=\"button\" data-menu-view=\"runtime\"><span class=\"spider-menu-icon runtime\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Runtime</span><small>Live executions</small></span><strong id=\"spider-runtime-count\">0</strong></button>");
             html.AppendLine("      </nav>");
             html.AppendLine("      <div class=\"spider-sidebar-footer\">");
             html.AppendLine("        <button id=\"spider-json-link\" class=\"spider-json-link\" type=\"button\">Manifest JSON</button>");
@@ -87,6 +92,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("    </section>");
             html.AppendLine("  </div>");
             html.AppendLine($"  <script id=\"spider-manifest-data\" type=\"application/json\">{manifestJson}</script>");
+            html.AppendLine($"  <script id=\"spider-runtime-trace-data\" type=\"application/json\">{runtimeJson}</script>");
             html.AppendLine("  <script>");
             html.AppendLine(CreateScript());
             html.AppendLine("  </script>");
@@ -369,6 +375,14 @@ button {
 
 .spider-menu-icon.flow {
   background: linear-gradient(135deg, var(--spider-red), var(--spider-red-strong));
+}
+
+.spider-menu-icon.runtime {
+  background: linear-gradient(135deg, var(--spider-blue), var(--spider-red));
+}
+
+[data-show-runtime="false"] .spider-runtime-menu-item {
+  display: none;
 }
 
 .spider-menu-text {
@@ -682,6 +696,203 @@ button {
   background: var(--spider-black);
 }
 
+.spider-process-row.runtime .spider-process-accent {
+  background: var(--spider-blue);
+}
+
+.spider-runtime-execution-list {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.spider-runtime-execution-list::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 8px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--spider-line-strong);
+}
+
+.spider-runtime-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 96px 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 86px;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel);
+  cursor: pointer;
+  padding: 12px 14px;
+  text-align: left;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+
+.spider-runtime-row:hover {
+  border-color: rgba(29, 95, 191, 0.32);
+  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.07);
+  transform: translateY(-1px);
+}
+
+.spider-runtime-row-time {
+  display: grid;
+  gap: 3px;
+  color: var(--spider-muted);
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+.spider-runtime-row-time strong {
+  color: var(--spider-text);
+  font-size: 0.84rem;
+}
+
+.spider-runtime-dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--spider-panel);
+  border-radius: 999px;
+  background: var(--spider-muted);
+  box-shadow: 0 0 0 3px var(--spider-line);
+  z-index: 1;
+}
+
+.spider-runtime-row-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.spider-runtime-row-title {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-runtime-row-meta,
+.spider-runtime-row-fault {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+}
+
+.spider-runtime-row-fault {
+  color: var(--spider-red);
+}
+
+.spider-runtime-row-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 170px;
+}
+
+.spider-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.spider-status-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.spider-status-started,
+.spider-status-running {
+  border-color: rgba(29, 95, 191, 0.28);
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
+}
+
+.spider-status-running .spider-runtime-dot,
+.spider-runtime-row.is-running .spider-runtime-dot,
+.spider-status-running::before {
+  animation: spiderPulse 1.4s ease-in-out infinite;
+}
+
+.spider-status-completed {
+  border-color: rgba(29, 95, 191, 0.28);
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
+}
+
+.spider-status-faulted {
+  border-color: rgba(230, 36, 45, 0.34);
+  background: var(--spider-red-soft);
+  color: var(--spider-red);
+}
+
+.spider-status-cancelled {
+  border-color: rgba(189, 16, 24, 0.24);
+  background: var(--spider-red-soft);
+  color: var(--spider-red-strong);
+}
+
+.spider-runtime-row.is-running .spider-runtime-dot,
+.spider-runtime-span-card.is-running .spider-runtime-dot {
+  background: var(--spider-blue);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.16);
+}
+
+.spider-runtime-row.is-completed .spider-runtime-dot,
+.spider-runtime-span-card.is-completed .spider-runtime-dot {
+  background: var(--spider-blue);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.14);
+}
+
+.spider-runtime-row.is-faulted .spider-runtime-dot,
+.spider-runtime-span-card.is-faulted .spider-runtime-dot {
+  background: var(--spider-red);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.16);
+}
+
+.spider-runtime-row.is-cancelled .spider-runtime-dot,
+.spider-runtime-span-card.is-cancelled .spider-runtime-dot {
+  background: var(--spider-red-strong);
+  box-shadow: 0 0 0 3px rgba(189, 16, 24, 0.14);
+}
+
+@keyframes spiderPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.58;
+    transform: scale(0.84);
+  }
+}
+
 .spider-process-body {
   display: grid;
   align-content: center;
@@ -738,6 +949,11 @@ button {
   border-color: rgba(17, 24, 39, 0.16);
   background: var(--spider-panel-soft);
   color: var(--spider-black);
+}
+
+.spider-process-kind.runtime {
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
 }
 
 .spider-process-action {
@@ -1373,6 +1589,180 @@ button {
   padding: 14px;
 }
 
+.spider-runtime-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.spider-runtime-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.spider-runtime-metric {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel);
+  padding: 10px 12px;
+}
+
+.spider-runtime-metric span {
+  color: var(--spider-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.spider-runtime-metric strong {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-runtime-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.spider-runtime-span {
+  display: grid;
+  gap: 6px;
+  padding-left: calc(var(--runtime-depth, 0) * 18px);
+}
+
+.spider-runtime-span-card,
+.spider-runtime-event {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel);
+  padding: 9px 10px;
+}
+
+.spider-runtime-span-card.is-faulted,
+.spider-runtime-event.is-faulted {
+  border-color: rgba(230, 36, 45, 0.38);
+  background: var(--spider-red-soft);
+}
+
+.spider-runtime-span-card.is-running,
+.spider-runtime-event.is-running {
+  border-color: rgba(29, 95, 191, 0.34);
+  background: var(--spider-blue-soft);
+}
+
+.spider-runtime-span-card.is-completed {
+  border-color: rgba(29, 95, 191, 0.22);
+}
+
+.spider-runtime-span-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.spider-runtime-span-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.spider-runtime-span-title strong {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-runtime-span-meta,
+.spider-runtime-time,
+.spider-runtime-meta {
+  color: var(--spider-muted);
+  font-size: 0.75rem;
+}
+
+.spider-runtime-span-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spider-runtime-span-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.spider-runtime-marker-list {
+  display: grid;
+  gap: 5px;
+  margin-left: 27px;
+}
+
+.spider-runtime-marker {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+  font-size: 0.77rem;
+  padding: 7px 9px;
+}
+
+.spider-runtime-marker .spider-runtime-dot {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  box-shadow: none;
+}
+
+.spider-runtime-raw {
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel);
+}
+
+.spider-runtime-raw summary {
+  cursor: pointer;
+  color: var(--spider-text);
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 11px 13px;
+}
+
+.spider-runtime-raw .spider-runtime-timeline {
+  border-top: 1px solid var(--spider-line);
+  padding: 12px;
+}
+
+.spider-runtime-name {
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .spider-hidden {
   display: none !important;
 }
@@ -1473,7 +1863,9 @@ button {
   const root = document.getElementById("spider-documentation-app");
   const content = document.getElementById("spider-content");
   const manifestElement = document.getElementById("spider-manifest-data");
+  const runtimeElement = document.getElementById("spider-runtime-trace-data");
   const manifest = JSON.parse(manifestElement.textContent || "{}");
+  let runtimeData = JSON.parse(runtimeElement.textContent || "{\"summaries\":[],\"traces\":[]}");
   const components = manifest.components || [];
   const relations = manifest.relations || [];
   const byId = new Map(components.map((component) => [component.id, component]));
@@ -1481,6 +1873,7 @@ button {
   const pipelines = components.filter((component) => component.kind === "spider.pipeline").sort(compareByName);
   const flowCount = document.getElementById("spider-flow-count");
   const pipelineCount = document.getElementById("spider-pipeline-count");
+  const runtimeCount = document.getElementById("spider-runtime-count");
   const topbarTitle = document.getElementById("spider-topbar-title");
   const sidebarToggle = document.getElementById("spider-sidebar-toggle");
   const themeToggle = document.getElementById("spider-theme-toggle");
@@ -1490,17 +1883,25 @@ button {
   const themeStorageKey = "spider:architecture:theme";
   const showGraph = root.dataset.showGraph === "true";
   const showJson = root.dataset.showJson === "true";
+  const showRuntime = root.dataset.showRuntime === "true";
+  const runtimeEndpoint = root.dataset.runtimeEndpoint || "";
   const state = {
     view: "pipelines",
     mode: "list",
     processId: "",
     nodeId: "",
     query: "",
+    runtimeTraceId: "",
+    runtimeTraceSignature: "",
+    runtimeListSignature: "",
     inspectorCollapsed: false
   };
 
   flowCount.textContent = String(flows.length);
   pipelineCount.textContent = String(pipelines.length);
+  if (runtimeCount) {
+    runtimeCount.textContent = String((runtimeData.summaries || []).length);
+  }
 
   if (!showJson && jsonLink) {
     jsonLink.classList.add("spider-hidden");
@@ -1519,6 +1920,12 @@ button {
     const process = event.target.closest("[data-open-process]");
     if (process) {
       openProcess(process.getAttribute("data-open-process"));
+      return;
+    }
+
+    const trace = event.target.closest("[data-open-trace]");
+    if (trace) {
+      openTrace(trace.getAttribute("data-open-trace"));
       return;
     }
 
@@ -1579,14 +1986,23 @@ button {
     renderList(state.view);
   }
 
+  if (showRuntime && runtimeEndpoint) {
+    window.setInterval(refreshRuntimeData, 2500);
+  }
+
   function openFromHash() {
     const hash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ""));
     if (!hash) {
       return;
     }
 
-    if (hash === "flows" || hash === "pipelines") {
+    if (hash === "flows" || hash === "pipelines" || hash === "runtime") {
       showList(hash, true);
+      return;
+    }
+
+    if (hash.startsWith("runtime:")) {
+      openTrace(hash.substring("runtime:".length), true);
       return;
     }
 
@@ -1602,7 +2018,9 @@ button {
   }
 
   function showList(view, skipHash) {
-    state.view = view === "flows" ? "flows" : "pipelines";
+    state.view = view === "runtime" && showRuntime
+      ? "runtime"
+      : view === "flows" ? "flows" : "pipelines";
     state.mode = "list";
     state.processId = "";
     state.nodeId = "";
@@ -1616,6 +2034,11 @@ button {
   }
 
   function renderList(view) {
+    if (view === "runtime") {
+      renderRuntimeList();
+      return;
+    }
+
     const items = view === "flows" ? flows : pipelines;
     const title = view === "flows" ? "Flows" : "Pipelines";
     const description = view === "flows"
@@ -1649,6 +2072,242 @@ button {
         document.getElementById(listId).innerHTML = renderProcessRows(items);
       });
     }
+  }
+
+  function renderRuntimeList() {
+    const summaries = runtimeData.summaries || [];
+    state.runtimeListSignature = createRuntimeListSignature(summaries);
+    setActiveMenu("runtime");
+    setTopbarTitle("Runtime traces");
+
+    content.innerHTML = `
+      <div class="spider-list-view">
+        <header class="spider-view-header">
+          <div>
+            <h1 class="spider-view-title">Runtime traces</h1>
+            <p class="spider-view-description">Recent Spider executions captured while the application runs.</p>
+          </div>
+          <label class="spider-search" aria-label="Search runtime traces">
+            <input id="spider-search" type="search" autocomplete="off" placeholder="Search traces" value="${escapeAttribute(state.query)}" />
+          </label>
+        </header>
+        <div id="spider-runtime-list" class="spider-runtime-execution-list">
+          ${renderRuntimeRows(summaries)}
+        </div>
+      </div>`;
+
+    const search = document.getElementById("spider-search");
+    if (search) {
+      search.addEventListener("input", () => {
+        state.query = search.value.trim().toLowerCase();
+        document.getElementById("spider-runtime-list").innerHTML = renderRuntimeRows(runtimeData.summaries || []);
+      });
+    }
+  }
+
+  function renderRuntimeRows(items) {
+    const matches = (items || []).filter((item) => {
+      if (!state.query) {
+        return true;
+      }
+
+      return [item.traceId, item.rootDisplayName, item.requestType, item.responseType, item.status]
+        .some((value) => String(value || "").toLowerCase().includes(state.query));
+    });
+
+    if (matches.length === 0) {
+      return `<div class="spider-empty-list">No runtime traces found.</div>`;
+    }
+
+    return matches.map((item) => {
+      const overview = createRuntimeOverview(getTraceForSummary(item), item);
+      const status = overview.status || item.status || "Started";
+      const statusClass = getStatusClass(status);
+      const fault = overview.firstFault ? `
+        <span class="spider-runtime-row-fault">${escapeHtml(overview.firstFault)}</span>` : "";
+
+      return `
+      <button class="spider-runtime-row is-${escapeAttribute(statusClass)}" type="button" data-open-trace="${escapeAttribute(item.traceId)}">
+        <span class="spider-runtime-row-time">
+          <strong>${escapeHtml(formatTime(item.startedAt))}</strong>
+          <span>${escapeHtml(formatDate(item.startedAt))}</span>
+        </span>
+        <span class="spider-runtime-dot" aria-hidden="true"></span>
+        <span class="spider-runtime-row-body">
+          <span class="spider-process-tags">
+            ${renderStatusChip(status)}
+            <span class="spider-count-pill">${escapeHtml(formatDuration(overview.durationMs))}</span>
+          </span>
+          <span class="spider-runtime-row-title">${escapeHtml(overview.title)}</span>
+          <span class="spider-runtime-row-meta">
+            <span>${escapeHtml(overview.rootKind)}</span>
+            ${overview.title === overview.signature ? "" : `<span>${escapeHtml(overview.signature)}</span>`}
+            <span>${escapeHtml(overview.shortTraceId)}</span>
+          </span>
+          ${fault}
+        </span>
+        <span class="spider-runtime-row-stats">
+          <span class="spider-count-pill">${escapeHtml(String(overview.spanCount))} spans</span>
+          <span class="spider-count-pill">${escapeHtml(String(overview.eventCount))} events</span>
+          ${overview.faultCount ? `<span class="spider-count-pill">${escapeHtml(String(overview.faultCount))} faults</span>` : ""}
+          <span class="spider-process-arrow" aria-hidden="true">↗</span>
+        </span>
+      </button>`;
+    }).join("");
+  }
+
+  function openTrace(traceId, skipHash) {
+    const trace = (runtimeData.traces || []).find((item) => item.traceId === traceId);
+    if (!trace) {
+      return;
+    }
+
+    const signature = createRuntimeTraceSignature(trace);
+    if (skipHash && state.runtimeTraceId === traceId && state.runtimeTraceSignature === signature) {
+      return;
+    }
+
+    state.view = "runtime";
+    state.mode = "trace";
+    state.runtimeTraceId = traceId;
+    state.runtimeTraceSignature = signature;
+    if (!skipHash) {
+      setHash("runtime:" + traceId);
+    }
+
+    if (skipHash) {
+      preserveMainScroll(() => renderTraceDetail(trace));
+    } else {
+      renderTraceDetail(trace);
+      resetMainScroll();
+    }
+  }
+
+  function renderTraceDetail(trace) {
+    const overview = createRuntimeOverview(trace, findSummary(trace.traceId));
+    setActiveMenu("runtime");
+    setTopbarTitle(trace.traceId);
+
+    content.innerHTML = `
+      <article class="spider-runtime-detail">
+        <header class="spider-detail-toolbar">
+          <div>
+            <button class="spider-back-button" type="button" data-back-list>Back to Runtime</button>
+            <div class="spider-detail-actions">
+              ${renderStatusChip(overview.status)}
+              <span class="spider-chip">${escapeHtml(formatDuration(overview.durationMs))}</span>
+            </div>
+            <h1 class="spider-detail-title">${escapeHtml(overview.title)}</h1>
+            <p class="spider-detail-subtitle">${escapeHtml(overview.rootKind)} · ${escapeHtml(overview.signature)} · ${escapeHtml(overview.shortTraceId)}</p>
+          </div>
+        </header>
+        <section class="spider-runtime-overview">
+          ${renderRuntimeMetric("Started", formatDateTime(overview.startedAt))}
+          ${renderRuntimeMetric("Finished", overview.completedAt ? formatDateTime(overview.completedAt) : "Still running")}
+          ${renderRuntimeMetric("Duration", formatDuration(overview.durationMs))}
+          ${renderRuntimeMetric("Spans", String(overview.spanCount))}
+          ${renderRuntimeMetric("Events", String(overview.eventCount))}
+          ${renderRuntimeMetric("Faults", String(overview.faultCount))}
+          ${renderRuntimeMetric("Flows", String(overview.flowCount))}
+          ${renderRuntimeMetric("Boundaries", String(overview.boundaryCount))}
+        </section>
+        <section class="spider-panel">
+          <div class="spider-panel-header">
+            <h2>Execution timeline</h2>
+            <span class="spider-panel-note">Started paired with terminal events</span>
+          </div>
+          <div class="spider-runtime-timeline">
+            ${overview.rootSpans.length ? overview.rootSpans.map((span) => renderRuntimeSpan(span, 0)).join("") : renderRuntimeRawEvents(trace)}
+          </div>
+        </section>
+        <details class="spider-runtime-raw">
+          <summary>Raw events</summary>
+          <div class="spider-runtime-timeline">
+            ${renderRuntimeRawEvents(trace)}
+          </div>
+        </details>
+      </article>`;
+  }
+
+  function renderRuntimeMetric(label, value) {
+    return `
+      <div class="spider-runtime-metric">
+        <span>${escapeHtml(label)}</span>
+        <strong title="${escapeAttribute(value)}">${escapeHtml(value)}</strong>
+      </div>`;
+  }
+
+  function renderRuntimeSpan(span, depth) {
+    const statusClass = getStatusClass(span.status);
+    const markers = span.markers.length
+      ? `<div class="spider-runtime-marker-list">${span.markers.map(renderRuntimeMarker).join("")}</div>`
+      : "";
+    const children = span.children.length
+      ? span.children.map((child) => renderRuntimeSpan(child, depth + 1)).join("")
+      : "";
+    const link = span.componentId && byId.has(span.componentId)
+      ? `<button class="spider-related-button" type="button" data-open-process="${escapeAttribute(span.componentId)}"><span class="spider-related-label">Open component</span><span class="spider-related-name">${escapeHtml(byId.get(span.componentId).displayName || span.componentId)}</span></button>`
+      : "";
+
+    return `
+      <div class="spider-runtime-span" style="--runtime-depth: ${escapeAttribute(String(depth))}">
+        <div class="spider-runtime-span-card is-${escapeAttribute(statusClass)}">
+          <span class="spider-runtime-dot" aria-hidden="true"></span>
+          <span class="spider-runtime-span-main">
+            <span class="spider-runtime-span-title">
+              <strong>${escapeHtml(span.displayName)}</strong>
+              ${renderStatusChip(span.status)}
+            </span>
+            <span class="spider-runtime-span-meta">
+              <span>${escapeHtml(span.kindLabel)}</span>
+              <span>${escapeHtml(span.operation || "operation")}</span>
+              <span>${escapeHtml(formatTime(span.startedAt))} -> ${escapeHtml(span.completedAt ? formatTime(span.completedAt) : "running")}</span>
+              ${span.exception ? `<span>${escapeHtml(span.exception.message)}</span>` : ""}
+            </span>
+            ${link}
+          </span>
+          <span class="spider-runtime-span-actions">
+            <span class="spider-count-pill">${escapeHtml(formatDuration(span.durationMs))}</span>
+          </span>
+        </div>
+        ${markers}
+        ${children}
+      </div>`;
+  }
+
+  function renderRuntimeMarker(event) {
+    return `
+      <div class="spider-runtime-marker is-${escapeAttribute(getStatusClass(event.status))}">
+        <span class="spider-runtime-dot" aria-hidden="true"></span>
+        <span>
+          <span class="spider-runtime-name">${escapeHtml(event.displayName || event.operation || event.kind)}</span>
+          <span class="spider-runtime-meta">${escapeHtml(event.kind)} · ${escapeHtml(event.operation || "")}</span>
+        </span>
+        <span class="spider-runtime-time">${escapeHtml(formatTime(event.timestamp))}</span>
+      </div>`;
+  }
+
+  function renderRuntimeRawEvents(trace) {
+    return (trace.events || []).map(renderRuntimeEvent).join("");
+  }
+
+  function renderRuntimeEvent(event) {
+    const statusClass = String(event.status || "").toLowerCase();
+    const link = event.componentId && byId.has(event.componentId)
+      ? `<button class="spider-related-button" type="button" data-open-process="${escapeAttribute(event.componentId)}"><span class="spider-related-label">Open component</span><span class="spider-related-name">${escapeHtml(byId.get(event.componentId).displayName || event.componentId)}</span></button>`
+      : "";
+
+    return `
+      <div class="spider-runtime-event is-${escapeAttribute(statusClass)}">
+        <span class="spider-runtime-dot" aria-hidden="true"></span>
+        <span>
+          <span class="spider-runtime-name">${escapeHtml(event.displayName || event.operation || event.kind)}</span>
+          <span class="spider-runtime-meta">${escapeHtml(formatTime(event.timestamp))} · ${escapeHtml(event.kind)} · ${escapeHtml(event.operation || "")}</span>
+          ${event.exception ? `<span class="spider-runtime-meta">${escapeHtml(event.exception.message)}</span>` : ""}
+          ${link}
+        </span>
+        ${renderStatusChip(event.status || "Started")}
+      </div>`;
   }
 
   function renderProcessRows(items) {
@@ -2728,6 +3387,403 @@ button {
       .join("");
   }
 
+  function createRuntimeOverview(trace, summary) {
+    const events = trace && Array.isArray(trace.events) ? trace.events : [];
+    const spans = buildRuntimeSpans(events);
+    const rootSpans = spans.filter((span) => !span.parentSpanId || !spans.some((candidate) => candidate.spanId === span.parentSpanId));
+    const firstEvent = events[0] || null;
+    const rootSpan = rootSpans[0] || spans[0] || null;
+    const rootEvent = rootSpan ? rootSpan.startEvent || rootSpan.terminalEvent : firstEvent;
+    const status = trace && trace.status ? trace.status : summary && summary.status ? summary.status : rootSpan && rootSpan.status ? rootSpan.status : "Started";
+    const startedAt = trace && trace.startedAt ? trace.startedAt : summary && summary.startedAt ? summary.startedAt : rootEvent && rootEvent.timestamp;
+    const completedAt = trace && trace.completedAt ? trace.completedAt : summary && summary.completedAt ? summary.completedAt : rootSpan && rootSpan.completedAt;
+    const durationMs = trace && trace.durationMs !== undefined && trace.durationMs !== null
+      ? trace.durationMs
+      : summary && summary.durationMs !== undefined && summary.durationMs !== null
+        ? summary.durationMs
+        : calculateDurationMs(startedAt, completedAt);
+    const inputType = summary && summary.requestType ? summary.requestType : rootEvent && rootEvent.inputType;
+    const outputType = summary && summary.responseType ? summary.responseType : rootEvent && rootEvent.outputType;
+    const faultEvents = events.filter((event) => event.exception || normalizeStatus(event.status) === "faulted");
+    const firstFault = faultEvents.length && faultEvents[0].exception ? faultEvents[0].exception.message : "";
+
+    return {
+      trace,
+      summary,
+      rootSpans,
+      title: summary && summary.rootDisplayName
+        ? summary.rootDisplayName
+        : rootEvent && rootEvent.displayName
+          ? rootEvent.displayName
+          : trace && trace.traceId
+            ? trace.traceId
+            : summary && summary.traceId
+              ? summary.traceId
+              : "Runtime trace",
+      status,
+      startedAt,
+      completedAt,
+      durationMs,
+      signature: getRuntimeSignature(inputType, outputType),
+      rootKind: rootSpan && rootSpan.kindLabel ? rootSpan.kindLabel : "Runtime",
+      shortTraceId: shortTraceId(trace && trace.traceId ? trace.traceId : summary && summary.traceId),
+      spanCount: spans.length,
+      eventCount: events.length || (summary && summary.eventCount) || 0,
+      faultCount: faultEvents.length,
+      flowCount: countRuntimeSpans(spans, "flow"),
+      boundaryCount: countRuntimeSpans(spans, "boundary"),
+      firstFault
+    };
+  }
+
+  function countRuntimeSpans(spans, kind) {
+    return spans.filter((span) => {
+      const componentKind = String(span.componentKind || "");
+      if (kind === "flow") {
+        return componentKind === "spider.flow";
+      }
+
+      if (kind === "boundary") {
+        return componentKind.includes("boundary");
+      }
+
+      return componentKind === kind;
+    }).length;
+  }
+
+  function buildRuntimeSpans(events) {
+    const ordered = (events || []).slice().sort(compareRuntimeEvents);
+    const bySpan = new Map();
+
+    for (const event of ordered) {
+      if (!event.spanId) {
+        continue;
+      }
+
+      const span = ensureRuntimeSpan(bySpan, event);
+      if (isRuntimeStartEvent(event) && !span.startEvent) {
+        span.startEvent = event;
+      } else if (isRuntimeTerminalEvent(event)) {
+        span.terminalEvent = event;
+      } else {
+        span.markers.push(event);
+      }
+
+      if (event.exception && !span.exception) {
+        span.exception = event.exception;
+      }
+    }
+
+    const spans = Array.from(bySpan.values()).map((span) => finalizeRuntimeSpan(span));
+    const byId = new Map(spans.map((span) => [span.spanId, span]));
+
+    for (const span of spans) {
+      const parent = span.parentSpanId ? byId.get(span.parentSpanId) : null;
+      if (parent && parent !== span) {
+        parent.children.push(span);
+      }
+    }
+
+    for (const span of spans) {
+      span.children.sort(compareRuntimeSpans);
+      span.markers.sort(compareRuntimeEvents);
+    }
+
+    return spans.sort(compareRuntimeSpans);
+  }
+
+  function ensureRuntimeSpan(bySpan, event) {
+    let span = bySpan.get(event.spanId);
+    if (span) {
+      if (!span.parentSpanId && event.parentSpanId) {
+        span.parentSpanId = event.parentSpanId;
+      }
+
+      return span;
+    }
+
+    span = {
+      traceId: event.traceId,
+      spanId: event.spanId,
+      parentSpanId: event.parentSpanId || "",
+      componentId: event.componentId || "",
+      componentKind: event.componentKind || "",
+      displayName: event.displayName || event.operation || event.kind || "Runtime operation",
+      operation: event.operation || "",
+      inputType: event.inputType || "",
+      outputType: event.outputType || "",
+      startEvent: null,
+      terminalEvent: null,
+      markers: [],
+      children: [],
+      exception: event.exception || null
+    };
+    bySpan.set(event.spanId, span);
+    return span;
+  }
+
+  function finalizeRuntimeSpan(span) {
+    const start = span.startEvent;
+    const terminal = span.terminalEvent;
+    const representative = start || terminal || span.markers[0] || {};
+
+    span.componentId = span.componentId || representative.componentId || "";
+    span.componentKind = span.componentKind || representative.componentKind || "";
+    span.displayName = representative.displayName || span.displayName || "Runtime operation";
+    span.operation = representative.operation || span.operation || "";
+    span.kindLabel = getRuntimeKindLabel(span.componentKind);
+    span.status = terminal && terminal.status
+      ? terminal.status
+      : start && start.status
+        ? start.status
+        : representative.status || "Started";
+    span.startedAt = start && start.timestamp ? start.timestamp : representative.timestamp;
+    span.completedAt = terminal && terminal.timestamp ? terminal.timestamp : "";
+    span.durationMs = terminal && terminal.durationMs !== undefined && terminal.durationMs !== null
+      ? terminal.durationMs
+      : calculateDurationMs(span.startedAt, span.completedAt);
+    span.exception = span.exception || terminal && terminal.exception || null;
+    return span;
+  }
+
+  function compareRuntimeSpans(left, right) {
+    return compareRuntimeValues(left.startedAt, right.startedAt);
+  }
+
+  function compareRuntimeEvents(left, right) {
+    return compareRuntimeValues(left.timestamp, right.timestamp);
+  }
+
+  function compareRuntimeValues(left, right) {
+    const leftTime = new Date(left || 0).getTime();
+    const rightTime = new Date(right || 0).getTime();
+    return leftTime - rightTime;
+  }
+
+  function isRuntimeStartEvent(event) {
+    const kind = String(event.kind || "");
+    return kind === "TraceStarted" || kind.endsWith("Started");
+  }
+
+  function isRuntimeTerminalEvent(event) {
+    const status = normalizeStatus(event.status);
+    if (status === "completed" || status === "faulted" || status === "cancelled") {
+      return !isRuntimeStartEvent(event);
+    }
+
+    const kind = String(event.kind || "");
+    return kind.endsWith("Completed") || kind.endsWith("Faulted") || kind.endsWith("Cancelled");
+  }
+
+  function getRuntimeKindLabel(kind) {
+    const value = String(kind || "");
+    if (value.includes("pipeline-stage")) {
+      return "Pipeline stage";
+    }
+
+    if (value.includes("pipeline")) {
+      return "Pipeline";
+    }
+
+    if (value.includes("boundary")) {
+      return "Boundary";
+    }
+
+    if (value.includes("flow-branch-route")) {
+      return "Branch route";
+    }
+
+    if (value.includes("flow-branch")) {
+      return "Branch";
+    }
+
+    if (value.includes("flow-condition")) {
+      return "Condition";
+    }
+
+    if (value.includes("flow-step")) {
+      return "Step";
+    }
+
+    if (value.includes("flow")) {
+      return "Flow";
+    }
+
+    return "Operation";
+  }
+
+  function getRuntimeSignature(inputType, outputType) {
+    const input = shortName(inputType || "");
+    const output = shortName(outputType || "");
+    if (input && output) {
+      return `${input} -> ${output}`;
+    }
+
+    return input || output || "No request metadata";
+  }
+
+  function getTraceForSummary(summary) {
+    return summary && summary.traceId
+      ? (runtimeData.traces || []).find((trace) => trace.traceId === summary.traceId) || null
+      : null;
+  }
+
+  function findSummary(traceId) {
+    return (runtimeData.summaries || []).find((summary) => summary.traceId === traceId) || null;
+  }
+
+  function renderStatusChip(status) {
+    const value = status || "Started";
+    return `<span class="spider-status-chip spider-status-${escapeAttribute(getStatusClass(value))}">${escapeHtml(value)}</span>`;
+  }
+
+  function getStatusClass(status) {
+    const value = normalizeStatus(status);
+    if (value === "faulted" || value === "cancelled" || value === "completed" || value === "running") {
+      return value;
+    }
+
+    return "started";
+  }
+
+  function normalizeStatus(status) {
+    return String(status || "Started").toLowerCase();
+  }
+
+  function calculateDurationMs(startedAt, completedAt) {
+    if (!startedAt || !completedAt) {
+      return null;
+    }
+
+    const start = new Date(startedAt).getTime();
+    const end = new Date(completedAt).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end)) {
+      return null;
+    }
+
+    return Math.max(0, end - start);
+  }
+
+  async function refreshRuntimeData() {
+    try {
+      const response = await fetch(runtimeEndpoint, { headers: { "accept": "application/json" } });
+      if (!response.ok) {
+        return;
+      }
+
+      runtimeData = await response.json();
+      if (runtimeCount) {
+        runtimeCount.textContent = String((runtimeData.summaries || []).length);
+      }
+
+      if (state.view === "runtime" && state.mode === "list") {
+        refreshRuntimeListRows();
+      } else if (state.view === "runtime" && state.mode === "trace") {
+        const hash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ""));
+        const traceId = hash.startsWith("runtime:") ? hash.substring("runtime:".length) : "";
+        if (traceId) {
+          openTrace(traceId, true);
+        }
+      }
+    } catch {
+      // Runtime refresh is best-effort; stale UI data is safer than breaking navigation.
+    }
+  }
+
+  function refreshRuntimeListRows() {
+    const summaries = runtimeData.summaries || [];
+    const signature = createRuntimeListSignature(summaries);
+    if (state.runtimeListSignature === signature) {
+      return;
+    }
+
+    state.runtimeListSignature = signature;
+    const list = document.getElementById("spider-runtime-list");
+    if (list) {
+      list.innerHTML = renderRuntimeRows(summaries);
+    }
+  }
+
+  function createRuntimeListSignature(summaries) {
+    return (summaries || [])
+      .map((item) => [
+        item.traceId,
+        item.status,
+        item.eventCount,
+        item.durationMs,
+        item.completedAt
+      ].join("|"))
+      .join(";");
+  }
+
+  function createRuntimeTraceSignature(trace) {
+    return [
+      trace.traceId,
+      trace.status,
+      trace.durationMs,
+      (trace.events || []).length,
+      (trace.events || []).map((item) => `${item.spanId}:${item.kind}:${item.status}:${item.timestamp}`).join("|")
+    ].join(";");
+  }
+
+  function getTraceTitle(trace) {
+    const first = (trace.events || [])[0];
+    return first ? first.displayName || first.operation || trace.traceId : trace.traceId;
+  }
+
+  function formatDuration(value) {
+    if (value === null || value === undefined) {
+      return "running";
+    }
+
+    const milliseconds = Number(value);
+    if (!Number.isFinite(milliseconds)) {
+      return "running";
+    }
+
+    return milliseconds < 1000
+      ? `${Math.round(milliseconds)} ms`
+      : `${(milliseconds / 1000).toFixed(2)} s`;
+  }
+
+  function formatTime(value) {
+    if (!value) {
+      return "";
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? String(value)
+      : date.toLocaleTimeString();
+  }
+
+  function formatDate(value) {
+    if (!value) {
+      return "";
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? String(value)
+      : date.toLocaleDateString();
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return "Not available";
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? String(value)
+      : `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  }
+
+  function shortTraceId(value) {
+    const text = String(value || "");
+    return text.length > 12 ? `Trace ${text.slice(0, 12)}` : text || "Trace";
+  }
+
   function compareByName(left, right) {
     return (left.displayName || left.id).localeCompare(right.displayName || right.id);
   }
@@ -2862,6 +3918,16 @@ button {
     }
 
     window.scrollTo(0, 0);
+  }
+
+  function preserveMainScroll(action) {
+    const main = root.querySelector(".spider-main");
+    const top = main ? main.scrollTop : 0;
+    action();
+
+    if (main) {
+      main.scrollTop = top;
+    }
   }
 
   function escapeHtml(value) {

@@ -6,6 +6,11 @@ namespace Spider.Pipelines.Flows.Internals
     internal interface IFlowStep
     {
         /// <summary>
+        /// Gets the runtime tracing descriptor for the step.
+        /// </summary>
+        FlowStepDescriptor Descriptor { get; }
+
+        /// <summary>
         /// Executes the step.
         /// </summary>
         /// <param name="state">The flow execution state.</param>

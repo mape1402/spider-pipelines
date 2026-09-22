@@ -3,6 +3,7 @@ namespace Spider.Pipelines.Core.Internals
     using Microsoft.Extensions.DependencyInjection;
     using Spider.Pipelines.Flows;
     using Spider.Pipelines.Flows.Internals;
+    using Spider.Pipelines.RuntimeTracing;
 
     /// <summary>
     /// Provides functionality to initialize service bridges and compose business flows.
@@ -26,10 +27,14 @@ namespace Spider.Pipelines.Core.Internals
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TRequest> ComposeFlow<TRequest>(string name)
-            => new SpiderFlowBuilder<TRequest, TRequest>(new FlowBuilderState(name));
+            => new SpiderFlowBuilder<TRequest, TRequest>(
+                new FlowBuilderState(name),
+                _serviceProvider.GetService<ISpiderRuntimeTracer>());
 
         /// <inheritdoc/>
         public ISpiderFlowBuilder<TRequest, TRequest, TResponse> ComposeFlow<TRequest, TResponse>(string name)
-            => new SpiderFlowBuilder<TRequest, TRequest, TResponse>(new FlowBuilderState(name));
+            => new SpiderFlowBuilder<TRequest, TRequest, TResponse>(
+                new FlowBuilderState(name),
+                _serviceProvider.GetService<ISpiderRuntimeTracer>());
     }
 }

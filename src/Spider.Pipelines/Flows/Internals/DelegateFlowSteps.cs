@@ -14,7 +14,15 @@ namespace Spider.Pipelines.Flows.Internals
         public ActiveTransformStep(Func<TCurrent, CancellationToken, Task<TNext>> step)
         {
             _step = step ?? throw new ArgumentNullException(nameof(step));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                step,
+                "Then",
+                "spider.flow-step",
+                typeof(TCurrent),
+                typeof(TNext));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public async Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {
@@ -34,7 +42,15 @@ namespace Spider.Pipelines.Flows.Internals
         public ActiveEffectStep(Func<TCurrent, CancellationToken, Task> step)
         {
             _step = step ?? throw new ArgumentNullException(nameof(step));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                step,
+                "Then",
+                "spider.flow-step",
+                typeof(TCurrent),
+                typeof(TCurrent));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
             => _step((TCurrent)state.ActiveValue, cancellationToken);
@@ -52,7 +68,15 @@ namespace Spider.Pipelines.Flows.Internals
         public HistoryTransformStep(Func<TValue, CancellationToken, Task<TNext>> step)
         {
             _step = step ?? throw new ArgumentNullException(nameof(step));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                step,
+                "ThenWith",
+                "spider.flow-step",
+                typeof(TValue),
+                typeof(TNext));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public async Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {
@@ -72,7 +96,15 @@ namespace Spider.Pipelines.Flows.Internals
         public HistoryEffectStep(Func<TValue, CancellationToken, Task> step)
         {
             _step = step ?? throw new ArgumentNullException(nameof(step));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                step,
+                "ThenWith",
+                "spider.flow-step",
+                typeof(TValue),
+                typeof(TValue));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
             => _step(state.Resolve<TValue>(), cancellationToken);
@@ -91,7 +123,15 @@ namespace Spider.Pipelines.Flows.Internals
         public HistoryTransformStep(Func<TValue1, TValue2, CancellationToken, Task<TNext>> step)
         {
             _step = step ?? throw new ArgumentNullException(nameof(step));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                step,
+                "ThenWith",
+                "spider.flow-step",
+                typeof(TValue1),
+                typeof(TNext));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public async Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {
@@ -112,7 +152,15 @@ namespace Spider.Pipelines.Flows.Internals
         public HistoryEffectStep(Func<TValue1, TValue2, CancellationToken, Task> step)
         {
             _step = step ?? throw new ArgumentNullException(nameof(step));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                step,
+                "ThenWith",
+                "spider.flow-step",
+                typeof(TValue1),
+                typeof(TValue2));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
             => _step(state.Resolve<TValue1>(), state.Resolve<TValue2>(), cancellationToken);
@@ -129,7 +177,15 @@ namespace Spider.Pipelines.Flows.Internals
         public StopContinueIfStep(Func<TCurrent, bool> condition)
         {
             _condition = condition ?? throw new ArgumentNullException(nameof(condition));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                condition,
+                "ContinueIf",
+                "spider.flow-condition",
+                typeof(TCurrent),
+                typeof(TCurrent));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {
@@ -153,7 +209,15 @@ namespace Spider.Pipelines.Flows.Internals
         {
             _condition = condition ?? throw new ArgumentNullException(nameof(condition));
             _otherwise = otherwise ?? throw new ArgumentNullException(nameof(otherwise));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                condition,
+                "ContinueIf",
+                "spider.flow-condition",
+                typeof(TCurrent),
+                typeof(TCurrent));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {
@@ -178,7 +242,15 @@ namespace Spider.Pipelines.Flows.Internals
         {
             _condition = condition ?? throw new ArgumentNullException(nameof(condition));
             _otherwise = otherwise ?? throw new ArgumentNullException(nameof(otherwise));
+            Descriptor = FlowStepDescriptor.FromDelegate(
+                condition,
+                "ContinueIf",
+                "spider.flow-condition",
+                typeof(TCurrent),
+                typeof(TResponse));
         }
+
+        public FlowStepDescriptor Descriptor { get; }
 
         public async Task ExecuteAsync(FlowExecutionState state, CancellationToken cancellationToken)
         {

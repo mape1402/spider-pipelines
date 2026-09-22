@@ -1,8 +1,10 @@
-﻿namespace Spider.Pipelines.Core.Internals
+namespace Spider.Pipelines.Core.Internals
 {
+    using Microsoft.Extensions.DependencyInjection;
     using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Boundaries.Internals;
     using Spider.Pipelines.Extensions;
+    using Spider.Pipelines.RuntimeTracing;
     using Spider.Pipelines.Targeting;
 
     /// <summary>
@@ -57,10 +59,14 @@
             var context = new Context<TRequest>(request, _serviceProvider, cancellationToken);
             var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
 
-            await boundaryRunner.RunAsync(
-                context,
-                () => RunCoreAsync(context),
-                executionBoundaries,
+            await RunWithPipelineTraceAsync(
+                typeof(TRequest),
+                null,
+                async () => await boundaryRunner.RunAsync(
+                    context,
+                    () => RunCoreAsync(context),
+                    executionBoundaries,
+                    cancellationToken),
                 cancellationToken);
         }
 
@@ -71,15 +77,41 @@
         /// <returns>A task representing the asynchronous operation.</returns>
         private async Task RunCoreAsync(Context<TRequest> context)
         {
-            context.OnPreProcess();
+            await RunStageAsync(
+                "Pre-process",
+                "Pipeline.PreProcess",
+                typeof(TRequest),
+                null,
+                async () =>
+                {
+                    context.OnPreProcess();
+                    await _executionPlan.OnPreProcessAsync(context);
+                },
+                context.CancellationToken);
 
-            await _executionPlan.OnPreProcessAsync(context);
+            await RunStageAsync(
+                "Target",
+                "Pipeline.Target",
+                typeof(TRequest),
+                null,
+                async () =>
+                {
+                    context.OnTargeting();
+                    await _executionPlan.OnTargetingAsync(context, _targetHandler);
+                },
+                context.CancellationToken);
 
-            context.OnTargeting();
-            await _executionPlan.OnTargetingAsync(context, _targetHandler);
-
-            context.OnPostProcess();
-            await _executionPlan.OnPostProcessAsync(context);
+            await RunStageAsync(
+                "Post-process",
+                "Pipeline.PostProcess",
+                typeof(TRequest),
+                null,
+                async () =>
+                {
+                    context.OnPostProcess();
+                    await _executionPlan.OnPostProcessAsync(context);
+                },
+                context.CancellationToken);
 
             if (context.IsFailure())
                 throw context.Exception;
@@ -96,6 +128,107 @@
             configureExecution(boundaryCollection);
             return boundaryCollection.CreateExecutionBoundaries(_serviceProvider);
         }
+
+        private async Task RunWithPipelineTraceAsync(
+            Type requestType,
+            Type responseType,
+            Func<Task> executeAsync,
+            CancellationToken cancellationToken)
+        {
+            var tracer = GetTracer();
+            if (tracer == null || !tracer.IsEnabled)
+            {
+                await executeAsync();
+                return;
+            }
+
+            var scope = await tracer.StartSpanAsync(CreatePipelineDefinition(requestType, responseType), cancellationToken);
+            try
+            {
+                await executeAsync();
+                await scope.CompleteAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await scope.CancelAsync(cancellationToken);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await scope.FaultAsync(ex, cancellationToken);
+                throw;
+            }
+        }
+
+        private async Task RunStageAsync(
+            string displayName,
+            string operation,
+            Type requestType,
+            Type responseType,
+            Func<Task> executeAsync,
+            CancellationToken cancellationToken)
+        {
+            var tracer = GetTracer();
+            if (tracer == null || !tracer.IsEnabled)
+            {
+                await executeAsync();
+                return;
+            }
+
+            var scope = await tracer.StartSpanAsync(CreateStageDefinition(displayName, operation, requestType, responseType), cancellationToken);
+            try
+            {
+                await executeAsync();
+                await scope.CompleteAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await scope.CancelAsync(cancellationToken);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await scope.FaultAsync(ex, cancellationToken);
+                throw;
+            }
+        }
+
+        private ISpiderRuntimeTracer GetTracer()
+            => _serviceProvider.GetService<ISpiderRuntimeTracer>();
+
+        private static SpiderTraceSpanDefinition CreatePipelineDefinition(Type requestType, Type responseType)
+            => new()
+            {
+                ComponentKind = "spider.pipeline",
+                DisplayName = responseType == null
+                    ? requestType.Name
+                    : $"{requestType.Name} -> {responseType.Name}",
+                Operation = "Pipeline",
+                InputType = requestType,
+                OutputType = responseType,
+                StartedKind = SpiderTraceEventKind.PipelineStarted,
+                CompletedKind = SpiderTraceEventKind.PipelineCompleted,
+                FaultedKind = SpiderTraceEventKind.PipelineFaulted,
+                CancelledKind = SpiderTraceEventKind.PipelineCancelled
+            };
+
+        private static SpiderTraceSpanDefinition CreateStageDefinition(
+            string displayName,
+            string operation,
+            Type requestType,
+            Type responseType)
+            => new()
+            {
+                ComponentKind = "spider.pipeline-stage",
+                DisplayName = displayName,
+                Operation = operation,
+                InputType = requestType,
+                OutputType = responseType,
+                StartedKind = SpiderTraceEventKind.PipelineStageStarted,
+                CompletedKind = SpiderTraceEventKind.PipelineStageCompleted,
+                FaultedKind = SpiderTraceEventKind.PipelineStageFaulted,
+                CancelledKind = SpiderTraceEventKind.PipelineStageFaulted
+            };
     }
 
     /// <summary>
@@ -151,10 +284,14 @@
             var context = new Context<TRequest, TResponse>(request, _serviceProvider, cancellationToken);
             var boundaryRunner = new PipelineExecutionBoundaryRunner(_serviceProvider);
 
-            return await boundaryRunner.RunAsync(
-                context,
-                () => RunCoreAsync(context),
-                executionBoundaries,
+            return await RunWithPipelineTraceAsync(
+                typeof(TRequest),
+                typeof(TResponse),
+                async () => await boundaryRunner.RunAsync(
+                    context,
+                    () => RunCoreAsync(context),
+                    executionBoundaries,
+                    cancellationToken),
                 cancellationToken);
         }
 
@@ -165,15 +302,42 @@
         /// <returns>A task containing the pipeline response.</returns>
         private async Task<TResponse> RunCoreAsync(Context<TRequest, TResponse> context)
         {
-            context.OnPreProcess();
+            await RunStageAsync(
+                "Pre-process",
+                "Pipeline.PreProcess",
+                typeof(TRequest),
+                typeof(TResponse),
+                async () =>
+                {
+                    context.OnPreProcess();
+                    await _executionPlan.OnPreProcessAsync(context);
+                },
+                context.CancellationToken);
 
-            await _executionPlan.OnPreProcessAsync(context);
+            TResponse response = default;
+            await RunStageAsync(
+                "Target",
+                "Pipeline.Target",
+                typeof(TRequest),
+                typeof(TResponse),
+                async () =>
+                {
+                    context.OnTargeting();
+                    response = await _executionPlan.OnTargetingAsync(context, _targetHandler);
+                },
+                context.CancellationToken);
 
-            context.OnTargeting();
-            var response = await _executionPlan.OnTargetingAsync(context, _targetHandler);
-
-            context.OnPostProcess();
-            await _executionPlan.OnPostProcessAsync(context);
+            await RunStageAsync(
+                "Post-process",
+                "Pipeline.PostProcess",
+                typeof(TRequest),
+                typeof(TResponse),
+                async () =>
+                {
+                    context.OnPostProcess();
+                    await _executionPlan.OnPostProcessAsync(context);
+                },
+                context.CancellationToken);
 
             if (context.IsFailure())
                 throw context.Exception;
@@ -192,5 +356,104 @@
             configureExecution(boundaryCollection);
             return boundaryCollection.CreateExecutionBoundaries(_serviceProvider);
         }
+
+        private async Task<TResponse> RunWithPipelineTraceAsync(
+            Type requestType,
+            Type responseType,
+            Func<Task<TResponse>> executeAsync,
+            CancellationToken cancellationToken)
+        {
+            var tracer = GetTracer();
+            if (tracer == null || !tracer.IsEnabled)
+                return await executeAsync();
+
+            var scope = await tracer.StartSpanAsync(CreatePipelineDefinition(requestType, responseType), cancellationToken);
+            try
+            {
+                var response = await executeAsync();
+                await scope.CompleteAsync(cancellationToken);
+                return response;
+            }
+            catch (OperationCanceledException)
+            {
+                await scope.CancelAsync(cancellationToken);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await scope.FaultAsync(ex, cancellationToken);
+                throw;
+            }
+        }
+
+        private async Task RunStageAsync(
+            string displayName,
+            string operation,
+            Type requestType,
+            Type responseType,
+            Func<Task> executeAsync,
+            CancellationToken cancellationToken)
+        {
+            var tracer = GetTracer();
+            if (tracer == null || !tracer.IsEnabled)
+            {
+                await executeAsync();
+                return;
+            }
+
+            var scope = await tracer.StartSpanAsync(CreateStageDefinition(displayName, operation, requestType, responseType), cancellationToken);
+            try
+            {
+                await executeAsync();
+                await scope.CompleteAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await scope.CancelAsync(cancellationToken);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await scope.FaultAsync(ex, cancellationToken);
+                throw;
+            }
+        }
+
+        private ISpiderRuntimeTracer GetTracer()
+            => _serviceProvider.GetService<ISpiderRuntimeTracer>();
+
+        private static SpiderTraceSpanDefinition CreatePipelineDefinition(Type requestType, Type responseType)
+            => new()
+            {
+                ComponentKind = "spider.pipeline",
+                DisplayName = responseType == null
+                    ? requestType.Name
+                    : $"{requestType.Name} -> {responseType.Name}",
+                Operation = "Pipeline",
+                InputType = requestType,
+                OutputType = responseType,
+                StartedKind = SpiderTraceEventKind.PipelineStarted,
+                CompletedKind = SpiderTraceEventKind.PipelineCompleted,
+                FaultedKind = SpiderTraceEventKind.PipelineFaulted,
+                CancelledKind = SpiderTraceEventKind.PipelineCancelled
+            };
+
+        private static SpiderTraceSpanDefinition CreateStageDefinition(
+            string displayName,
+            string operation,
+            Type requestType,
+            Type responseType)
+            => new()
+            {
+                ComponentKind = "spider.pipeline-stage",
+                DisplayName = displayName,
+                Operation = operation,
+                InputType = requestType,
+                OutputType = responseType,
+                StartedKind = SpiderTraceEventKind.PipelineStageStarted,
+                CompletedKind = SpiderTraceEventKind.PipelineStageCompleted,
+                FaultedKind = SpiderTraceEventKind.PipelineStageFaulted,
+                CancelledKind = SpiderTraceEventKind.PipelineStageFaulted
+            };
     }
 }
