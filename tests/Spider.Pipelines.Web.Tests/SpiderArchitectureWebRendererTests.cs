@@ -60,6 +60,15 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("Pipelines", html);
             Assert.Contains("Flows", html);
             Assert.Contains("spider-process-graph", html);
+            Assert.Contains("Flowchart", html);
+            Assert.Contains("spider-flowchart", html);
+            Assert.Contains("spider-flowchart-node", html);
+            Assert.Contains("spider-flowchart-routes", html);
+            Assert.Contains("spider-flowchart-route-body", html);
+            Assert.Contains("spider-flowchart-join", html);
+            Assert.Contains("renderProcessGraph", html);
+            Assert.Contains("renderFlowchart", html);
+            Assert.Contains("getFlowchartRoleLabel", html);
             Assert.Contains("spider-architecture-graph", html);
             Assert.Contains("spider-graph-node", html);
             Assert.Contains("is-nested is-route", html);
@@ -71,7 +80,8 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-edge", html);
             Assert.Contains("spider-graph-legend", html);
             Assert.Contains("data-toggle-inspector", html);
-            Assert.Contains("↗ Linked flow", html);
+            Assert.Contains("Linked flow", html);
+            Assert.Contains("spider-flowchart-link", html);
             Assert.Contains("spider-link-dot", html);
             Assert.Contains("spider-chip tag", html);
             Assert.Contains("spider-graph-tooltip", html);

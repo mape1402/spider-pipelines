@@ -150,6 +150,17 @@ namespace Spider.Pipelines.Flows.Internals
         }
 
         /// <inheritdoc/>
+        public IFlowBranchRouteBuilder<TNext, TBranchResult> Branch<TNext>(Action<IFlowBranchBuilder<TCurrent, TNext>> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            var branch = new FlowBranchBuilder<TCurrent, TNext>();
+            configure(branch);
+            return Add<TNext>(branch.BuildStep());
+        }
+
+        /// <inheritdoc/>
         public IFlowBranchRouteBuilder<TNext, TBranchResult> Then<TNext>(Func<TCurrent, TNext> step)
             => Add<TNext>(new ActiveTransformStep<TCurrent, TNext>((current, _) => Task.FromResult(step(current)), descriptorDelegate: step));
 

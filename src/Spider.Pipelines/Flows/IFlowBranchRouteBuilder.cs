@@ -37,6 +37,14 @@ namespace Spider.Pipelines.Flows
         IFlowBranchRouteBuilder<TCurrent, TBranchResult> Metadata(string key, string value);
 
         /// <summary>
+        /// Adds a nested branch inside the current branch route.
+        /// </summary>
+        /// <typeparam name="TNext">The next active value type produced by the nested branch.</typeparam>
+        /// <param name="configure">The nested branch configuration.</param>
+        /// <returns>A branch route builder with the next active value type.</returns>
+        IFlowBranchRouteBuilder<TNext, TBranchResult> Branch<TNext>(Action<IFlowBranchBuilder<TCurrent, TNext>> configure);
+
+        /// <summary>
         /// Adds the next step to the branch route.
         /// </summary>
         /// <typeparam name="TNext">The next active value type.</typeparam>

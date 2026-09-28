@@ -27,6 +27,7 @@ namespace Spider.Pipelines.Samples.Web
             builder.Services.AddScoped<RuntimeSampleBoundary>();
             builder.Services.AddScoped<CreditApplicationHandler>();
             builder.Services.AddScoped<CreditDecisionWorkflow>();
+            builder.Services.AddScoped<CreditOfferWorkflow>();
             builder.Services.AddSpider(spider => spider.AddExecutionBoundary<RuntimeSampleBoundary>());
             builder.Services.AddSpiderRuntimeTracing(tracing =>
             {
@@ -63,6 +64,40 @@ namespace Spider.Pipelines.Samples.Web
                     return Results.Json(await ExecuteSampleAsync(
                         context.RequestServices,
                         new CreditApplicationRequest("APP-500", "", 5000m),
+                        context.RequestAborted));
+                }
+                catch (Exception ex)
+                {
+                    await context.RequestServices.GetRequiredService<ISpiderTraceDispatcher>().FlushAsync(context.RequestAborted);
+                    return Results.Json(new { error = ex.Message });
+                }
+            });
+
+            app.MapPost("/_spider/sample/complex/fast", async (HttpContext context) =>
+                Results.Json(await ExecuteComplexSampleAsync(
+                    context.RequestServices,
+                    new CreditApplicationRequest("OFFER-100", "C-100", 750m),
+                    context.RequestAborted)));
+
+            app.MapPost("/_spider/sample/complex/manual", async (HttpContext context) =>
+                Results.Json(await ExecuteComplexSampleAsync(
+                    context.RequestServices,
+                    new CreditApplicationRequest("OFFER-200", "C-200", 2500m),
+                    context.RequestAborted)));
+
+            app.MapPost("/_spider/sample/complex/remote", async (HttpContext context) =>
+                Results.Json(await ExecuteComplexSampleAsync(
+                    context.RequestServices,
+                    new CreditApplicationRequest("OFFER-300", "C-300", 12500m),
+                    context.RequestAborted)));
+
+            app.MapPost("/_spider/sample/complex/fault", async (HttpContext context) =>
+            {
+                try
+                {
+                    return Results.Json(await ExecuteComplexSampleAsync(
+                        context.RequestServices,
+                        new CreditApplicationRequest("OFFER-500", "C-500", 2800m),
                         context.RequestAborted));
                 }
                 catch (Exception ex)
@@ -132,6 +167,37 @@ namespace Spider.Pipelines.Samples.Web
                         .OnSuccess((ctx, args) => Task.CompletedTask)
                         .OnFailure((ctx, args) => Task.CompletedTask))
                     .ExecuteAsync(service => (application, token) => service.HandleAsync(application, token), request, cancellationToken);
+            }
+            finally
+            {
+                await services.GetRequiredService<ISpiderTraceDispatcher>().FlushAsync(cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// Executes the complex credit offer sample pipeline.
+        /// </summary>
+        /// <param name="services">The request services.</param>
+        /// <param name="request">The sample request.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>The generated credit offer.</returns>
+        private static async Task<CreditOffer> ExecuteComplexSampleAsync(
+            IServiceProvider services,
+            CreditApplicationRequest request,
+            CancellationToken cancellationToken)
+        {
+            var spider = services.GetRequiredService<ISpider>();
+            try
+            {
+                return await spider
+                    .InitBridge<CreditOfferWorkflow>()
+                    .Attach<CreditApplicationRequest, CreditOffer>(builder => builder
+                        .PreProcess((ctx, args) => Task.CompletedTask)
+                        .UseMiddleware((ctx, next) => next())
+                        .Parallel((ctx, args) => Task.CompletedTask)
+                        .OnSuccess((ctx, args) => Task.CompletedTask)
+                        .OnFailure((ctx, args) => Task.CompletedTask))
+                    .ExecuteAsync(service => (application, token) => service.BuildComplexOfferAsync(application, token), request, cancellationToken);
             }
             finally
             {

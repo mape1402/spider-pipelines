@@ -159,6 +159,31 @@ namespace Spider.Pipelines.Tests.Flows
         }
 
         [Fact]
+        public async Task RunAsync_WhenBranchRouteContainsNestedBranch_ShouldExecuteNestedRoute()
+        {
+            var spider = CreateSpider();
+            var selectedNestedRoute = string.Empty;
+
+            var response = await spider
+                .ComposeFlow<RiskRequest, RiskResponse>("Evaluate nested risk")
+                .Then(BuildRiskProfile)
+                .Branch<RiskDecision>(branch => branch
+                    .When(IsHighRisk, high => high
+                        .Then(RequireManualReview)
+                        .Branch<RiskDecision>(nested => nested
+                            .When(
+                                decision => decision.Value == "manual-review",
+                                senior => senior.Then(_ => { selectedNestedRoute = "senior-review"; }))
+                            .Otherwise(standard => standard.Then(_ => { selectedNestedRoute = "standard-review"; }))))
+                    .Otherwise(normal => normal.Then(CalculateStandardDecision)))
+                .Then(ReturnRiskResponse)
+                .RunAsync(new RiskRequest(900), CancellationToken.None);
+
+            Assert.Equal("manual-review", response.Decision);
+            Assert.Equal("senior-review", selectedNestedRoute);
+        }
+
+        [Fact]
         public async Task RunAsync_WhenResponseFlowEndsWithWrongActiveType_ShouldThrow()
         {
             var spider = CreateSpider();

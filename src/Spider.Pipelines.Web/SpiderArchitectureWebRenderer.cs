@@ -1476,6 +1476,511 @@ button {
   stroke-width: 1.8;
 }
 
+.spider-flowchart {
+  --flowchart-node-width: 236px;
+  --flowchart-route-gap: 32px;
+  display: grid;
+  justify-items: center;
+  min-width: max-content;
+  width: max-content;
+  max-width: none;
+  padding: 8px 0 24px;
+}
+
+.spider-flowchart-sequence,
+.spider-flowchart-branch {
+  display: grid;
+  justify-items: center;
+  min-width: max-content;
+}
+
+.spider-flowchart-route,
+.spider-flowchart-route-body {
+  display: grid;
+  justify-items: center;
+  min-width: max-content;
+  width: max-content;
+}
+
+.spider-flowchart-connector {
+  width: 2px;
+  height: 22px;
+  background: var(--spider-line-strong);
+}
+
+.spider-flowchart-node {
+  --node-accent: var(--spider-red);
+  --node-border: var(--spider-line);
+  --node-fill: var(--spider-panel);
+  --node-radius: 8px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(32px, max-content) minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  width: var(--flowchart-node-width);
+  min-height: 62px;
+  border: 0;
+  background: transparent;
+  color: var(--spider-text);
+  cursor: pointer;
+  isolation: isolate;
+  overflow: visible;
+  padding: 9px 11px 9px 10px;
+  text-align: left;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+
+.spider-flowchart-node::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--node-border);
+  border-left: 2px solid color-mix(in srgb, var(--node-accent) 56%, var(--node-border));
+  border-radius: var(--node-radius);
+  background: var(--node-fill);
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.05);
+  pointer-events: none;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+}
+
+.spider-flowchart-node > * {
+  position: relative;
+  z-index: 1;
+}
+
+.spider-flowchart-node:hover {
+  transform: translateY(-1px);
+}
+
+.spider-flowchart-node:hover::before {
+  border-color: color-mix(in srgb, var(--node-accent) 34%, var(--spider-line));
+  box-shadow: 0 12px 22px rgba(17, 24, 39, 0.08);
+}
+
+.spider-flowchart-node.is-selected {
+  filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+}
+
+.spider-flowchart-node.is-selected::before {
+  border-color: var(--node-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-accent) 16%, transparent), 0 12px 22px rgba(17, 24, 39, 0.08);
+}
+
+.spider-flowchart-node.is-root,
+.spider-flowchart-node.is-stage {
+  --node-accent: var(--spider-black);
+  --node-radius: 999px;
+  min-height: 68px;
+  padding-inline: 16px;
+}
+
+.spider-flowchart-node.is-root::before,
+.spider-flowchart-node.is-stage::before {
+  border-left-width: 1px;
+}
+
+.spider-flowchart-node.is-branch,
+.spider-flowchart-node.is-condition {
+  --node-accent: var(--spider-blue);
+  --node-border: color-mix(in srgb, var(--spider-blue) 55%, var(--spider-line));
+  --node-fill: color-mix(in srgb, var(--spider-blue-soft) 26%, var(--spider-panel));
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  width: 236px;
+  min-height: 124px;
+  padding: 26px 40px 22px;
+  text-align: center;
+}
+
+.spider-flowchart-node.is-branch::before,
+.spider-flowchart-node.is-condition::before {
+  inset: 5px 22px;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--node-accent) 48%, var(--spider-line));
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.spider-flowchart-node.is-branch::after,
+.spider-flowchart-node.is-condition::after {
+  content: "";
+  position: absolute;
+  inset: 7px 24px;
+  z-index: 0;
+  background: var(--node-fill);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  pointer-events: none;
+}
+
+.spider-flowchart-node.is-route {
+  --node-accent: var(--spider-blue-strong);
+  --node-border: color-mix(in srgb, var(--spider-blue-strong) 48%, var(--spider-line));
+  --node-fill: color-mix(in srgb, var(--spider-blue-soft) 32%, var(--spider-panel));
+  width: var(--flowchart-node-width);
+  min-height: 54px;
+  grid-template-columns: minmax(34px, max-content) minmax(0, 1fr);
+  padding: 9px 32px 9px 22px;
+}
+
+.spider-flowchart-node.is-route::before {
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--node-accent) 55%, var(--spider-line));
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.05);
+  clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%, 16px 50%);
+}
+
+.spider-flowchart-node.is-route::after {
+  content: "";
+  position: absolute;
+  inset: 2px 4px;
+  z-index: 0;
+  background: var(--node-fill);
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%, 13px 50%);
+  pointer-events: none;
+}
+
+.spider-flowchart-node.is-transform {
+  --node-accent: var(--spider-red-strong);
+}
+
+.spider-flowchart-node.is-parallel {
+  --node-accent: var(--spider-blue);
+  --node-border: var(--spider-line);
+  --node-fill: color-mix(in srgb, var(--spider-blue-soft) 12%, var(--spider-panel));
+}
+
+.spider-flowchart-node.is-parallel::before {
+  border-left-width: 1px;
+  border-top: 4px solid color-mix(in srgb, var(--node-accent) 72%, var(--node-border));
+  border-bottom: 4px solid color-mix(in srgb, var(--node-accent) 72%, var(--node-border));
+}
+
+.spider-flowchart-node.is-foreach,
+.spider-flowchart-node.is-batch,
+.spider-flowchart-node.is-loop {
+  --node-accent: var(--spider-blue-strong);
+  --node-border: color-mix(in srgb, var(--spider-blue-strong) 48%, var(--spider-line));
+  --node-fill: color-mix(in srgb, var(--spider-blue-soft) 30%, var(--spider-panel));
+  min-height: 58px;
+  padding-inline: 24px 32px;
+}
+
+.spider-flowchart-node.is-foreach::before,
+.spider-flowchart-node.is-batch::before,
+.spider-flowchart-node.is-loop::before {
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--node-accent) 48%, var(--spider-line));
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+}
+
+.spider-flowchart-node.is-foreach::after,
+.spider-flowchart-node.is-batch::after,
+.spider-flowchart-node.is-loop::after {
+  content: "";
+  position: absolute;
+  inset: 2px 7px;
+  z-index: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(100% - 9px),
+      color-mix(in srgb, var(--node-accent) 44%, transparent) calc(100% - 9px),
+      color-mix(in srgb, var(--node-accent) 44%, transparent) calc(100% - 6px),
+      transparent calc(100% - 6px)
+    ),
+    var(--node-fill);
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+  pointer-events: none;
+}
+
+.spider-flowchart-node.is-merge,
+.spider-flowchart-node.is-aggregate {
+  --node-accent: var(--spider-blue-strong);
+}
+
+.spider-flowchart-node.is-merge::before,
+.spider-flowchart-node.is-aggregate::before {
+  border-left-width: 1px;
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 16px 100%, 0 50%);
+}
+
+.spider-flowchart-node.is-checkpoint {
+  --node-accent: var(--spider-blue-strong);
+  width: 172px;
+  min-height: 112px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  padding: 18px 22px;
+  text-align: center;
+}
+
+.spider-flowchart-node.is-checkpoint::before {
+  border-left-width: 1px;
+  border-radius: 999px;
+}
+
+.spider-flowchart-node-shape {
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 28px;
+  max-width: 58px;
+  height: 28px;
+  padding-inline: 5px;
+  overflow: hidden;
+  border: 1px solid var(--spider-line);
+  border-radius: 7px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+  font-size: 0.66rem;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.spider-flowchart-node-shape.is-long {
+  font-size: 0.56rem;
+  padding-inline: 4px;
+}
+
+.spider-flowchart-node-shape.is-compact {
+  max-width: 54px;
+  font-size: 0.54rem;
+  padding-inline: 4px;
+}
+
+.spider-flowchart-node.is-branch .spider-flowchart-node-shape,
+.spider-flowchart-node.is-condition .spider-flowchart-node-shape {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: auto;
+  min-width: 28px;
+  max-width: 54px;
+  height: 18px;
+  padding-inline: 5px;
+  border-color: color-mix(in srgb, var(--node-accent) 38%, var(--spider-line));
+  border-radius: 999px;
+  background: var(--spider-panel);
+  color: var(--node-accent);
+  transform: translateX(-50%);
+}
+
+.spider-flowchart-node.is-branch .spider-flowchart-node-index,
+.spider-flowchart-node.is-condition .spider-flowchart-node-index {
+  transform: none;
+}
+
+.spider-flowchart-node-index {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.spider-flowchart-node.is-checkpoint .spider-flowchart-node-shape {
+  margin-inline: auto;
+}
+
+.spider-flowchart-node.is-branch .spider-flowchart-node-main,
+.spider-flowchart-node.is-condition .spider-flowchart-node-main,
+.spider-flowchart-node.is-checkpoint .spider-flowchart-node-main {
+  justify-items: center;
+}
+
+.spider-flowchart-node.is-branch .spider-flowchart-node-main,
+.spider-flowchart-node.is-condition .spider-flowchart-node-main {
+  width: 132px;
+}
+
+.spider-flowchart-node-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.spider-flowchart-node-kind {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-muted);
+  font-size: 0.62rem;
+  font-weight: 640;
+  line-height: 1;
+  padding: 3px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-flowchart-node-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--spider-text);
+  font-size: 0.72rem;
+  font-weight: 590;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.spider-flowchart-node.is-branch .spider-flowchart-node-title,
+.spider-flowchart-node.is-condition .spider-flowchart-node-title {
+  line-height: 1.22;
+  -webkit-line-clamp: 3;
+}
+
+.spider-flowchart-node.is-branch .spider-flowchart-node-kind,
+.spider-flowchart-node.is-condition .spider-flowchart-node-kind,
+.spider-flowchart-node.is-route .spider-flowchart-node-kind {
+  display: none;
+}
+
+.spider-flowchart-node.is-foreach .spider-flowchart-node-kind,
+.spider-flowchart-node.is-batch .spider-flowchart-node-kind,
+.spider-flowchart-node.is-loop .spider-flowchart-node-kind,
+.spider-flowchart-node.is-parallel .spider-flowchart-node-kind {
+  border-color: color-mix(in srgb, var(--node-accent) 42%, var(--spider-line));
+  background: color-mix(in srgb, var(--node-accent) 12%, var(--spider-panel-soft));
+  color: color-mix(in srgb, var(--node-accent) 78%, var(--spider-text));
+}
+
+.spider-flowchart-node-subtitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--spider-muted);
+  font-size: 0.72rem;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.spider-flowchart-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: start;
+  gap: 4px;
+  border: 1px solid rgba(230, 36, 45, 0.3);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--spider-red-soft) 62%, var(--spider-panel));
+  color: var(--spider-red);
+  font-size: 0.66rem;
+  font-weight: 780;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.spider-flowchart-split {
+  position: relative;
+  width: 100%;
+  height: 24px;
+}
+
+.spider-flowchart-split::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 14px;
+  background: var(--spider-line-strong);
+  transform: translateX(-50%);
+}
+
+.spider-flowchart-split::after {
+  content: "";
+  position: absolute;
+  right: calc(var(--flowchart-node-width) / 2);
+  bottom: 8px;
+  left: calc(var(--flowchart-node-width) / 2);
+  border-top: 2px solid var(--spider-line-strong);
+}
+
+.spider-flowchart-routes {
+  display: grid;
+  grid-template-columns: repeat(var(--route-count), max-content);
+  gap: 16px var(--flowchart-route-gap);
+  align-items: start;
+  justify-content: center;
+  justify-items: center;
+  min-width: max-content;
+}
+
+.spider-flowchart-route {
+  position: relative;
+  gap: 0;
+}
+
+.spider-flowchart-route::before {
+  content: "";
+  width: 2px;
+  height: 18px;
+  background: var(--spider-line-strong);
+}
+
+.spider-flowchart-route-body {
+  padding: 0;
+}
+
+.spider-flowchart-join {
+  position: relative;
+  width: 100%;
+  height: 34px;
+}
+
+.spider-flowchart-join::before {
+  content: "";
+  position: absolute;
+  right: calc(var(--flowchart-node-width) / 2);
+  top: 10px;
+  left: calc(var(--flowchart-node-width) / 2);
+  border-top: 2px solid var(--spider-line-strong);
+}
+
+.spider-flowchart-join::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 2px;
+  height: 24px;
+  background: var(--spider-line-strong);
+  transform: translateX(-50%);
+}
+
+.spider-flowchart-node.is-runtime-not-executed {
+  opacity: 0.58;
+}
+
+.spider-flowchart-node.is-runtime-not-executed {
+  --node-accent: var(--spider-muted);
+  --node-fill: var(--spider-panel-soft);
+}
+
+.spider-flowchart-node.is-runtime-completed,
+.spider-flowchart-node.is-runtime-running {
+  --node-accent: var(--spider-blue);
+  --node-border: rgba(29, 95, 191, 0.42);
+  --node-fill: var(--spider-blue-soft);
+}
+
+.spider-flowchart-node.is-runtime-faulted,
+.spider-flowchart-node.is-runtime-cancelled {
+  --node-accent: var(--spider-red);
+  --node-border: rgba(230, 36, 45, 0.58);
+  --node-fill: var(--spider-red-soft);
+}
+
 .spider-graph-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1499,14 +2004,147 @@ button {
 
 .spider-legend-swatch.branch {
   background: var(--spider-blue);
+  border-radius: 2px;
+  transform: rotate(45deg);
 }
 
 .spider-legend-swatch.route {
   background: var(--spider-blue-strong);
+  width: 12px;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 50%, calc(100% - 3px) 100%, 0 100%, 3px 50%);
 }
 
 .spider-legend-swatch.stage {
   background: var(--spider-black);
+}
+
+.spider-legend-swatch.parallel {
+  width: 12px;
+  height: 9px;
+  border-top: 3px solid var(--spider-blue);
+  border-bottom: 3px solid var(--spider-blue);
+  border-radius: 1px;
+  background: transparent;
+}
+
+.spider-legend-swatch.foreach {
+  width: 12px;
+  border-radius: 0;
+  background: var(--spider-blue-strong);
+  clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+}
+
+.spider-legend-swatch.subflow {
+  width: 12px;
+  border-radius: 2px;
+  background: var(--spider-red-soft);
+  box-shadow: inset 3px 0 0 var(--spider-red), inset -3px 0 0 var(--spider-red);
+}
+
+.spider-flow-legend-icon {
+  --legend-accent: var(--spider-red);
+  --legend-fill: var(--spider-panel);
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 15px;
+  border: 1px solid color-mix(in srgb, var(--legend-accent) 34%, var(--spider-line));
+  border-left: 2px solid color-mix(in srgb, var(--legend-accent) 62%, var(--spider-line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--legend-accent) 6%, var(--legend-fill));
+}
+
+.spider-flow-legend-icon.start {
+  --legend-accent: var(--spider-black);
+  border-left-width: 1px;
+  border-radius: 999px;
+}
+
+.spider-flow-legend-icon.process {
+  --legend-accent: var(--spider-red);
+}
+
+.spider-flow-legend-icon.decision {
+  --legend-accent: var(--spider-blue);
+  width: 17px;
+  height: 17px;
+  border-left-width: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--legend-accent) 12%, var(--legend-fill));
+  transform: rotate(45deg);
+}
+
+.spider-flow-legend-icon.route {
+  --legend-accent: var(--spider-blue-strong);
+  width: 30px;
+  height: 16px;
+  border-left-width: 1px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--legend-accent) 52%, var(--spider-line));
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 6px 50%);
+}
+
+.spider-flow-legend-icon.route::after {
+  content: "";
+  position: absolute;
+  inset: 2px 3px;
+  background: color-mix(in srgb, var(--legend-accent) 22%, var(--legend-fill));
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%, 4px 50%);
+}
+
+.spider-flow-legend-icon.parallel {
+  --legend-accent: var(--spider-blue);
+  border-left-width: 1px;
+  border-top: 4px solid color-mix(in srgb, var(--legend-accent) 70%, var(--spider-line));
+  border-bottom: 4px solid color-mix(in srgb, var(--legend-accent) 70%, var(--spider-line));
+  background: color-mix(in srgb, var(--legend-accent) 8%, var(--legend-fill));
+}
+
+.spider-flow-legend-icon.foreach {
+  --legend-accent: var(--spider-blue-strong);
+  width: 30px;
+  height: 16px;
+  border-left-width: 1px;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--legend-accent) 48%, var(--spider-line));
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+}
+
+.spider-flow-legend-icon.foreach::after {
+  content: "";
+  position: absolute;
+  inset: 2px 4px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(100% - 7px),
+      color-mix(in srgb, var(--legend-accent) 44%, transparent) calc(100% - 7px),
+      color-mix(in srgb, var(--legend-accent) 44%, transparent) calc(100% - 5px),
+      transparent calc(100% - 5px)
+    ),
+    color-mix(in srgb, var(--legend-accent) 24%, var(--legend-fill));
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+}
+
+.spider-flow-legend-icon.subflow {
+  --legend-accent: var(--spider-red);
+  border-left-color: color-mix(in srgb, var(--legend-accent) 48%, var(--spider-line));
+  background: color-mix(in srgb, var(--legend-accent) 5%, var(--legend-fill));
+}
+
+.spider-flow-legend-icon.subflow::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 6px;
+  border: 1px solid color-mix(in srgb, var(--legend-accent) 45%, var(--spider-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--legend-accent) 12%, var(--legend-fill));
 }
 
 .spider-legend-swatch.runtime-completed {
@@ -2310,6 +2948,10 @@ button {
     max-height: calc(100vh - 220px);
   }
 
+  .spider-flowchart {
+    --flowchart-node-width: 236px;
+  }
+
   .spider-node-detail {
     position: static;
     grid-column: 1 / -1;
@@ -2423,6 +3065,25 @@ button {
 
   .spider-runtime-raw-list {
     grid-template-columns: 1fr;
+  }
+
+  .spider-flowchart {
+    --flowchart-node-width: min(248px, calc(100vw - 78px));
+    min-width: 0;
+    width: max-content;
+  }
+
+  .spider-flowchart-routes {
+    grid-template-columns: minmax(220px, var(--flowchart-node-width));
+  }
+
+  .spider-flowchart-split::after,
+  .spider-flowchart-join::before {
+    display: none;
+  }
+
+  .spider-flowchart-route + .spider-flowchart-route {
+    margin-top: 12px;
   }
 
   .spider-runtime-span {
@@ -2851,12 +3512,13 @@ button {
         </section>`;
     }
 
-    const graph = renderVerticalGraph(graphContext.process, graphContext.children, graphContext);
+    const graph = renderProcessGraph(graphContext.process, graphContext.children, graphContext);
+    const title = graphContext.process.kind === "spider.flow" ? "Execution flowchart" : "Execution graph";
     return `
       <section class="spider-panel spider-runtime-graph-panel">
         <div class="spider-panel-header">
           <div>
-            <h2>Execution graph</h2>
+            <h2>${escapeHtml(title)}</h2>
             <span class="spider-panel-note">${escapeHtml(graphContext.process.displayName || graphContext.process.id)}</span>
           </div>
           <div class="spider-graph-legend" aria-label="Runtime graph legend">
@@ -3301,13 +3963,12 @@ button {
     const kind = process.kind === "spider.flow" ? "Flow" : "Pipeline";
     const backLabel = process.kind === "spider.flow" ? "Back to Flows" : "Back to Pipelines";
     const graph = showGraph
-      ? renderVerticalGraph(process, children)
+      ? renderProcessGraph(process, children)
       : `<div class="spider-empty-list">Graph disabled.</div>`;
     const selectedNode = byId.get(state.nodeId) || process;
     const selectedIndex = selectedNode.id === process.id
       ? 0
       : children.findIndex((child) => child.id === selectedNode.id) + 1;
-    const processTags = renderTagChips(process);
 
     setActiveMenu(state.view);
     setTopbarTitle(process.displayName || kind);
@@ -3321,7 +3982,6 @@ button {
               <span class="spider-chip ${process.kind === "spider.flow" ? "flow" : "pipeline"}">${escapeHtml(kind)}</span>
               <span class="spider-chip">${escapeHtml(getSignature(process))}</span>
               ${profiles.map((profile) => `<span class="spider-chip profile">${escapeHtml(profile.displayName || profile.id)}</span>`).join("")}
-              ${processTags}
             </div>
             <h1 class="spider-detail-title">${escapeHtml(process.displayName || process.id)}</h1>
             <p class="spider-detail-subtitle">${escapeHtml(describeProcess(process, children))}</p>
@@ -3333,14 +3993,8 @@ button {
           </aside>
           <section class="spider-panel spider-graph-panel">
             <div class="spider-panel-header">
-              <h2>Graph</h2>
-              <div class="spider-graph-legend" aria-label="Graph operation legend">
-                <span class="spider-legend-item"><i class="spider-legend-swatch"></i>Step</span>
-                <span class="spider-legend-item"><i class="spider-legend-swatch branch"></i>Branch</span>
-                <span class="spider-legend-item"><i class="spider-legend-swatch route"></i>Route</span>
-                <span class="spider-legend-item"><i class="spider-legend-swatch stage"></i>Pipeline</span>
-                <span class="spider-legend-item">↗ Linked flow</span>
-              </div>
+              <h2>${escapeHtml(getGraphPanelTitle(process))}</h2>
+              ${renderGraphLegend(process)}
             </div>
             <div class="spider-graph-wrap spider-process-graph">
               ${graph}
@@ -3464,6 +4118,34 @@ button {
       </button>`;
   }
 
+  function getGraphPanelTitle(process) {
+    return process.kind === "spider.flow" ? "Flowchart" : "Graph";
+  }
+
+  function renderGraphLegend(process) {
+    if (process.kind === "spider.flow") {
+      return `
+        <div class="spider-graph-legend" aria-label="Flowchart operation legend">
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon start"></i>Start</span>
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon process"></i>Process</span>
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon decision"></i>Decision</span>
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon route"></i>Route</span>
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon parallel"></i>Parallel</span>
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon foreach"></i>For each / batch</span>
+          <span class="spider-legend-item"><i class="spider-flow-legend-icon subflow"></i>Linked flow</span>
+        </div>`;
+    }
+
+    return `
+      <div class="spider-graph-legend" aria-label="Graph operation legend">
+        <span class="spider-legend-item"><i class="spider-legend-swatch"></i>Step</span>
+        <span class="spider-legend-item"><i class="spider-legend-swatch branch"></i>Branch</span>
+        <span class="spider-legend-item"><i class="spider-legend-swatch route"></i>Route</span>
+        <span class="spider-legend-item"><i class="spider-legend-swatch stage"></i>Pipeline</span>
+        <span class="spider-legend-item">Linked flow</span>
+      </div>`;
+  }
+
   function renderJson() {
     setTopbarTitle("Manifest JSON");
 
@@ -3477,6 +4159,164 @@ button {
         </header>
         <pre class="spider-json">${escapeHtml(JSON.stringify(manifest, null, 2))}</pre>
       </div>`;
+  }
+
+  function renderProcessGraph(process, children, graphContext) {
+    if (process.kind === "spider.flow") {
+      return renderFlowchart(process, children, graphContext);
+    }
+
+    return renderVerticalGraph(process, children, graphContext);
+  }
+
+  function renderFlowchart(process, children, graphContext) {
+    const content = children.length
+      ? `${renderFlowchartNode(process, "0", graphContext, " is-root", getSignature(process))}
+         <span class="spider-flowchart-connector" aria-hidden="true"></span>
+         ${renderFlowchartSequence(children, "", graphContext)}`
+      : renderFlowchartNode(process, "0", graphContext, " is-root", getSignature(process));
+
+    return `
+      <div class="spider-flowchart${graphContext ? " is-runtime-flowchart" : ""}" role="img" aria-label="${escapeAttribute(process.displayName || "Spider flowchart")}">
+        ${content}
+      </div>`;
+  }
+
+  function renderFlowchartSequence(items, prefix, graphContext) {
+    return `
+      <div class="spider-flowchart-sequence">
+        ${items.map((item, index) => {
+          const number = prefix ? `${prefix}.${index + 1}` : String(index + 1).padStart(2, "0");
+          const connector = index === 0 ? "" : `<span class="spider-flowchart-connector" aria-hidden="true"></span>`;
+          return `${connector}${renderFlowchartItem(item, number, graphContext)}`;
+        }).join("")}
+      </div>`;
+  }
+
+  function renderFlowchartItem(node, number, graphContext) {
+    if (node.kind === "spider.flow-branch" && getBranchRoutes(node).length) {
+      return renderFlowchartBranch(node, number, graphContext);
+    }
+
+    return renderFlowchartNode(node, number, graphContext, getFlowchartSemanticClass(node), getNodeSubtitle(node));
+  }
+
+  function renderFlowchartBranch(branch, number, graphContext) {
+    const routes = getBranchRoutes(branch);
+    return `
+      <div class="spider-flowchart-branch" style="--route-count: ${escapeAttribute(String(Math.max(1, routes.length)))}">
+        ${renderFlowchartNode(branch, number, graphContext, getFlowchartSemanticClass(branch), getNodeSubtitle(branch))}
+        <span class="spider-flowchart-split" aria-hidden="true"></span>
+        <div class="spider-flowchart-routes">
+          ${routes.map((route, routeIndex) => renderFlowchartRoute(route, `${number}.${routeIndex + 1}`, graphContext)).join("")}
+        </div>
+        <span class="spider-flowchart-join" aria-hidden="true"></span>
+      </div>`;
+  }
+
+  function renderFlowchartRoute(route, number, graphContext) {
+    const steps = getRouteSteps(route);
+    return `
+      <div class="spider-flowchart-route">
+        <div class="spider-flowchart-route-body">
+          ${renderFlowchartNode(route, number, graphContext, getFlowchartSemanticClass(route), getNodeSubtitle(route))}
+          ${steps.length ? `<span class="spider-flowchart-connector" aria-hidden="true"></span>${renderFlowchartSequence(steps, number, graphContext)}` : ""}
+        </div>
+      </div>`;
+  }
+
+  function normalizeFlowchartNumber(number) {
+    const text = String(number || "");
+    if (!text || text === "0") {
+      return text;
+    }
+
+    return text
+      .split(".")
+      .map((segment) => segment.replace(/^0+(?=\d)/, ""))
+      .join(".");
+  }
+
+  function createFlowchartNumberView(number) {
+    const full = normalizeFlowchartNumber(number);
+    if (!full || full === "0" || full.length <= 7) {
+      return { full, display: full, compact: false };
+    }
+
+    const segments = full.split(".");
+    if (segments.length < 4 && full.length <= 9) {
+      return { full, display: full, compact: false };
+    }
+
+    const first = segments[0];
+    const tail = segments.slice(-2).join(".");
+    const anchored = `${first}.…${tail}`;
+    if (anchored.length <= 9) {
+      return { full, display: anchored, compact: true };
+    }
+
+    const tailOnly = `…${tail}`;
+    if (tailOnly.length <= 8) {
+      return { full, display: tailOnly, compact: true };
+    }
+
+    const last = segments[segments.length - 1] || full;
+    const lastOnly = `…${last}`;
+    if (lastOnly.length <= 8) {
+      return { full, display: lastOnly, compact: true };
+    }
+
+    return { full, display: `…${last.slice(-7)}`, compact: true };
+  }
+
+  function renderFlowchartNode(node, number, graphContext, extraClass, subtitleOverride) {
+    const selected = graphContext
+      ? node.id === state.runtimeSelectedComponentId ? " is-selected" : ""
+      : node.id === state.nodeId ? " is-selected" : "";
+    const linkedFlow = getFirstLinkedFlow(node);
+    const linkedClass = linkedFlow ? " is-linked-flow" : "";
+    const semanticClass = extraClass || getFlowchartSemanticClass(node);
+    const runtimeClass = getRuntimeGraphClass(node.id, graphContext);
+    const tooltipAttributes = renderGraphTooltipAttributes(node);
+    const subtitle = subtitleOverride || getNodeSubtitle(node);
+    const numberView = createFlowchartNumberView(number);
+    const numberSizeClass = `${numberView.display.length > 5 ? " is-long" : ""}${numberView.compact ? " is-compact" : ""}`;
+    const subtitleHtml = shouldShowFlowchartSubtitle(node, semanticClass, subtitle)
+      ? `<span class="spider-flowchart-node-subtitle">${escapeHtml(subtitle)}</span>`
+      : "";
+    const linkBadge = linkedFlow
+      ? `<span class="spider-flowchart-link" data-open-process="${escapeAttribute(linkedFlow.id)}" title="Open related flow: ${escapeAttribute(linkedFlow.displayName || linkedFlow.id)}">Flow</span>`
+      : "";
+
+    return `
+      <button class="spider-flowchart-node${semanticClass}${linkedClass}${runtimeClass}${selected}" type="button" data-node-id="${escapeAttribute(node.id)}"${tooltipAttributes}>
+        <span class="spider-flowchart-node-shape${numberSizeClass}" aria-hidden="true" title="${escapeAttribute(numberView.full)}">
+          <span class="spider-flowchart-node-index">${escapeHtml(numberView.display)}</span>
+        </span>
+        <span class="spider-flowchart-node-main">
+          <span class="spider-flowchart-node-kind">${escapeHtml(getFlowchartRoleLabel(node))}</span>
+          <span class="spider-flowchart-node-title">${escapeHtml(node.displayName || node.id)}</span>
+          ${subtitleHtml}
+        </span>
+        ${linkBadge}
+      </button>`;
+  }
+
+  function shouldShowFlowchartSubtitle(node, semanticClass, subtitle) {
+    if (!subtitle) {
+      return false;
+    }
+
+    if (semanticClass && (semanticClass.includes("is-branch") || semanticClass.includes("is-condition") || semanticClass.includes("is-route"))) {
+      return false;
+    }
+
+    const compactRoles = ["parallel", "foreach", "batch", "loop", "merge", "aggregate", "checkpoint"];
+    if (compactRoles.includes(getFlowchartRole(node))) {
+      return false;
+    }
+
+    return node.kind === "spider.flow" || node.kind === "spider.pipeline";
   }
 
   function renderVerticalGraph(process, children, graphContext) {
@@ -3667,7 +4507,7 @@ button {
       return null;
     }
 
-    const node = target.closest(".spider-graph-node");
+    const node = target.closest(".spider-graph-node, .spider-flowchart-node");
     if (!node || !graphWrap.contains(node)) {
       return null;
     }
@@ -3756,7 +4596,7 @@ button {
     }
 
     state.nodeId = id;
-    document.querySelectorAll(".spider-graph-node").forEach((item) => {
+    document.querySelectorAll(".spider-graph-node, .spider-flowchart-node").forEach((item) => {
       item.classList.toggle("is-selected", item.getAttribute("data-node-id") === id);
     });
     document.querySelectorAll(".spider-outline-row").forEach((item) => {
@@ -3798,7 +4638,7 @@ button {
       return;
     }
 
-    document.querySelectorAll(".spider-graph-node").forEach((item) => {
+    document.querySelectorAll(".spider-graph-node, .spider-flowchart-node").forEach((item) => {
       item.classList.toggle("is-selected", item.getAttribute("data-node-id") === id);
     });
     document.querySelectorAll(".spider-runtime-timeline-card").forEach((item) => {
@@ -4298,6 +5138,147 @@ button {
 
     if (component.kind === "spider.flow-branch-route") {
       return " is-route";
+    }
+
+    return "";
+  }
+
+  function getFlowchartSemanticClass(component) {
+    const role = getFlowchartRole(component);
+    if (component.kind === "spider.flow") {
+      return " is-root";
+    }
+
+    if (component.kind === "spider.flow-branch") {
+      return " is-branch";
+    }
+
+    if (component.kind === "spider.flow-condition") {
+      return " is-condition";
+    }
+
+    if (component.kind === "spider.flow-branch-route") {
+      return " is-route";
+    }
+
+    if (role === "transform") {
+      return " is-transform";
+    }
+
+    if (role === "parallel") {
+      return " is-parallel";
+    }
+
+    if (role === "foreach") {
+      return " is-foreach";
+    }
+
+    if (role === "batch") {
+      return " is-batch";
+    }
+
+    if (role === "loop") {
+      return " is-loop";
+    }
+
+    if (role === "merge") {
+      return " is-merge";
+    }
+
+    if (role === "aggregate") {
+      return " is-aggregate";
+    }
+
+    if (role === "checkpoint") {
+      return " is-checkpoint";
+    }
+
+    return "";
+  }
+
+  function getFlowchartRoleLabel(component) {
+    const role = getFlowchartRole(component);
+    if (role === "transform") {
+      return "Transform";
+    }
+
+    if (role === "parallel") {
+      return "Parallel";
+    }
+
+    if (role === "foreach") {
+      return "For each";
+    }
+
+    if (role === "batch") {
+      return "Batch";
+    }
+
+    if (role === "loop") {
+      return "Loop";
+    }
+
+    if (role === "ensure") {
+      return "Ensure";
+    }
+
+    if (role === "merge") {
+      return "Merge";
+    }
+
+    if (role === "aggregate") {
+      return "Aggregate";
+    }
+
+    if (role === "checkpoint") {
+      return "Checkpoint";
+    }
+
+    return getFriendlyKind(component);
+  }
+
+  function getFlowchartRole(component) {
+    const value = [
+      getMetadata(component, "role"),
+      getMetadata(component, "operation"),
+      getMetadata(component, "fluentCall"),
+      getMetadata(component, "kind")
+    ].join(" ").toLowerCase();
+
+    if (value.includes("transform")) {
+      return "transform";
+    }
+
+    if (value.includes("parallel")) {
+      return "parallel";
+    }
+
+    if (value.includes("foreach") || value.includes("for each")) {
+      return "foreach";
+    }
+
+    if (value.includes("batch")) {
+      return "batch";
+    }
+
+    if (value.includes("loop") || value.includes("repeat")) {
+      return "loop";
+    }
+
+    if (value.includes("ensure")) {
+      return "ensure";
+    }
+
+    if (value.includes("merge")) {
+      return "merge";
+    }
+
+    if (value.includes("aggregate")) {
+      return "aggregate";
+    }
+
+    if (value.includes("checkpoint")) {
+      return "checkpoint";
     }
 
     return "";
