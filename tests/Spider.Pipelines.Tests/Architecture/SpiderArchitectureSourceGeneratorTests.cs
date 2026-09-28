@@ -131,6 +131,34 @@ namespace Spider.Pipelines.Tests.Architecture
         }
 
         [Fact]
+        public void BuildManifest_WhenBranchRouteContainsNestedBranch_ShouldGenerateNestedRouteGraph()
+        {
+            var manifest = GenerateManifest(NestedBranchFlowSource);
+            var parentRoute = Assert.Single(manifest.Components, component =>
+                component.Kind == "spider.flow-branch-route" &&
+                component.DisplayName == "When IsLowRisk");
+            var nestedBranch = Assert.Single(manifest.Components, component =>
+                component.Kind == "spider.flow-branch" &&
+                component.DisplayName == "Nested decision");
+
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "route-contains" &&
+                relation.SourceId == parentRoute.Id &&
+                relation.TargetId == nestedBranch.Id);
+
+            var nestedRoutes = manifest.Relations
+                .Where(relation => relation.Kind == "branch-route" && relation.SourceId == nestedBranch.Id)
+                .ToArray();
+            Assert.Equal(2, nestedRoutes.Length);
+            Assert.Contains(manifest.Components, component =>
+                component.Id == nestedBranch.Id + ".route.01-senior-review" &&
+                component.Kind == "spider.flow-branch-route");
+            Assert.Contains(manifest.Components, component =>
+                component.Id == nestedBranch.Id + ".route.01-senior-review.001-mark-senior-review" &&
+                component.Kind == "spider.flow-step");
+        }
+
+        [Fact]
         public void BuildManifest_WhenFlowUsesDescriptiveMetadata_ShouldGenerateDocumentationMetadata()
         {
             var manifest = GenerateManifest(MetadataFlowSource);
@@ -437,6 +465,64 @@ namespace ArchitectureSample
     public sealed class RiskProfile { }
 
     public sealed class RiskScore { }
+
+    public sealed class RiskDecision { }
+
+public sealed class RiskResponse { }
+}
+";
+
+        private const string NestedBranchFlowSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedFlows
+    {
+        public void Configure(ISpider spider, RiskRequest request, CancellationToken token)
+        {
+            _ = spider
+                .ComposeFlow<RiskRequest, RiskResponse>(""Evaluate nested risk"")
+                .Then(BuildProfile)
+                .Branch<RiskDecision>(branch => branch
+                    .When(IsLowRisk, low => low
+                        .Then(AutoApprove)
+                        .Branch<RiskDecision>(nested => nested
+                            .Named(""Nested decision"")
+                            .When(RequiresSeniorReview, senior => senior
+                                .Named(""Senior review"")
+                                .Then(MarkSeniorReview))
+                            .Otherwise(clear => clear
+                                .Named(""Clear review"")
+                                .Then(MarkClearReview))))
+                    .Otherwise(normal => normal.Then(CalculateStandardDecision)))
+                .Then(ReturnResponse)
+                .RunAsync(request, token);
+        }
+
+        private static RiskProfile BuildProfile(RiskRequest request) => new RiskProfile();
+
+        private static bool IsLowRisk(RiskProfile profile) => true;
+
+        private static bool RequiresSeniorReview(RiskDecision decision) => true;
+
+        private static RiskDecision AutoApprove(RiskProfile profile) => new RiskDecision();
+
+        private static void MarkSeniorReview(RiskDecision decision) { }
+
+        private static void MarkClearReview(RiskDecision decision) { }
+
+        private static RiskDecision CalculateStandardDecision(RiskProfile profile) => new RiskDecision();
+
+        private static RiskResponse ReturnResponse(RiskDecision decision) => new RiskResponse();
+    }
+
+    public sealed class RiskRequest { }
+
+    public sealed class RiskProfile { }
 
     public sealed class RiskDecision { }
 

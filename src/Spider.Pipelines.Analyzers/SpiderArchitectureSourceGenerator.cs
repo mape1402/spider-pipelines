@@ -373,9 +373,7 @@ namespace Spider.Pipelines.Analyzers
             if (branchLambda == null)
                 return;
 
-            var routeInvocations = branchLambda.Body
-                .DescendantNodesAndSelf()
-                .OfType<InvocationExpressionSyntax>()
+            var routeInvocations = GetTopLevelFluentInvocations(branchLambda)
                 .Where(invocation =>
                 {
                     var name = GetInvocationName(invocation);
@@ -439,13 +437,11 @@ namespace Spider.Pipelines.Analyzers
             if (routeLambda == null)
                 return;
 
-            var stepInvocations = routeLambda.Body
-                .DescendantNodesAndSelf()
-                .OfType<InvocationExpressionSyntax>()
+            var stepInvocations = GetTopLevelFluentInvocations(routeLambda)
                 .Where(invocation =>
                 {
                     var name = GetInvocationName(invocation);
-                    return name == "Then" || name == "ThenWith";
+                    return IsFlowStep(name);
                 })
                 .OrderBy(GetInvocationNamePosition)
                 .ToArray();
@@ -457,14 +453,18 @@ namespace Spider.Pipelines.Analyzers
             {
                 stepIndex++;
                 var invocationName = GetInvocationName(stepInvocation);
+                var kind = GetFlowStepKind(invocationName);
                 var metadata = CreateFlowStepMetadata(semanticModel, stepInvocation, invocationName);
                 var displayName = GetDisplayName(metadata, GetStepDisplayName(semanticModel, stepInvocation, invocationName));
                 var stepId = routeId + "." + stepIndex.ToString("000", CultureInfo.InvariantCulture) + "-" + Normalize(displayName);
                 metadata["order"] = stepIndex.ToString(CultureInfo.InvariantCulture);
                 var evidence = CreateEvidence(semanticModel, stepInvocation, GetDelegateExpression(stepInvocation), sourceRoots);
 
-                manifest.AddComponent(new ComponentModel(stepId, "spider.flow-step", displayName, metadata, evidence));
+                manifest.AddComponent(new ComponentModel(stepId, kind, displayName, metadata, evidence));
                 manifest.AddRelation(new RelationModel(routeId, stepId, "route-contains"));
+
+                if (invocationName == "Branch")
+                    AddBranchRoutes(manifest, semanticModel, stepInvocation, stepId, sourceRoots);
 
                 if (previousStepId != null)
                     manifest.AddRelation(new RelationModel(previousStepId, stepId, "route-next"));
