@@ -79,6 +79,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("      <header class=\"spider-topbar\">");
             html.AppendLine("        <div class=\"spider-topbar-left\">");
             html.AppendLine("          <button id=\"spider-sidebar-toggle\" class=\"spider-sidebar-toggle\" type=\"button\" aria-label=\"Collapse navigation\" aria-expanded=\"true\" title=\"Collapse navigation\"><span class=\"spider-sidebar-toggle-line\"></span><span class=\"spider-sidebar-toggle-line\"></span></button>");
+            html.AppendLine("          <button id=\"spider-topbar-back\" class=\"spider-topbar-back\" type=\"button\" data-back-list>Back to Runtime</button>");
             html.AppendLine("          <div id=\"spider-topbar-title\" class=\"spider-topbar-title\">Pipelines</div>");
             html.AppendLine("        </div>");
             html.AppendLine("        <div class=\"spider-topbar-actions\">");
@@ -528,6 +529,30 @@ button {
   white-space: nowrap;
 }
 
+.spider-topbar-back {
+  display: none;
+  flex: 0 0 auto;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-input-bg);
+  color: var(--spider-text);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 7px 10px;
+}
+
+.spider-topbar-back:hover {
+  border-color: rgba(230, 36, 45, 0.36);
+  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.08);
+  color: var(--spider-red);
+}
+
+.spider-shell.is-runtime-trace .spider-topbar-back {
+  display: inline-flex;
+}
+
 .spider-topbar-actions {
   display: inline-flex;
   align-items: center;
@@ -593,9 +618,20 @@ button {
   padding: 20px 24px;
 }
 
+.spider-shell.is-runtime-trace .spider-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .spider-content {
   width: 100%;
   max-width: none;
+}
+
+.spider-shell.is-runtime-trace .spider-content {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .spider-view-header,
@@ -621,6 +657,46 @@ button {
   color: var(--spider-muted);
   font-size: 0.86rem;
   line-height: 1.45;
+}
+
+.spider-runtime-toolbar {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.spider-runtime-toolbar > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.spider-runtime-toolbar .spider-detail-actions {
+  grid-column: 1;
+  grid-row: 1;
+  margin-top: 0;
+}
+
+.spider-runtime-toolbar .spider-detail-title {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+  font-size: 1.08rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spider-runtime-toolbar .spider-detail-subtitle {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spider-search {
@@ -2309,24 +2385,94 @@ button {
 
 .spider-runtime-detail {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+  margin-top: -6px;
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-detail {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
 }
 
 .spider-runtime-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
   gap: 16px;
   align-items: start;
   min-width: 0;
 }
 
-.spider-runtime-timeline-panel,
+.spider-shell.is-runtime-trace .spider-runtime-workspace {
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.spider-runtime-visual-panel,
 .spider-runtime-context {
   min-width: 0;
 }
 
+.spider-runtime-visual-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-visual-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.spider-runtime-visual-header {
+  align-items: center;
+  gap: 14px;
+}
+
+.spider-runtime-visual-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.spider-runtime-view-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-soft);
+  padding: 3px;
+}
+
+.spider-runtime-view-button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--spider-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 8px 11px;
+}
+
+.spider-runtime-view-button:hover {
+  color: var(--spider-text);
+}
+
+.spider-runtime-view-button.is-active {
+  background: var(--spider-blue);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+  color: #ffffff;
+}
+
 .spider-runtime-context {
   display: grid;
+  align-content: start;
   gap: 12px;
   position: sticky;
   top: 12px;
@@ -2335,15 +2481,54 @@ button {
   padding-right: 2px;
 }
 
-.spider-runtime-graph-panel {
-  min-height: 430px;
+.spider-shell.is-runtime-trace .spider-runtime-context {
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  position: static;
+}
+
+.spider-runtime-flow-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-flow-body {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.spider-runtime-flow-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.spider-runtime-flow-name {
+  overflow: hidden;
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spider-runtime-graph-wrap {
-  min-height: 350px;
-  max-height: 48vh;
+  min-height: 560px;
+  max-height: calc(100vh - 330px);
   overflow: auto;
   padding: 14px;
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-graph-wrap {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
 }
 
 .spider-runtime-graph-wrap .spider-architecture-graph {
@@ -2352,13 +2537,20 @@ button {
 }
 
 .spider-runtime-node-detail {
+  align-self: start;
   padding: 12px;
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-node-detail {
+  align-self: stretch;
+  min-height: 0;
+  overflow: auto;
 }
 
 .spider-runtime-overview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 8px;
 }
 
 .spider-runtime-metric {
@@ -2368,12 +2560,12 @@ button {
   border: 1px solid var(--spider-line);
   border-radius: 8px;
   background: var(--spider-panel);
-  padding: 10px 12px;
+  padding: 7px 9px;
 }
 
 .spider-runtime-metric span {
   color: var(--spider-muted);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -2382,10 +2574,34 @@ button {
 .spider-runtime-metric strong {
   overflow: hidden;
   color: var(--spider-text);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.spider-runtime-node-detail .spider-node-header {
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.spider-runtime-node-detail .spider-node-description {
+  margin-top: 4px;
+  line-height: 1.34;
+}
+
+.spider-runtime-node-detail .spider-node-tags {
+  margin-top: 5px;
+}
+
+.spider-runtime-node-detail .spider-definition {
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 5px 9px;
+}
+
+.spider-runtime-node-detail .spider-detail-section {
+  margin-top: 10px;
+  padding-top: 10px;
 }
 
 .spider-runtime-timeline {
@@ -2396,10 +2612,22 @@ button {
 .spider-runtime-timeline.is-main {
   position: relative;
   gap: 0;
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-timeline.is-main {
+  min-height: 0;
+  overflow: auto;
+}
+
+.spider-runtime-timeline-track {
+  position: relative;
+  display: grid;
+  gap: 0;
+  min-width: 0;
   padding: 12px 0 18px;
 }
 
-.spider-runtime-timeline.is-main::before {
+.spider-runtime-timeline-track::before {
   content: "";
   position: absolute;
   top: 18px;
@@ -2794,35 +3022,105 @@ button {
   box-shadow: none;
 }
 
-.spider-runtime-raw {
+.spider-runtime-raw-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-input-bg);
+  color: var(--spider-text);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 680;
+  line-height: 1;
+  padding: 7px 10px;
+  transition: border-color 0.12s, box-shadow 0.12s, color 0.12s, transform 0.12s;
+}
+
+.spider-runtime-raw-button:hover {
+  border-color: rgba(29, 95, 191, 0.42);
+  box-shadow: 0 8px 16px rgba(29, 95, 191, 0.12);
+  color: var(--spider-blue);
+  transform: translateY(-1px);
+}
+
+.spider-runtime-raw-button-count {
+  border: 1px solid rgba(29, 95, 191, 0.18);
+  border-radius: 999px;
+  background: var(--spider-blue-soft);
+  color: var(--spider-blue);
+  font-size: 0.72rem;
+  font-weight: 760;
+  padding: 3px 7px;
+}
+
+.spider-runtime-maximize-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--spider-line);
   border-radius: 8px;
-  background: var(--spider-panel);
-}
-
-.spider-runtime-raw summary {
+  background: var(--spider-input-bg);
+  color: var(--spider-muted);
   cursor: pointer;
-  color: var(--spider-text);
-  font-size: 0.86rem;
-  font-weight: 700;
-  padding: 11px 13px;
+  padding: 0;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, color 0.12s;
 }
 
-.spider-runtime-raw .spider-runtime-timeline {
-  border-top: 1px solid var(--spider-line);
-  padding: 12px;
+.spider-runtime-maximize-button:hover,
+.spider-runtime-maximize-button[aria-pressed="true"] {
+  background: rgba(29, 95, 191, 0.08);
+  border-color: rgba(29, 95, 191, 0.36);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.06);
+  color: var(--spider-blue);
 }
 
-.spider-runtime-raw-wide {
-  overflow: hidden;
+.spider-runtime-maximize-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  opacity: 0.78;
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.spider-runtime-maximize-button:hover .spider-runtime-maximize-icon,
+.spider-runtime-maximize-button[aria-pressed="true"] .spider-runtime-maximize-icon {
+  opacity: 0.94;
+}
+
+.spider-runtime-maximize-button[aria-pressed="true"] .spider-runtime-maximize-icon {
+  transform: scale(0.94);
+}
+
+.spider-shell.is-runtime-trace .spider-runtime-detail.is-visual-maximized {
+  grid-template-rows: minmax(0, 1fr);
+  margin-top: 0;
+}
+
+.spider-runtime-detail.is-visual-maximized .spider-runtime-toolbar,
+.spider-runtime-detail.is-visual-maximized .spider-runtime-overview,
+.spider-runtime-detail.is-visual-maximized .spider-runtime-context {
+  display: none;
+}
+
+.spider-runtime-detail.is-visual-maximized .spider-runtime-workspace {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  height: 100%;
+}
+
+.spider-runtime-detail.is-visual-maximized .spider-runtime-visual-panel {
+  height: 100%;
 }
 
 .spider-runtime-raw-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 12px;
-  border-top: 1px solid var(--spider-line);
-  padding: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 0;
 }
 
 .spider-runtime-raw-list.is-inline {
@@ -2831,7 +3129,9 @@ button {
 }
 
 .spider-runtime-raw-list.is-empty {
-  display: block;
+  display: grid;
+  min-height: 100%;
+  place-items: center;
 }
 
 .spider-runtime-raw-list .spider-runtime-event {
@@ -2858,6 +3158,100 @@ button {
 .spider-runtime-raw-list .spider-runtime-event.is-started {
   border-left-color: var(--spider-blue);
   background: var(--spider-blue-soft);
+}
+
+.spider-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 10, 20, 0.58);
+  padding: 24px;
+}
+
+.spider-modal-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(960px, calc(100vw - 48px));
+  height: min(780px, calc(100vh - 48px));
+  max-height: none;
+  overflow: hidden;
+  border: 1px solid var(--spider-line);
+  border-radius: 10px;
+  background: var(--spider-panel);
+  box-shadow: 0 24px 80px rgba(5, 10, 20, 0.35);
+}
+
+.spider-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--spider-line);
+  padding: 16px 18px;
+}
+
+.spider-modal-eyebrow {
+  color: var(--spider-muted);
+  font-size: 0.72rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.spider-modal-title {
+  margin: 3px 0 0;
+  color: var(--spider-text);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.spider-modal-subtitle {
+  margin-top: 4px;
+  color: var(--spider-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.spider-modal-search {
+  display: block;
+  margin-top: 12px;
+  width: min(420px, 58vw);
+}
+
+.spider-modal-search input {
+  width: 100%;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-input-bg);
+  color: var(--spider-text);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1;
+  outline: none;
+  padding: 9px 11px;
+}
+
+.spider-modal-search input:focus {
+  border-color: rgba(29, 95, 191, 0.46);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.08);
+}
+
+.spider-modal-close {
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-panel-soft);
+  color: var(--spider-text);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 680;
+  padding: 7px 10px;
+}
+
+.spider-modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 16px;
 }
 
 .spider-runtime-event-top {
@@ -3006,6 +3400,25 @@ button {
     display: grid;
   }
 
+  .spider-runtime-toolbar > div {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .spider-runtime-toolbar .spider-detail-actions {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .spider-runtime-toolbar .spider-detail-title {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .spider-runtime-toolbar .spider-detail-subtitle {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .spider-process-list {
     grid-template-columns: 1fr;
   }
@@ -3028,11 +3441,11 @@ button {
     justify-content: flex-start;
   }
 
-  .spider-runtime-timeline.is-main {
+  .spider-runtime-timeline-track {
     padding-left: 0;
   }
 
-  .spider-runtime-timeline.is-main::before {
+  .spider-runtime-timeline-track::before {
     left: 24px;
   }
 
@@ -3065,8 +3478,46 @@ button {
     width: 100%;
   }
 
+  .spider-runtime-visual-header,
+  .spider-runtime-flow-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .spider-runtime-visual-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .spider-runtime-view-switch {
+    width: 100%;
+  }
+
+  .spider-runtime-view-button {
+    flex: 1 1 0;
+  }
+
   .spider-runtime-raw-list {
     grid-template-columns: 1fr;
+  }
+
+  .spider-modal-backdrop {
+    padding: 12px;
+  }
+
+  .spider-modal-panel {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+  }
+
+  .spider-modal-header {
+    display: grid;
+    gap: 12px;
+  }
+
+  .spider-modal-search {
+    width: 100%;
   }
 
   .spider-flowchart {
@@ -3136,8 +3587,12 @@ button {
     runtimeTraceSignature: "",
     runtimeSelectedComponentId: "",
     runtimeSelectedItemKey: "",
+    runtimeVisualView: "story",
+    runtimeVisualMaximized: false,
     runtimeListSignature: "",
-    inspectorCollapsed: false
+    inspectorCollapsed: false,
+    rawEventsModalOpen: false,
+    rawEventsQuery: ""
   };
 
   flowCount.textContent = String(flows.length);
@@ -3172,6 +3627,35 @@ button {
       return;
     }
 
+    const rawEvents = event.target.closest("[data-open-raw-events]");
+    if (rawEvents && state.view === "runtime" && state.mode === "trace") {
+      openRuntimeRawEventsModal();
+      return;
+    }
+
+    const runtimeVisual = event.target.closest("[data-runtime-visual-view]");
+    if (runtimeVisual && state.view === "runtime" && state.mode === "trace") {
+      setRuntimeVisualView(runtimeVisual.getAttribute("data-runtime-visual-view"));
+      return;
+    }
+
+    const runtimeVisualMaximize = event.target.closest("[data-runtime-visual-maximize]");
+    if (runtimeVisualMaximize && state.view === "runtime" && state.mode === "trace") {
+      setRuntimeVisualMaximized(!state.runtimeVisualMaximized);
+      return;
+    }
+
+    const closeRawEvents = event.target.closest("[data-close-raw-events]");
+    if (closeRawEvents) {
+      closeRuntimeRawEventsModal();
+      return;
+    }
+
+    if (event.target.classList && event.target.classList.contains("spider-modal-backdrop")) {
+      closeRuntimeRawEventsModal();
+      return;
+    }
+
     const back = event.target.closest("[data-back-list]");
     if (back) {
       showList(state.view);
@@ -3197,6 +3681,12 @@ button {
     const node = event.target.closest("[data-node-id]");
     if (node) {
       selectNode(node.getAttribute("data-node-id"));
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.rawEventsModalOpen) {
+      closeRuntimeRawEventsModal();
     }
   });
 
@@ -3267,6 +3757,8 @@ button {
   }
 
   function showList(view, skipHash) {
+    closeRuntimeRawEventsModal();
+    setRuntimeTraceShell(false);
     state.view = view === "runtime" && showRuntime
       ? "runtime"
       : view === "flows" ? "flows" : "pipelines";
@@ -3276,6 +3768,7 @@ button {
     state.query = "";
     state.runtimeSelectedComponentId = "";
     state.runtimeSelectedItemKey = "";
+    state.runtimeVisualMaximized = false;
     if (!skipHash) {
       setHash(state.view);
     }
@@ -3410,6 +3903,7 @@ button {
   function openTrace(traceId, skipHash) {
     const trace = (runtimeData.traces || []).find((item) => item.traceId === traceId);
     if (!trace) {
+      showList("runtime");
       return;
     }
 
@@ -3418,11 +3912,16 @@ button {
       return;
     }
 
+    if (state.runtimeTraceId !== traceId) {
+      closeRuntimeRawEventsModal();
+    }
+
     state.view = "runtime";
     state.mode = "trace";
     if (state.runtimeTraceId !== traceId) {
       state.runtimeSelectedComponentId = "";
       state.runtimeSelectedItemKey = "";
+      state.runtimeVisualMaximized = false;
     }
 
     state.runtimeTraceId = traceId;
@@ -3432,7 +3931,7 @@ button {
     }
 
     if (skipHash) {
-      preserveMainScroll(() => renderTraceDetail(trace));
+      preserveRuntimeVisualScroll(() => renderTraceDetail(trace));
     } else {
       renderTraceDetail(trace);
       resetMainScroll();
@@ -3442,15 +3941,22 @@ button {
   function renderTraceDetail(trace) {
     const overview = createRuntimeOverview(trace, findSummary(trace.traceId));
     const graphContext = createRuntimeGraphContext(overview);
+    const visualView = getRuntimeVisualView();
     overview.graphContext = graphContext;
+    setRuntimeTraceShell(true);
     setActiveMenu("runtime");
     setTopbarTitle(trace.traceId);
 
+    const maximizedClass = state.runtimeVisualMaximized ? " is-visual-maximized" : "";
+    const maximizeText = state.runtimeVisualMaximized ? "Restore" : "Maximize";
+    const maximizeIconPath = state.runtimeVisualMaximized
+      ? "M4 4l6 6M10 10H4M10 10V4M20 4l-6 6M14 10h6M14 10V4M4 20l6-6M10 14H4M10 14v6M20 20l-6-6M14 14h6M14 14v6"
+      : "M10 10L4 4M4 4h6M4 4v6M14 10l6-6M20 4h-6M20 4v6M10 14l-6 6M4 20h6M4 20v-6M14 14l6 6M20 20h-6M20 20v-6";
+
     content.innerHTML = `
-      <article class="spider-runtime-detail">
-        <header class="spider-detail-toolbar">
+      <article class="spider-runtime-detail${maximizedClass}">
+        <header class="spider-detail-toolbar spider-runtime-toolbar">
           <div>
-            <button class="spider-back-button" type="button" data-back-list>Back to Runtime</button>
             <div class="spider-detail-actions">
               ${renderStatusChip(overview.status)}
               <span class="spider-chip">${escapeHtml(formatDuration(overview.durationMs))}</span>
@@ -3470,26 +3976,37 @@ button {
           ${renderRuntimeMetric("Boundaries", String(overview.boundaryCount))}
         </section>
         <div class="spider-runtime-workspace">
-          <section class="spider-panel spider-runtime-timeline-panel">
-            <div class="spider-panel-header">
-              <h2>Execution timeline</h2>
-              <span class="spider-panel-note">Runtime order, nested spans, selected branch, and faults</span>
+          <section class="spider-panel spider-runtime-visual-panel ${visualView === "story" ? "spider-runtime-timeline-panel" : "spider-runtime-graph-panel"}">
+            <div class="spider-panel-header spider-runtime-visual-header">
+              <div>
+                <h2>${escapeHtml(getRuntimeVisualTitle(visualView, graphContext))}</h2>
+                <span class="spider-panel-note">${escapeHtml(getRuntimeVisualNote(visualView, graphContext))}</span>
+              </div>
+              <div class="spider-runtime-visual-actions">
+                <button class="spider-runtime-raw-button" type="button" data-open-raw-events>
+                  <span>Raw events</span>
+                  <span class="spider-runtime-raw-button-count">${escapeHtml(String((trace.events || []).length))}</span>
+                </button>
+                ${renderRuntimeVisualSwitch(visualView)}
+                <button class="spider-runtime-maximize-button" type="button" data-runtime-visual-maximize aria-label="${escapeAttribute(maximizeText)} view" title="${escapeAttribute(maximizeText)} view" aria-pressed="${state.runtimeVisualMaximized ? "true" : "false"}">
+                  <svg class="spider-runtime-maximize-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="${escapeAttribute(maximizeIconPath)}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div class="spider-runtime-timeline is-main">
-              ${overview.rootSpans.length ? renderRuntimeTimeline(overview, graphContext) : renderRuntimeRawEventList(trace, true)}
-            </div>
+            ${visualView === "story"
+              ? `<div class="spider-runtime-timeline is-main">
+                  ${overview.rootSpans.length ? renderRuntimeTimeline(overview, graphContext) : renderRuntimeRawEventList(trace, true)}
+                </div>`
+              : renderRuntimeGraphPanel(graphContext)}
           </section>
           <aside class="spider-runtime-context">
-            ${renderRuntimeGraphPanel(graphContext)}
             <section id="spider-runtime-node-detail" class="spider-panel spider-runtime-node-detail">
               ${renderRuntimeNodeDetail(graphContext)}
             </section>
           </aside>
         </div>
-        <details class="spider-runtime-raw spider-runtime-raw-wide">
-          <summary>Raw events</summary>
-          ${renderRuntimeRawEventList(trace, false)}
-        </details>
       </article>`;
 
     bindGraphTooltip();
@@ -3503,26 +4020,58 @@ button {
       </div>`;
   }
 
+  function getRuntimeVisualView() {
+    return state.runtimeVisualView === "flow" ? "flow" : "story";
+  }
+
+  function getRuntimeVisualTitle(visualView, graphContext) {
+    if (visualView === "story") {
+      return "Execution story line";
+    }
+
+    if (!graphContext || !graphContext.process) {
+      return "Execution flow";
+    }
+
+    return graphContext.process.kind === "spider.flow" ? "Execution flowchart" : "Execution graph";
+  }
+
+  function getRuntimeVisualNote(visualView, graphContext) {
+    if (visualView === "story") {
+      return "Runtime order, nested spans, selected branch, and faults";
+    }
+
+    if (!graphContext || !graphContext.process) {
+      return "No graph metadata matched this trace";
+    }
+
+    return graphContext.process.displayName || graphContext.process.id;
+  }
+
+  function renderRuntimeVisualSwitch(activeView) {
+    const storyClass = activeView === "story" ? " is-active" : "";
+    const flowClass = activeView === "flow" ? " is-active" : "";
+
+    return `
+      <div class="spider-runtime-view-switch" role="tablist" aria-label="Runtime view">
+        <button class="spider-runtime-view-button${storyClass}" type="button" role="tab" aria-selected="${activeView === "story" ? "true" : "false"}" data-runtime-visual-view="story">Story line</button>
+        <button class="spider-runtime-view-button${flowClass}" type="button" role="tab" aria-selected="${activeView === "flow" ? "true" : "false"}" data-runtime-visual-view="flow">Flow</button>
+      </div>`;
+  }
+
   function renderRuntimeGraphPanel(graphContext) {
     if (!graphContext || !showGraph) {
       return `
-        <section class="spider-panel spider-runtime-graph-panel">
-          <div class="spider-panel-header">
-            <h2>Execution graph</h2>
-          </div>
+        <div class="spider-runtime-flow-body">
           <div class="spider-empty-list">No graph metadata matched this trace.</div>
-        </section>`;
+        </div>`;
     }
 
     const graph = renderProcessGraph(graphContext.process, graphContext.children, graphContext);
-    const title = graphContext.process.kind === "spider.flow" ? "Execution flowchart" : "Execution graph";
     return `
-      <section class="spider-panel spider-runtime-graph-panel">
-        <div class="spider-panel-header">
-          <div>
-            <h2>${escapeHtml(title)}</h2>
-            <span class="spider-panel-note">${escapeHtml(graphContext.process.displayName || graphContext.process.id)}</span>
-          </div>
+      <div class="spider-runtime-flow-body">
+        <div class="spider-runtime-flow-meta">
+          <span class="spider-runtime-flow-name">${escapeHtml(graphContext.process.displayName || graphContext.process.id)}</span>
           <div class="spider-graph-legend" aria-label="Runtime graph legend">
             <span class="spider-legend-item"><i class="spider-legend-swatch runtime-completed"></i>Executed</span>
             <span class="spider-legend-item"><i class="spider-legend-swatch runtime-faulted"></i>Faulted</span>
@@ -3533,7 +4082,7 @@ button {
           ${graph}
           <div id="spider-graph-tooltip" class="spider-graph-tooltip" role="tooltip"></div>
         </div>
-      </section>`;
+      </div>`;
   }
 
   function renderRuntimeNodeDetail(graphContext) {
@@ -3675,7 +4224,7 @@ button {
 
   function renderRuntimeTimeline(overview, graphContext) {
     const items = createRuntimeTimelineItems(overview.rootSpans);
-    return items.map((item, index) => renderRuntimeTimelineItem(item, index, graphContext)).join("");
+    return `<div class="spider-runtime-timeline-track">${items.map((item, index) => renderRuntimeTimelineItem(item, index, graphContext)).join("")}</div>`;
   }
 
   function createRuntimeTimelineItems(rootSpans) {
@@ -3857,13 +4406,54 @@ button {
       </div>`;
   }
 
-  function renderRuntimeRawEventList(trace, inline) {
-    const events = trace.events || [];
+  function renderRuntimeRawEventList(trace, inline, query) {
+    const allEvents = trace.events || [];
+    const events = filterRuntimeRawEvents(allEvents, query);
+    if (allEvents.length > 0 && events.length === 0) {
+      return `<div class="spider-runtime-raw-list${inline ? " is-inline" : ""} is-empty"><div class="spider-empty-list">No raw events match this search.</div></div>`;
+    }
+
     if (events.length === 0) {
       return `<div class="spider-runtime-raw-list${inline ? " is-inline" : ""} is-empty"><div class="spider-empty-list">No raw events captured for this trace.</div></div>`;
     }
 
     return `<div class="spider-runtime-raw-list${inline ? " is-inline" : ""}">${events.map(renderRuntimeEvent).join("")}</div>`;
+  }
+
+  function filterRuntimeRawEvents(events, query) {
+    const normalizedQuery = String(query || "").trim().toLowerCase();
+    if (!normalizedQuery) {
+      return events || [];
+    }
+
+    return (events || []).filter((event) => createRuntimeEventSearchText(event).includes(normalizedQuery));
+  }
+
+  function createRuntimeEventSearchText(event) {
+    const component = event.componentId && byId.has(event.componentId) ? byId.get(event.componentId) : null;
+    const values = [
+      event.kind,
+      event.status,
+      event.operation,
+      event.displayName,
+      event.componentId,
+      event.componentKind,
+      event.spanId,
+      event.parentSpanId,
+      event.traceId,
+      event.inputType,
+      event.outputType,
+      getRuntimeDisplayName(event),
+      getRuntimeDescription(event),
+      component && component.displayName,
+      component && component.id,
+      event.exception && event.exception.message,
+      ...getRuntimeTags(event),
+      ...Object.values(event.tags || {}),
+      ...Object.values(event.metadata || {})
+    ];
+
+    return values.map((value) => String(value || "").toLowerCase()).join(" ");
   }
 
   function renderRuntimeEvent(event) {
@@ -3907,6 +4497,115 @@ button {
       </div>`;
   }
 
+  function openRuntimeRawEventsModal() {
+    const trace = getCurrentRuntimeTrace();
+    if (!trace) {
+      return;
+    }
+
+    closeRuntimeRawEventsModal();
+    state.rawEventsQuery = "";
+    root.insertAdjacentHTML("beforeend", renderRuntimeRawEventsModal(trace));
+    state.rawEventsModalOpen = true;
+    root.classList.add("is-modal-open");
+
+    const search = document.getElementById("spider-runtime-raw-search");
+    if (search) {
+      search.addEventListener("input", () => {
+        state.rawEventsQuery = search.value.trim().toLowerCase();
+        refreshRuntimeRawEventsModal(getCurrentRuntimeTrace());
+      });
+      search.focus();
+      return;
+    }
+
+    const close = document.getElementById("spider-runtime-raw-close");
+    if (close) {
+      close.focus();
+    }
+  }
+
+  function closeRuntimeRawEventsModal() {
+    const modal = document.getElementById("spider-runtime-raw-modal");
+    if (modal) {
+      modal.remove();
+    }
+
+    state.rawEventsModalOpen = false;
+    state.rawEventsQuery = "";
+    root.classList.remove("is-modal-open");
+  }
+
+  function refreshRuntimeRawEventsModal(trace) {
+    const modal = document.getElementById("spider-runtime-raw-modal");
+    if (!modal || !state.rawEventsModalOpen) {
+      return;
+    }
+
+    if (!trace) {
+      closeRuntimeRawEventsModal();
+      return;
+    }
+
+    const count = modal.querySelector("[data-raw-event-count]");
+    if (count) {
+      count.textContent = formatRuntimeRawEventCount(trace, state.rawEventsQuery);
+    }
+
+    const list = modal.querySelector("[data-raw-event-list]");
+    if (list) {
+      list.innerHTML = renderRuntimeRawEventList(trace, false, state.rawEventsQuery);
+    }
+  }
+
+  function renderRuntimeRawEventsModal(trace) {
+    const events = trace.events || [];
+    const query = state.rawEventsQuery || "";
+    const summary = findSummary(trace.traceId);
+    const title = summary && summary.rootDisplayName
+      ? summary.rootDisplayName
+      : getTraceTitle(trace);
+
+    return `
+      <div id="spider-runtime-raw-modal" class="spider-modal-backdrop">
+        <section class="spider-modal-panel" role="dialog" aria-modal="true" aria-labelledby="spider-runtime-raw-title">
+          <header class="spider-modal-header">
+            <div>
+              <div class="spider-modal-eyebrow">Raw events</div>
+              <h2 id="spider-runtime-raw-title" class="spider-modal-title">${escapeHtml(title)}</h2>
+              <div class="spider-modal-subtitle">
+                <span data-raw-event-count>${escapeHtml(formatRuntimeRawEventCount(trace, query))}</span>
+                <span> · Trace ${escapeHtml(shortTraceId(trace.traceId))}</span>
+              </div>
+              <label class="spider-modal-search" aria-label="Search raw events">
+                <input id="spider-runtime-raw-search" type="search" autocomplete="off" placeholder="Search raw events" value="${escapeAttribute(query)}" />
+              </label>
+            </div>
+            <button id="spider-runtime-raw-close" class="spider-modal-close" type="button" data-close-raw-events>Close</button>
+          </header>
+          <div class="spider-modal-body" data-raw-event-list>
+            ${renderRuntimeRawEventList(trace, false, query)}
+          </div>
+        </section>
+      </div>`;
+  }
+
+  function formatRuntimeRawEventCount(trace, query) {
+    const events = trace && trace.events ? trace.events : [];
+    const filtered = filterRuntimeRawEvents(events, query);
+    if (!String(query || "").trim()) {
+      return `${events.length} events`;
+    }
+
+    return `${filtered.length} of ${events.length} events`;
+  }
+
+  function getCurrentRuntimeTrace() {
+    return state.runtimeTraceId
+      ? (runtimeData.traces || []).find((trace) => trace.traceId === state.runtimeTraceId) || null
+      : null;
+  }
+
   function renderProcessRows(items) {
     const matches = filterProcesses(items);
     if (matches.length === 0) {
@@ -3945,6 +4644,8 @@ button {
       return;
     }
 
+    closeRuntimeRawEventsModal();
+    setRuntimeTraceShell(false);
     const children = orderChildren(process);
     state.view = process.kind === "spider.flow" ? "flows" : "pipelines";
     state.mode = "detail";
@@ -3952,6 +4653,7 @@ button {
     state.nodeId = children.length ? children[0].id : id;
     state.runtimeSelectedComponentId = "";
     state.runtimeSelectedItemKey = "";
+    state.runtimeVisualMaximized = false;
     if (!skipHash) {
       setHash(id);
     }
@@ -4149,6 +4851,7 @@ button {
   }
 
   function renderJson() {
+    setRuntimeTraceShell(false);
     setTopbarTitle("Manifest JSON");
 
     content.innerHTML = `
@@ -4625,7 +5328,49 @@ button {
       return;
     }
 
+    refreshRuntimeSelectionDetail(trace);
+  }
+
+  function refreshRuntimeSelectionDetail(trace) {
+    const overview = createRuntimeOverview(trace, findSummary(trace.traceId));
+    const graphContext = createRuntimeGraphContext(overview);
+
+    document.querySelectorAll(".spider-runtime-timeline-card").forEach((item) => {
+      item.classList.toggle("is-selected", item.getAttribute("data-runtime-item-key") === state.runtimeSelectedItemKey);
+    });
+    document.querySelectorAll(".spider-graph-node, .spider-flowchart-node").forEach((item) => {
+      item.classList.remove("is-selected");
+    });
+
+    const detail = document.getElementById("spider-runtime-node-detail");
+    if (detail) {
+      detail.innerHTML = renderRuntimeNodeDetail(graphContext);
+    }
+  }
+
+  function setRuntimeVisualView(view) {
+    const nextView = view === "flow" ? "flow" : "story";
+    if (state.runtimeVisualView === nextView) {
+      return;
+    }
+
+    state.runtimeVisualView = nextView;
+    const trace = (runtimeData.traces || []).find((item) => item.traceId === state.runtimeTraceId);
+    if (!trace) {
+      return;
+    }
+
     preserveMainScroll(() => renderTraceDetail(trace));
+  }
+
+  function setRuntimeVisualMaximized(maximized) {
+    state.runtimeVisualMaximized = Boolean(maximized);
+    const trace = (runtimeData.traces || []).find((item) => item.traceId === state.runtimeTraceId);
+    if (!trace) {
+      return;
+    }
+
+    preserveRuntimeVisualScroll(() => renderTraceDetail(trace));
   }
 
   function selectRuntimeGraphNode(id) {
@@ -5455,7 +6200,7 @@ button {
       }
 
       for (const marker of span.markers || []) {
-        const markerId = resolveRuntimeComponentId(marker, graphContext);
+        const markerId = resolveRuntimeMarkerComponentId(marker, span, graphContext);
         if (!markerId) {
           continue;
         }
@@ -5545,19 +6290,30 @@ button {
   }
 
   function collectRuntimeGraphNodes(process, children) {
-    const nodes = [process];
-    for (const child of children || []) {
-      nodes.push(child);
-      if (child.kind !== "spider.flow-branch") {
-        continue;
+    const nodes = [];
+    const visited = new Set();
+    const addNode = (node) => {
+      if (!node || visited.has(node.id)) {
+        return;
       }
 
-      for (const route of getBranchRoutes(child)) {
-        nodes.push(route);
+      visited.add(node.id);
+      nodes.push(node);
+      if (node.kind !== "spider.flow-branch") {
+        return;
+      }
+
+      for (const route of getBranchRoutes(node)) {
+        addNode(route);
         for (const step of getRouteSteps(route)) {
-          nodes.push(step);
+          addNode(step);
         }
       }
+    };
+
+    addNode(process);
+    for (const child of children || []) {
+      addNode(child);
     }
 
     return nodes;
@@ -5617,12 +6373,17 @@ button {
       }
     }
 
+    const itemKind = String(item.componentKind || "");
+    if (itemKind && itemKind !== "spider.flow" && itemKind !== "spider.pipeline") {
+      return null;
+    }
+
     const displayName = normalizeRuntimeName(getRuntimeDisplayName(item));
     const rawDisplayName = normalizeRuntimeName(item.displayName);
     const signature = normalizeRuntimeName(getRuntimeSignature(item.inputType, item.outputType));
-    const candidates = String(item.componentKind || "").includes("pipeline")
+    const candidates = itemKind === "spider.pipeline"
       ? pipelines
-      : String(item.componentKind || "").includes("flow")
+      : itemKind === "spider.flow"
         ? flows
         : flows.concat(pipelines);
 
@@ -5667,6 +6428,38 @@ button {
     }
 
     return "";
+  }
+
+  function resolveRuntimeMarkerComponentId(marker, span, graphContext) {
+    const markerKind = String(marker && marker.componentKind || "");
+    if (markerKind === "spider.flow-branch-route") {
+      const branchId = span && span.resolvedComponentId
+        ? span.resolvedComponentId
+        : resolveRuntimeComponentId(span, graphContext);
+      const branch = branchId ? byId.get(branchId) : null;
+      if (branch && branch.kind === "spider.flow-branch") {
+        const markerNames = [
+          getRuntimeDisplayName(marker),
+          marker && marker.displayName,
+          getRuntimeMetadataValue(marker, "name"),
+          getRuntimeMetadataValue(marker, "route")
+        ].map(normalizeRuntimeName).filter(Boolean);
+        const route = getBranchRoutes(branch).find((candidate) => {
+          const candidateNames = [
+            candidate.displayName,
+            getMetadata(candidate, "name"),
+            getMetadata(candidate, "route")
+          ].map(normalizeRuntimeName).filter(Boolean);
+          return candidateNames.some((candidateName) => markerNames.includes(candidateName));
+        });
+
+        if (route) {
+          return route.id;
+        }
+      }
+    }
+
+    return resolveRuntimeComponentId(marker, graphContext);
   }
 
   function runtimeKindsMatch(runtimeKind, graphKind) {
@@ -5904,11 +6697,6 @@ button {
   }
 
   function isRuntimeTerminalEvent(event) {
-    const status = normalizeStatus(event.status);
-    if (status === "completed" || status === "faulted" || status === "cancelled") {
-      return !isRuntimeStartEvent(event);
-    }
-
     const kind = String(event.kind || "");
     return kind.endsWith("Completed") || kind.endsWith("Faulted") || kind.endsWith("Cancelled");
   }
@@ -6110,6 +6898,14 @@ button {
       } else if (state.view === "runtime" && state.mode === "trace") {
         const hash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ""));
         const traceId = hash.startsWith("runtime:") ? hash.substring("runtime:".length) : "";
+        if (state.rawEventsModalOpen) {
+          const trace = traceId
+            ? (runtimeData.traces || []).find((item) => item.traceId === traceId) || null
+            : null;
+          refreshRuntimeRawEventsModal(trace);
+          return;
+        }
+
         if (traceId) {
           openTrace(traceId, true);
         }
@@ -6265,6 +7061,10 @@ button {
     }
   }
 
+  function setRuntimeTraceShell(active) {
+    root.classList.toggle("is-runtime-trace", Boolean(active));
+  }
+
   function setSidebarCollapsed(collapsed) {
     root.classList.toggle("is-sidebar-collapsed", collapsed);
 
@@ -6356,6 +7156,20 @@ button {
 
     if (main) {
       main.scrollTop = top;
+    }
+  }
+
+  function preserveRuntimeVisualScroll(action) {
+    const visual = root.querySelector(".spider-runtime-timeline.is-main, .spider-runtime-graph-wrap");
+    const top = visual ? visual.scrollTop : 0;
+    const left = visual ? visual.scrollLeft : 0;
+
+    preserveMainScroll(action);
+
+    const nextVisual = root.querySelector(".spider-runtime-timeline.is-main, .spider-runtime-graph-wrap");
+    if (nextVisual) {
+      nextVisual.scrollTop = top;
+      nextVisual.scrollLeft = left;
     }
   }
 
