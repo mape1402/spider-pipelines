@@ -649,9 +649,11 @@ button {
 
 .spider-process-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 360px));
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   grid-auto-rows: 96px;
-  justify-content: start;
+  justify-content: stretch;
+  align-items: stretch;
+  width: 100%;
   gap: 12px;
   overflow: visible;
   border: 0;

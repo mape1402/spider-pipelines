@@ -46,7 +46,7 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-process-kind", html);
             Assert.Contains("spider-process-action", html);
             Assert.Contains("spider-process-arrow", html);
-            Assert.Contains("grid-template-columns: repeat(auto-fill, minmax(320px, 360px))", html);
+            Assert.Contains("grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr))", html);
             Assert.Contains("grid-auto-rows: 96px", html);
             Assert.Contains("height: 96px", html);
             Assert.Contains("text-overflow: ellipsis", html);
