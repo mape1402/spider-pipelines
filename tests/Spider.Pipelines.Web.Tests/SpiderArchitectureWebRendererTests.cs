@@ -33,6 +33,7 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("setTheme(readThemePreference())", html);
             Assert.Contains("spider-topbar", html);
             Assert.Contains("spider-topbar-actions", html);
+            Assert.Contains("is-process-detail", html);
             Assert.Contains("data-menu-view=\"pipelines\"", html);
             Assert.Contains("data-menu-view=\"flows\"", html);
             Assert.Contains("#e6242d", html);
@@ -79,6 +80,16 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("data-open-process", html);
             Assert.Contains("spider-edge", html);
             Assert.Contains("spider-graph-legend", html);
+            Assert.Contains("spider-graph-actions", html);
+            Assert.Contains("data-process-graph-maximize", html);
+            Assert.Contains("spider-graph-maximize-button", html);
+            Assert.Contains("spider-graph-maximize-icon", html);
+            Assert.Contains("is-graph-maximized", html);
+            Assert.Contains("Back to Flows", html);
+            Assert.Contains("Back to Pipelines", html);
+            Assert.Contains("setProcessDetailShell", html);
+            Assert.Contains("setProcessGraphMaximized", html);
+            Assert.Contains("preserveProcessGraphScroll", html);
             Assert.Contains("data-toggle-inspector", html);
             Assert.Contains("Linked flow", html);
             Assert.Contains("spider-flowchart-link", html);
