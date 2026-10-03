@@ -549,7 +549,8 @@ button {
   color: var(--spider-red);
 }
 
-.spider-shell.is-runtime-trace .spider-topbar-back {
+.spider-shell.is-runtime-trace .spider-topbar-back,
+.spider-shell.is-process-detail .spider-topbar-back {
   display: inline-flex;
 }
 
@@ -1171,6 +1172,26 @@ button {
   display: none;
 }
 
+.spider-detail-view.is-graph-maximized {
+  display: grid;
+  min-height: 0;
+}
+
+.spider-detail-view.is-graph-maximized .spider-detail-toolbar,
+.spider-detail-view.is-graph-maximized .spider-process-summary,
+.spider-detail-view.is-graph-maximized .spider-node-detail {
+  display: none;
+}
+
+.spider-detail-view.is-graph-maximized .spider-detail-layout {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100vh - 96px);
+}
+
+.spider-detail-view.is-graph-maximized .spider-graph-panel {
+  height: calc(100vh - 96px);
+}
+
 .spider-panel,
 .spider-node-detail {
   min-width: 0;
@@ -1196,6 +1217,59 @@ button {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
+}
+
+.spider-panel-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.spider-graph-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.spider-graph-maximize-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-input-bg);
+  color: var(--spider-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, color 0.12s;
+}
+
+.spider-graph-maximize-button:hover,
+.spider-graph-maximize-button[aria-pressed="true"] {
+  background: rgba(29, 95, 191, 0.08);
+  border-color: rgba(29, 95, 191, 0.36);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.06);
+  color: var(--spider-blue);
+}
+
+.spider-graph-maximize-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  opacity: 0.82;
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.spider-graph-maximize-button:hover .spider-graph-maximize-icon,
+.spider-graph-maximize-button[aria-pressed="true"] .spider-graph-maximize-icon {
+  opacity: 0.96;
+}
+
+.spider-graph-maximize-button[aria-pressed="true"] .spider-graph-maximize-icon {
+  transform: scale(0.94);
 }
 
 .spider-panel h2,
@@ -3567,6 +3641,7 @@ button {
   const pipelineCount = document.getElementById("spider-pipeline-count");
   const runtimeCount = document.getElementById("spider-runtime-count");
   const topbarTitle = document.getElementById("spider-topbar-title");
+  const topbarBack = document.getElementById("spider-topbar-back");
   const sidebarToggle = document.getElementById("spider-sidebar-toggle");
   const themeToggle = document.getElementById("spider-theme-toggle");
   const themeToggleLabel = document.getElementById("spider-theme-toggle-label");
@@ -3589,6 +3664,7 @@ button {
     runtimeSelectedItemKey: "",
     runtimeVisualView: "story",
     runtimeVisualMaximized: false,
+    processGraphMaximized: false,
     runtimeListSignature: "",
     inspectorCollapsed: false,
     rawEventsModalOpen: false,
@@ -3642,6 +3718,12 @@ button {
     const runtimeVisualMaximize = event.target.closest("[data-runtime-visual-maximize]");
     if (runtimeVisualMaximize && state.view === "runtime" && state.mode === "trace") {
       setRuntimeVisualMaximized(!state.runtimeVisualMaximized);
+      return;
+    }
+
+    const processGraphMaximize = event.target.closest("[data-process-graph-maximize]");
+    if (processGraphMaximize && state.mode === "detail") {
+      setProcessGraphMaximized(!state.processGraphMaximized);
       return;
     }
 
@@ -3759,6 +3841,7 @@ button {
   function showList(view, skipHash) {
     closeRuntimeRawEventsModal();
     setRuntimeTraceShell(false);
+    setProcessDetailShell(false);
     state.view = view === "runtime" && showRuntime
       ? "runtime"
       : view === "flows" ? "flows" : "pipelines";
@@ -3769,6 +3852,7 @@ button {
     state.runtimeSelectedComponentId = "";
     state.runtimeSelectedItemKey = "";
     state.runtimeVisualMaximized = false;
+    state.processGraphMaximized = false;
     if (!skipHash) {
       setHash(state.view);
     }
@@ -3944,8 +4028,10 @@ button {
     const visualView = getRuntimeVisualView();
     overview.graphContext = graphContext;
     setRuntimeTraceShell(true);
+    setProcessDetailShell(false);
     setActiveMenu("runtime");
     setTopbarTitle(trace.traceId);
+    setTopbarBackLabel("Back to Runtime");
 
     const maximizedClass = state.runtimeVisualMaximized ? " is-visual-maximized" : "";
     const maximizeText = state.runtimeVisualMaximized ? "Restore" : "Maximize";
@@ -4644,8 +4730,10 @@ button {
       return;
     }
 
+    const previousProcessId = state.processId;
     closeRuntimeRawEventsModal();
     setRuntimeTraceShell(false);
+    setProcessDetailShell(true);
     const children = orderChildren(process);
     state.view = process.kind === "spider.flow" ? "flows" : "pipelines";
     state.mode = "detail";
@@ -4654,6 +4742,9 @@ button {
     state.runtimeSelectedComponentId = "";
     state.runtimeSelectedItemKey = "";
     state.runtimeVisualMaximized = false;
+    if (previousProcessId !== id) {
+      state.processGraphMaximized = false;
+    }
     if (!skipHash) {
       setHash(id);
     }
@@ -4666,6 +4757,9 @@ button {
     const profiles = getRelated(process.id, "uses-profile");
     const kind = process.kind === "spider.flow" ? "Flow" : "Pipeline";
     const backLabel = process.kind === "spider.flow" ? "Back to Flows" : "Back to Pipelines";
+    const maximizedClass = state.processGraphMaximized ? " is-graph-maximized" : "";
+    const maximizeText = state.processGraphMaximized ? "Restore" : "Maximize";
+    const maximizeIconPath = getProcessGraphMaximizeIconPath(state.processGraphMaximized);
     const graph = showGraph
       ? renderProcessGraph(process, children)
       : `<div class="spider-empty-list">Graph disabled.</div>`;
@@ -4676,12 +4770,12 @@ button {
 
     setActiveMenu(state.view);
     setTopbarTitle(process.displayName || kind);
+    setTopbarBackLabel(backLabel);
 
     content.innerHTML = `
-      <article class="spider-detail-view">
+      <article class="spider-detail-view${maximizedClass}">
         <header class="spider-detail-toolbar">
           <div>
-            <button class="spider-back-button" type="button" data-back-list>${escapeHtml(backLabel)}</button>
             <div class="spider-detail-actions">
               <span class="spider-chip ${process.kind === "spider.flow" ? "flow" : "pipeline"}">${escapeHtml(kind)}</span>
               <span class="spider-chip">${escapeHtml(getSignature(process))}</span>
@@ -4697,8 +4791,17 @@ button {
           </aside>
           <section class="spider-panel spider-graph-panel">
             <div class="spider-panel-header">
-              <h2>${escapeHtml(getGraphPanelTitle(process))}</h2>
-              ${renderGraphLegend(process)}
+              <div class="spider-panel-title">
+                <h2>${escapeHtml(getGraphPanelTitle(process))}</h2>
+              </div>
+              <div class="spider-graph-actions">
+                ${renderGraphLegend(process)}
+                <button class="spider-graph-maximize-button" type="button" data-process-graph-maximize aria-label="${escapeAttribute(maximizeText)} graph" title="${escapeAttribute(maximizeText)} graph" aria-pressed="${state.processGraphMaximized ? "true" : "false"}">
+                  <svg class="spider-graph-maximize-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="${escapeAttribute(maximizeIconPath)}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="spider-graph-wrap spider-process-graph">
               ${graph}
@@ -4852,6 +4955,8 @@ button {
 
   function renderJson() {
     setRuntimeTraceShell(false);
+    setProcessDetailShell(false);
+    state.processGraphMaximized = false;
     setTopbarTitle("Manifest JSON");
 
     content.innerHTML = `
@@ -5371,6 +5476,16 @@ button {
     }
 
     preserveRuntimeVisualScroll(() => renderTraceDetail(trace));
+  }
+
+  function setProcessGraphMaximized(maximized) {
+    state.processGraphMaximized = Boolean(maximized);
+    const process = byId.get(state.processId);
+    if (!process) {
+      return;
+    }
+
+    preserveProcessGraphScroll(() => renderProcessDetail(process, orderChildren(process)));
   }
 
   function selectRuntimeGraphNode(id) {
@@ -7061,8 +7176,21 @@ button {
     }
   }
 
+  function setTopbarBackLabel(value) {
+    if (topbarBack) {
+      const label = value || "Back";
+      topbarBack.textContent = label;
+      topbarBack.setAttribute("aria-label", label);
+      topbarBack.setAttribute("title", label);
+    }
+  }
+
   function setRuntimeTraceShell(active) {
     root.classList.toggle("is-runtime-trace", Boolean(active));
+  }
+
+  function setProcessDetailShell(active) {
+    root.classList.toggle("is-process-detail", Boolean(active));
   }
 
   function setSidebarCollapsed(collapsed) {
@@ -7171,6 +7299,26 @@ button {
       nextVisual.scrollTop = top;
       nextVisual.scrollLeft = left;
     }
+  }
+
+  function preserveProcessGraphScroll(action) {
+    const graph = root.querySelector(".spider-process-graph");
+    const top = graph ? graph.scrollTop : 0;
+    const left = graph ? graph.scrollLeft : 0;
+
+    preserveMainScroll(action);
+
+    const nextGraph = root.querySelector(".spider-process-graph");
+    if (nextGraph) {
+      nextGraph.scrollTop = top;
+      nextGraph.scrollLeft = left;
+    }
+  }
+
+  function getProcessGraphMaximizeIconPath(restoring) {
+    return restoring
+      ? "M4 4l6 6M10 10H4M10 10V4M20 4l-6 6M14 10h6M14 10V4M4 20l6-6M10 14H4M10 14v6M20 20l-6-6M14 14h6M14 14v6"
+      : "M10 10L4 4M4 4h6M4 4v6M14 10l6-6M20 4h-6M20 4v6M10 14l-6 6M4 20h6M4 20v-6M14 14l6 6M20 20h-6M20 20v-6";
   }
 
   function escapeHtml(value) {
