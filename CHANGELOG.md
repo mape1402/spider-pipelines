@@ -9,12 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v2.2.0] - 2026-10-04
+
 ### Added
 
 - Compile-time architecture manifest source generator for configured pipelines and composed flows.
-- Manifest descriptors for pipeline stages, flow steps, flow conditions, flow branches, flow profiles, relations, and source evidence.
+- Manifest descriptors for pipeline stages, boundaries, flow steps, flow conditions, flow branches, flow profiles, relations, and source evidence.
+- Descriptive metadata APIs with `Named`, `Describe`, and `Tags` for flows, branch routes, pipelines, pipeline stages, and boundaries.
+- Runtime tracing with opt-in registration, bounded dispatch, in-memory storage by default, live stream hooks, sinks, observers, and replaceable trace stores.
 - `Spider.Pipelines.Web` package for graphical architecture documentation from generated manifests.
-- Web sample project that serves the graphical Spider architecture documentation UI.
+- Web runtime trace views with execution story lines, flow graphs, raw event inspection, trace import, and trace export.
+- Web sample project that serves the graphical Spider architecture documentation UI and runtime trace examples.
+
+### Changed
+
+- Web architecture documentation now highlights related flows, pipelines, boundaries, and parent relationships with clearer navigation.
+- Flow and pipeline diagrams now use distinct visual shapes for decisions, routes, parallel work, batches, linked flows, stages, and boundaries.
+- The documentation shell now supports light and dark modes, a collapsible sidebar, maximized graph views, and refined navigation iconography.
 
 ## [v2.1.0] - 2026-08-07
 
