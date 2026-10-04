@@ -17,7 +17,9 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-sidebar", html);
             Assert.Contains("spider-menu", html);
             Assert.Contains("spider-menu-section", html);
+            Assert.Contains("spider-logo-svg", html);
             Assert.Contains("spider-menu-icon", html);
+            Assert.Contains("spider-menu-svg", html);
             Assert.Contains("spider-menu-text", html);
             Assert.Contains("spider-sidebar-toggle", html);
             Assert.Contains("Collapse navigation", html);
@@ -25,9 +27,13 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider:architecture:sidebar-collapsed", html);
             Assert.Contains("data-theme=\"light\"", html);
             Assert.Contains("spider-theme-toggle", html);
-            Assert.Contains("spider-theme-toggle-dot", html);
+            Assert.Contains("spider-theme-toggle-icon", html);
+            Assert.Contains("spider-theme-icon-sun", html);
+            Assert.Contains("spider-theme-icon-moon", html);
             Assert.Contains("spider-theme-toggle-label", html);
             Assert.Contains("Use dark mode", html);
+            Assert.Contains("Use light mode", html);
+            Assert.Contains("themeToggleLabel.textContent = isDark ? \"Light\" : \"Dark\"", html);
             Assert.Contains("spider:architecture:theme", html);
             Assert.Contains(".spider-shell[data-theme=\"dark\"]", html);
             Assert.Contains("setTheme(readThemePreference())", html);

@@ -59,7 +59,7 @@ namespace Spider.Pipelines.Web
                 $"  <div id=\"spider-documentation-app\" class=\"spider-shell spider-architecture-app\" data-theme=\"light\" data-show-evidence=\"{BooleanAttribute(options.IncludeEvidence)}\" data-show-graph=\"{BooleanAttribute(options.IncludeGraph)}\" data-show-json=\"{BooleanAttribute(options.IncludeJsonPanel)}\" data-show-search=\"{BooleanAttribute(options.IncludeSearch)}\" data-show-runtime=\"{BooleanAttribute(options.IncludeRuntimeTraces)}\" data-runtime-endpoint=\"{runtimeEndpoint}\">");
             html.AppendLine("    <aside class=\"spider-sidebar\" aria-label=\"Spider architecture navigation\">");
             html.AppendLine("      <div class=\"spider-brand\">");
-            html.AppendLine("        <div class=\"spider-logo\" aria-hidden=\"true\">S</div>");
+            html.AppendLine("        <div class=\"spider-logo\" aria-hidden=\"true\"><svg class='spider-logo-svg' viewBox='0 0 32 32' focusable='false'><path class='spider-logo-link' d='M10 9L16 16L22 9M16 16L10 23M16 16L22 23'></path><circle cx='10' cy='9' r='3'></circle><circle cx='22' cy='9' r='3'></circle><circle cx='16' cy='16' r='3'></circle><circle cx='10' cy='23' r='3'></circle><circle cx='22' cy='23' r='3'></circle></svg></div>");
             html.AppendLine("        <div class=\"spider-brand-copy\">");
             html.AppendLine($"          <div class=\"spider-title\">{title}</div>");
             html.AppendLine("          <div class=\"spider-subtitle\">Architecture</div>");
@@ -67,10 +67,10 @@ namespace Spider.Pipelines.Web
             html.AppendLine("      </div>");
             html.AppendLine("      <nav class=\"spider-menu\" aria-label=\"Architecture sections\">");
             html.AppendLine("        <div class=\"spider-menu-section\">Map</div>");
-            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"pipelines\"><span class=\"spider-menu-icon pipeline\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Pipelines</span><small>Execution wrappers</small></span><strong id=\"spider-pipeline-count\">0</strong></button>");
-            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"flows\"><span class=\"spider-menu-icon flow\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Flows</span><small>Business processes</small></span><strong id=\"spider-flow-count\">0</strong></button>");
-            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"boundaries\"><span class=\"spider-menu-icon boundary\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Boundaries</span><small>Entry points</small></span><strong id=\"spider-boundary-count\">0</strong></button>");
-            html.AppendLine("        <button class=\"spider-menu-item spider-runtime-menu-item\" type=\"button\" data-menu-view=\"runtime\"><span class=\"spider-menu-icon runtime\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Runtime</span><small>Live executions</small></span><strong id=\"spider-runtime-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"pipelines\"><span class=\"spider-menu-icon pipeline\" aria-hidden=\"true\"><svg class='spider-menu-svg' viewBox='0 0 24 24' focusable='false'><path d='M12 4v16'></path><rect x='7' y='3' width='10' height='5' rx='2'></rect><rect x='7' y='10' width='10' height='5' rx='2'></rect><rect x='7' y='17' width='10' height='4' rx='2'></rect></svg></span><span class=\"spider-menu-text\"><span>Pipelines</span><small>Execution wrappers</small></span><strong id=\"spider-pipeline-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"flows\"><span class=\"spider-menu-icon flow\" aria-hidden=\"true\"><svg class='spider-menu-svg' viewBox='0 0 24 24' focusable='false'><path d='M12 4v5M12 15v5M12 9L6 15M12 9l6 6'></path><path d='M12 8l4 4-4 4-4-4z'></path><circle cx='6' cy='16' r='2'></circle><circle cx='18' cy='16' r='2'></circle></svg></span><span class=\"spider-menu-text\"><span>Flows</span><small>Business processes</small></span><strong id=\"spider-flow-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"boundaries\"><span class=\"spider-menu-icon boundary\" aria-hidden=\"true\"><svg class='spider-menu-svg' viewBox='0 0 24 24' focusable='false'><path d='M8 5H5v14h3'></path><path d='M10 12h9'></path><path d='M15 8l4 4-4 4'></path><path d='M12 6h7v12h-7'></path></svg></span><span class=\"spider-menu-text\"><span>Boundaries</span><small>Entry points</small></span><strong id=\"spider-boundary-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item spider-runtime-menu-item\" type=\"button\" data-menu-view=\"runtime\"><span class=\"spider-menu-icon runtime\" aria-hidden=\"true\"><svg class='spider-menu-svg' viewBox='0 0 24 24' focusable='false'><path d='M3 12h4l2-5 4 10 2-5h6'></path><circle cx='12' cy='12' r='8'></circle></svg></span><span class=\"spider-menu-text\"><span>Runtime</span><small>Live executions</small></span><strong id=\"spider-runtime-count\">0</strong></button>");
             html.AppendLine("      </nav>");
             html.AppendLine("      <div class=\"spider-sidebar-footer\">");
             html.AppendLine("        <button id=\"spider-json-link\" class=\"spider-json-link\" type=\"button\">Manifest JSON</button>");
@@ -87,7 +87,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("          <button id=\"spider-runtime-import\" class=\"spider-topbar-action spider-runtime-file-action spider-runtime-import-action\" type=\"button\" data-import-runtime-trace>Import trace</button>");
             html.AppendLine("          <button id=\"spider-runtime-export\" class=\"spider-topbar-action spider-runtime-file-action spider-runtime-export-action\" type=\"button\" data-export-runtime-trace>Export trace</button>");
             html.AppendLine("          <input id=\"spider-runtime-import-input\" class=\"spider-runtime-file-input\" type=\"file\" accept=\"application/json,.json\" />");
-            html.AppendLine("          <button id=\"spider-theme-toggle\" class=\"spider-theme-toggle\" type=\"button\" aria-label=\"Use dark mode\" aria-pressed=\"false\" title=\"Use dark mode\"><span class=\"spider-theme-toggle-dot\" aria-hidden=\"true\"></span><span id=\"spider-theme-toggle-label\">Light</span></button>");
+            html.AppendLine("          <button id=\"spider-theme-toggle\" class=\"spider-theme-toggle\" type=\"button\" aria-label=\"Use dark mode\" aria-pressed=\"false\" title=\"Use dark mode\"><span class=\"spider-theme-toggle-icon\" aria-hidden=\"true\"><svg class=\"spider-theme-icon spider-theme-icon-sun\" viewBox=\"0 0 24 24\" focusable=\"false\"><circle cx=\"12\" cy=\"12\" r=\"4\"></circle><path d=\"M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41\"></path></svg><svg class=\"spider-theme-icon spider-theme-icon-moon\" viewBox=\"0 0 24 24\" focusable=\"false\"><path d=\"M20 15.5A8.5 8.5 0 0 1 8.5 4A7 7 0 1 0 20 15.5Z\"></path></svg></span><span id=\"spider-theme-toggle-label\">Dark</span></button>");
             html.AppendLine("          <div class=\"spider-topbar-badge\">Generated metadata</div>");
             html.AppendLine("        </div>");
             html.AppendLine("      </header>");
@@ -257,27 +257,54 @@ button {
   align-items: center;
   min-height: 68px;
   flex: 0 0 auto;
-  gap: 11px;
+  gap: 12px;
   overflow: hidden;
   border-bottom: 1px solid var(--spider-sidebar-border);
   background:
-    linear-gradient(135deg, rgba(230, 36, 45, 0.16), transparent 42%),
+    radial-gradient(circle at 22px 24px, rgba(230, 36, 45, 0.18), transparent 36px),
+    linear-gradient(145deg, rgba(29, 95, 191, 0.1), transparent 48%),
     var(--spider-sidebar-brand);
   padding: 13px 14px;
 }
 
 .spider-logo {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
-  border-radius: 7px;
-  background: linear-gradient(135deg, var(--spider-red), var(--spider-blue));
-  color: #ffffff;
-  font-size: 0.86rem;
-  font-weight: 800;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-left-color: var(--spider-red);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.spider-logo-svg {
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+}
+
+.spider-logo-svg path,
+.spider-logo-svg circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.spider-logo-svg circle {
+  fill: var(--spider-sidebar-brand);
+}
+
+.spider-logo-link {
+  opacity: 0.82;
 }
 
 .spider-brand-copy {
@@ -320,8 +347,9 @@ button {
 }
 
 .spider-menu-item {
+  position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -338,19 +366,25 @@ button {
 }
 
 .spider-menu-item:hover {
-  background: var(--spider-sidebar-hover);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent),
+    var(--spider-sidebar-hover);
   border-color: rgba(255, 255, 255, 0.08);
   color: #e0e2f0;
 }
 
 .spider-menu-item.is-active {
-  background: var(--spider-sidebar-active);
+  background:
+    linear-gradient(90deg, rgba(230, 36, 45, 0.16), rgba(29, 95, 191, 0.08)),
+    var(--spider-sidebar-active);
   border-color: rgba(230, 36, 45, 0.36);
   color: var(--spider-sidebar-active-text);
 }
 
 .spider-menu-item.is-active .spider-menu-icon {
-  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.14);
+  border-color: color-mix(in srgb, var(--menu-icon-accent) 54%, rgba(255, 255, 255, 0.18));
+  background: color-mix(in srgb, var(--menu-icon-accent) 24%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--menu-icon-accent) 18%, transparent);
 }
 
 .spider-menu-item strong {
@@ -368,26 +402,42 @@ button {
 }
 
 .spider-menu-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--spider-red);
+  --menu-icon-accent: var(--spider-red);
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--menu-icon-accent) 34%, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--menu-icon-accent) 13%, transparent);
+  color: var(--menu-icon-accent);
+}
+
+.spider-menu-svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .spider-menu-icon.pipeline {
-  background: linear-gradient(135deg, var(--spider-black), var(--spider-blue));
+  --menu-icon-accent: #60a5fa;
 }
 
 .spider-menu-icon.flow {
-  background: linear-gradient(135deg, var(--spider-red), var(--spider-red-strong));
+  --menu-icon-accent: #ff4d57;
 }
 
 .spider-menu-icon.boundary {
-  background: linear-gradient(135deg, var(--spider-black), var(--spider-red));
+  --menu-icon-accent: #fda4af;
 }
 
 .spider-menu-icon.runtime {
-  background: linear-gradient(135deg, var(--spider-blue), var(--spider-red));
+  --menu-icon-accent: #7aa7ff;
 }
 
 [data-show-runtime="false"] .spider-runtime-menu-item {
@@ -488,7 +538,9 @@ button {
   flex: 0 0 var(--spider-topbar-height);
   gap: 12px;
   border-bottom: 1px solid var(--spider-line);
-  background: var(--spider-topbar-bg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--spider-topbar-bg) 92%, #ffffff), var(--spider-topbar-bg));
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
   padding: 0 16px;
 }
 
@@ -607,39 +659,60 @@ button {
 .spider-theme-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   min-height: 28px;
   border: 1px solid var(--spider-line);
   border-radius: 999px;
   background: var(--spider-input-bg);
-  color: var(--spider-muted);
+  color: var(--spider-text);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 650;
   line-height: 1;
-  padding: 5px 9px;
+  padding: 5px 10px 5px 8px;
   transition: border-color 0.12s, box-shadow 0.12s, color 0.12s, background 0.12s;
 }
 
 .spider-theme-toggle:hover {
-  border-color: rgba(230, 36, 45, 0.36);
-  box-shadow: 0 0 0 3px rgba(230, 36, 45, 0.08);
-  color: var(--spider-red);
+  border-color: rgba(29, 95, 191, 0.36);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.08);
+  color: var(--spider-blue);
 }
 
-.spider-theme-toggle-dot {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--spider-blue);
-  border-radius: 999px;
-  background: var(--spider-red);
-  box-shadow: inset -3px 0 0 var(--spider-input-bg);
+.spider-theme-toggle-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
-.spider-shell[data-theme="dark"] .spider-theme-toggle-dot {
-  border-color: var(--spider-red);
-  background: var(--spider-blue);
-  box-shadow: inset -3px 0 0 var(--spider-panel);
+.spider-theme-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.spider-theme-icon-sun {
+  display: none;
+  color: #f7c948;
+}
+
+.spider-theme-icon-moon {
+  display: block;
+  color: var(--spider-blue);
+}
+
+.spider-shell[data-theme="dark"] .spider-theme-icon-sun {
+  display: block;
+}
+
+.spider-shell[data-theme="dark"] .spider-theme-icon-moon {
+  display: none;
 }
 
 .spider-topbar-badge {
@@ -8146,7 +8219,7 @@ button {
     }
 
     if (themeToggleLabel) {
-      themeToggleLabel.textContent = isDark ? "Dark" : "Light";
+      themeToggleLabel.textContent = isDark ? "Light" : "Dark";
     }
   }
 
