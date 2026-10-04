@@ -37,7 +37,11 @@ namespace Spider.Pipelines.Analyzers
             foreach (var invocation in receiver.AttachInvocations)
                 TryReadPipeline(context.Compilation, invocation, manifest, sourceRoots);
 
+            foreach (var invocation in receiver.BoundaryInvocations)
+                TryReadBoundary(context.Compilation, invocation, manifest, sourceRoots);
+
             AddInvokedFlowRelations(manifest);
+            AddDeclaredMetadataRelations(manifest);
 
             context.AddSource(
                 "SpiderGeneratedArchitecture.g.cs",
@@ -159,13 +163,17 @@ namespace Spider.Pipelines.Analyzers
             if (!string.IsNullOrWhiteSpace(serviceName))
                 metadata["service"] = serviceName;
 
-            manifest.AddComponent(new ComponentModel(pipelineId, "spider.pipeline", requestDisplayName, metadata, CreateEvidence(semanticModel, attachInvocation, null, sourceRoots)));
+            ApplyPipelineMetadata(attachInvocation, metadata);
+
+            manifest.AddComponent(new ComponentModel(pipelineId, "spider.pipeline", GetDisplayName(metadata, requestDisplayName), metadata, CreateEvidence(semanticModel, attachInvocation, null, sourceRoots)));
 
             var counts = CountPipelineStages(attachInvocation);
+            var stageMetadata = CollectPipelineStageMetadata(attachInvocation);
             var targetMetadata = new Dictionary<string, string>
             {
                 ["hasOverride"] = (counts.Override > 0).ToString(CultureInfo.InvariantCulture)
             };
+            MergeMetadata(targetMetadata, GetStageMetadata(stageMetadata, "target"));
 
             if (targetMethod != null)
             {
@@ -175,12 +183,12 @@ namespace Spider.Pipelines.Analyzers
                     targetMetadata["targetSymbolId"] = targetSymbolId;
             }
 
-            AddPipelineStage(manifest, pipelineId, "pre-process", "Pre-process", counts.PreProcess, 1, null);
-            AddPipelineStage(manifest, pipelineId, "middleware", "Middleware", counts.Middleware, 2, null);
+            AddPipelineStage(manifest, pipelineId, "pre-process", "Pre-process", counts.PreProcess, 1, GetStageMetadata(stageMetadata, "pre-process"));
+            AddPipelineStage(manifest, pipelineId, "middleware", "Middleware", counts.Middleware, 2, GetStageMetadata(stageMetadata, "middleware"));
             AddPipelineStage(manifest, pipelineId, "target", "Target", 1, 3, targetMetadata);
-            AddPipelineStage(manifest, pipelineId, "parallel", "Parallel", counts.Parallel, 4, null);
-            AddPipelineStage(manifest, pipelineId, "post-success", "Post-process success", counts.Success, 5, null);
-            AddPipelineStage(manifest, pipelineId, "post-failure", "Post-process failure", counts.Failure, 6, null);
+            AddPipelineStage(manifest, pipelineId, "parallel", "Parallel", counts.Parallel, 4, GetStageMetadata(stageMetadata, "parallel"));
+            AddPipelineStage(manifest, pipelineId, "post-success", "Post-process success", counts.Success, 5, GetStageMetadata(stageMetadata, "post-success"));
+            AddPipelineStage(manifest, pipelineId, "post-failure", "Post-process failure", counts.Failure, 6, GetStageMetadata(stageMetadata, "post-failure"));
         }
 
         private static void AddPipelineStage(
@@ -206,17 +214,163 @@ namespace Spider.Pipelines.Analyzers
                     metadata[pair.Key] = pair.Value;
             }
 
-            manifest.AddComponent(new ComponentModel(stageId, "spider.pipeline-stage", displayName, metadata, new EvidenceModel[0]));
+            manifest.AddComponent(new ComponentModel(stageId, "spider.pipeline-stage", GetDisplayName(metadata, displayName), metadata, new EvidenceModel[0]));
             manifest.AddRelation(new RelationModel(pipelineId, stageId, "contains"));
+        }
+
+        private static void TryReadBoundary(
+            Compilation compilation,
+            InvocationExpressionSyntax boundaryInvocation,
+            ManifestModel manifest,
+            IReadOnlyCollection<string> sourceRoots)
+        {
+            if (GetInvocationName(boundaryInvocation) != "AddExecutionBoundary")
+                return;
+
+            var semanticModel = compilation.GetSemanticModel(boundaryInvocation.SyntaxTree);
+            var genericTypes = GetGenericArguments(boundaryInvocation);
+            var metadata = new Dictionary<string, string>
+            {
+                ["boundaryKind"] = "execution-boundary"
+            };
+            string displayName;
+            string boundaryId;
+
+            if (genericTypes.Count == 1)
+            {
+                var boundaryType = GetTypeName(semanticModel, genericTypes[0]);
+                displayName = GetShortTypeName(boundaryType);
+                boundaryId = "spider.boundary:" + Normalize(displayName);
+                metadata["boundary"] = boundaryType;
+            }
+            else if (boundaryInvocation.ArgumentList.Arguments.Count > 0 &&
+                     boundaryInvocation.ArgumentList.Arguments[0].Expression is TypeOfExpressionSyntax typeOfExpression)
+            {
+                var boundaryType = GetTypeName(semanticModel, typeOfExpression.Type);
+                displayName = GetShortTypeName(boundaryType);
+                boundaryId = "spider.boundary:" + Normalize(displayName);
+                metadata["boundary"] = boundaryType;
+            }
+            else
+            {
+                displayName = "Delegate boundary";
+                boundaryId = "spider.boundary:" + Normalize(displayName) + "-" + boundaryInvocation.GetLocation().GetLineSpan().StartLinePosition.Line.ToString(CultureInfo.InvariantCulture);
+                metadata["boundary"] = "delegate";
+            }
+
+            ApplyBoundaryMetadata(boundaryInvocation, metadata);
+            displayName = GetDisplayName(metadata, displayName);
+            manifest.AddComponent(new ComponentModel(boundaryId, "spider.boundary", displayName, metadata, CreateEvidence(semanticModel, boundaryInvocation, null, sourceRoots)));
+        }
+
+        private static void ApplyPipelineMetadata(InvocationExpressionSyntax attachInvocation, IDictionary<string, string> metadata)
+        {
+            var lambda = GetPipelineConfigureLambda(attachInvocation);
+            if (lambda == null)
+                return;
+
+            ApplyMetadataInvocations(
+                metadata,
+                GetTopLevelFluentInvocations(lambda)
+                    .Where(invocation => IsMetadataInvocation(GetInvocationName(invocation))));
+        }
+
+        private static void ApplyBoundaryMetadata(InvocationExpressionSyntax boundaryInvocation, IDictionary<string, string> metadata)
+        {
+            var metadataChain = BuildChain(boundaryInvocation)
+                .Skip(1)
+                .TakeWhile(invocation => IsMetadataInvocation(GetInvocationName(invocation)));
+            ApplyMetadataInvocations(metadata, metadataChain);
+
+            foreach (var lambda in boundaryInvocation.ArgumentList.Arguments.Select(argument => argument.Expression).OfType<LambdaExpressionSyntax>())
+                ApplyMetadataFromLambda(metadata, lambda);
+        }
+
+        private static IReadOnlyDictionary<string, Dictionary<string, string>> CollectPipelineStageMetadata(InvocationExpressionSyntax attachInvocation)
+        {
+            var stages = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            var lambda = GetPipelineConfigureLambda(attachInvocation);
+            if (lambda == null)
+                return stages;
+
+            foreach (var invocation in lambda.Body.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
+            {
+                var stageName = GetPipelineStageName(GetInvocationName(invocation));
+                if (stageName == null)
+                    continue;
+
+                var metadata = GetMutableStageMetadata(stages, stageName);
+                foreach (var argumentLambda in invocation.ArgumentList.Arguments.Select(argument => argument.Expression).OfType<LambdaExpressionSyntax>())
+                    ApplyMetadataInvocations(metadata, GetTopLevelFluentInvocations(argumentLambda));
+            }
+
+            return stages;
+        }
+
+        private static LambdaExpressionSyntax GetPipelineConfigureLambda(InvocationExpressionSyntax attachInvocation)
+            => attachInvocation.ArgumentList.Arguments
+                .Select(argument => argument.Expression)
+                .OfType<LambdaExpressionSyntax>()
+                .FirstOrDefault();
+
+        private static Dictionary<string, string> GetMutableStageMetadata(
+            IDictionary<string, Dictionary<string, string>> stages,
+            string stageName)
+        {
+            if (!stages.TryGetValue(stageName, out var metadata))
+            {
+                metadata = new Dictionary<string, string>();
+                stages[stageName] = metadata;
+            }
+
+            return metadata;
+        }
+
+        private static Dictionary<string, string> GetStageMetadata(
+            IReadOnlyDictionary<string, Dictionary<string, string>> stages,
+            string stageName)
+            => stages.TryGetValue(stageName, out var metadata)
+                ? new Dictionary<string, string>(metadata)
+                : null;
+
+        private static void MergeMetadata(IDictionary<string, string> target, IReadOnlyDictionary<string, string> source)
+        {
+            if (source == null)
+                return;
+
+            foreach (var pair in source)
+                target[pair.Key] = pair.Value;
+        }
+
+        private static string GetPipelineStageName(string invocationName)
+        {
+            switch (invocationName)
+            {
+                case "PreProcess":
+                case "OnPreProcess":
+                    return "pre-process";
+                case "UseMiddleware":
+                case "OnMiddleware":
+                    return "middleware";
+                case "UseOverride":
+                case "OnTargeting":
+                    return "target";
+                case "Parallel":
+                case "OnParallel":
+                    return "parallel";
+                case "OnSuccess":
+                    return "post-success";
+                case "OnFailure":
+                    return "post-failure";
+                default:
+                    return null;
+            }
         }
 
         private static PipelineStageCounts CountPipelineStages(InvocationExpressionSyntax attachInvocation)
         {
             var counts = new PipelineStageCounts();
-            var lambda = attachInvocation.ArgumentList.Arguments
-                .Select(argument => argument.Expression)
-                .OfType<LambdaExpressionSyntax>()
-                .FirstOrDefault();
+            var lambda = GetPipelineConfigureLambda(attachInvocation);
 
             if (lambda == null)
                 return counts;
@@ -299,6 +453,52 @@ namespace Spider.Pipelines.Analyzers
                 AddInvokedFlowRelation(manifest, flowsByDeclaringMember, component, "targetSymbolId");
             }
         }
+
+        private static void AddDeclaredMetadataRelations(ManifestModel manifest)
+        {
+            var pipelinesBySignature = manifest.Components
+                .Where(component => component.Kind == "spider.pipeline")
+                .GroupBy(GetComponentSignature, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
+            var flowsBySignature = manifest.Components
+                .Where(component => component.Kind == "spider.flow")
+                .GroupBy(GetComponentSignature, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var component in manifest.Components.ToArray())
+            {
+                if (TryGetMetadata(component, "invokesPipeline", out var pipelineSignature) &&
+                    pipelinesBySignature.TryGetValue(NormalizeSignature(pipelineSignature), out var pipelines))
+                {
+                    foreach (var pipeline in pipelines)
+                        manifest.AddRelation(new RelationModel(component.Id, pipeline.Id, "boundary-invokes-pipeline"));
+                }
+
+                if (TryGetMetadata(component, "invokesFlow", out var flowSignature) &&
+                    flowsBySignature.TryGetValue(NormalizeSignature(flowSignature), out var flows))
+                {
+                    foreach (var flow in flows)
+                        manifest.AddRelation(new RelationModel(component.Id, flow.Id, "boundary-invokes-flow"));
+                }
+            }
+        }
+
+        private static string GetComponentSignature(ComponentModel component)
+        {
+            var request = TryGetMetadata(component, "request", out var requestValue)
+                ? GetShortTypeName(requestValue)
+                : string.Empty;
+            var response = TryGetMetadata(component, "response", out var responseValue)
+                ? GetShortTypeName(responseValue)
+                : "no response";
+
+            return NormalizeSignature(request + " -> " + response);
+        }
+
+        private static string NormalizeSignature(string signature)
+            => (signature ?? string.Empty)
+                .Replace(" ", string.Empty)
+                .ToLowerInvariant();
 
         private static void AddInvokedFlowRelation(
             ManifestModel manifest,
@@ -566,8 +766,148 @@ namespace Spider.Pipelines.Analyzers
                     var value = GetStringArgument(invocation, 1);
                     if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
                         metadata[key] = value;
+
+                    continue;
+                }
+
+                if (invocationName == "Policies")
+                {
+                    MergeMetadataList(metadata, "policies", GetStringArguments(invocation));
+                    continue;
+                }
+
+                if (invocationName == "Security")
+                {
+                    MergeMetadataList(metadata, "security", GetStringArguments(invocation));
+                    continue;
+                }
+
+                if (invocationName == "Observability")
+                {
+                    MergeMetadataList(metadata, "observability", GetStringArguments(invocation));
+                    continue;
+                }
+
+                if (invocationName == "Contract")
+                {
+                    SetSignatureMetadata(metadata, "contract", invocation);
+                    continue;
+                }
+
+                if (invocationName == "InvokesPipeline")
+                {
+                    SetSignatureMetadata(metadata, "invokesPipeline", invocation);
+                    continue;
+                }
+
+                if (invocationName == "InvokesFlow")
+                {
+                    SetSignatureMetadata(metadata, "invokesFlow", invocation);
+                    continue;
+                }
+
+                if (invocationName == "Wraps")
+                {
+                    SetStringOrGenericMetadata(metadata, "wraps", invocation);
+                    continue;
+                }
+
+                if (invocationName == "Input")
+                {
+                    SetStringOrGenericMetadata(metadata, "input", invocation);
+                    continue;
+                }
+
+                if (invocationName == "Output")
+                {
+                    SetStringOrGenericMetadata(metadata, "output", invocation);
+                    continue;
+                }
+
+                if (invocationName == "RelatedFlow")
+                {
+                    SetStringOrGenericMetadata(metadata, "relatedFlow", invocation);
+                    continue;
+                }
+
+                var metadataKey = GetKnownMetadataKey(invocationName);
+                if (!string.IsNullOrWhiteSpace(metadataKey))
+                {
+                    var value = GetStringArgument(invocation, 0);
+                    if (!string.IsNullOrWhiteSpace(value))
+                        metadata[metadataKey] = value;
                 }
             }
+        }
+
+        private static string GetKnownMetadataKey(string invocationName)
+        {
+            switch (invocationName)
+            {
+                case "Purpose":
+                    return "purpose";
+                case "Trigger":
+                    return "trigger";
+                case "FailureBehavior":
+                    return "failureBehavior";
+                case "Module":
+                    return "module";
+                case "BoundaryType":
+                    return "boundaryType";
+                case "EntryPoint":
+                    return "entryPoint";
+                case "Protocol":
+                    return "protocol";
+                case "Operation":
+                    return "operation";
+                case "Sla":
+                    return "sla";
+                case "Timeout":
+                    return "timeout";
+                case "External":
+                    return "external";
+                default:
+                    return null;
+            }
+        }
+
+        private static void SetStringOrGenericMetadata(IDictionary<string, string> metadata, string key, InvocationExpressionSyntax invocation)
+        {
+            var value = GetStringArgument(invocation, 0);
+            if (string.IsNullOrWhiteSpace(value))
+                value = GetGenericArguments(invocation).Select(argument => argument.ToString()).FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(value))
+                metadata[key] = value;
+        }
+
+        private static void SetSignatureMetadata(IDictionary<string, string> metadata, string key, InvocationExpressionSyntax invocation)
+        {
+            var genericArguments = GetGenericArguments(invocation);
+            if (genericArguments.Count >= 2)
+            {
+                metadata[key] = genericArguments[0] + " -> " + genericArguments[1];
+                return;
+            }
+
+            SetStringOrGenericMetadata(metadata, key, invocation);
+        }
+
+        private static void MergeMetadataList(IDictionary<string, string> metadata, string key, IEnumerable<string> values)
+        {
+            var merged = new List<string>();
+            if (metadata.TryGetValue(key, out var existing))
+                merged.AddRange(existing.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+
+            merged.AddRange(values);
+            var clean = merged
+                .Select(value => value.Trim())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (clean.Length > 0)
+                metadata[key] = string.Join(",", clean);
         }
 
         private static IReadOnlyList<InvocationExpressionSyntax> GetTopLevelFluentInvocations(LambdaExpressionSyntax lambda)
@@ -684,6 +1024,13 @@ namespace Spider.Pipelines.Analyzers
             if (expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression))
                 return literal.Token.ValueText;
 
+            if (expression is InvocationExpressionSyntax nameOfInvocation &&
+                GetInvocationName(nameOfInvocation) == "nameof" &&
+                nameOfInvocation.ArgumentList.Arguments.Count == 1)
+            {
+                return nameOfInvocation.ArgumentList.Arguments[0].Expression.ToString();
+            }
+
             return null;
         }
 
@@ -750,7 +1097,28 @@ namespace Spider.Pipelines.Analyzers
             => invocationName == "Named" ||
                invocationName == "Describe" ||
                invocationName == "Tags" ||
-               invocationName == "Metadata";
+               invocationName == "Metadata" ||
+               invocationName == "Purpose" ||
+               invocationName == "Trigger" ||
+               invocationName == "Wraps" ||
+               invocationName == "Input" ||
+               invocationName == "Output" ||
+               invocationName == "Policies" ||
+               invocationName == "FailureBehavior" ||
+               invocationName == "RelatedFlow" ||
+               invocationName == "Module" ||
+               invocationName == "BoundaryType" ||
+               invocationName == "EntryPoint" ||
+               invocationName == "Protocol" ||
+               invocationName == "Operation" ||
+               invocationName == "Contract" ||
+               invocationName == "Security" ||
+               invocationName == "Sla" ||
+               invocationName == "Timeout" ||
+               invocationName == "Observability" ||
+               invocationName == "InvokesPipeline" ||
+               invocationName == "InvokesFlow" ||
+               invocationName == "External";
 
         private static string GetFlowStepKind(string invocationName)
         {
@@ -1047,6 +1415,8 @@ namespace Spider.Pipelines.Analyzers
 
             public List<InvocationExpressionSyntax> AttachInvocations { get; } = new List<InvocationExpressionSyntax>();
 
+            public List<InvocationExpressionSyntax> BoundaryInvocations { get; } = new List<InvocationExpressionSyntax>();
+
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
             {
                 if (!(syntaxNode is InvocationExpressionSyntax invocation))
@@ -1057,6 +1427,8 @@ namespace Spider.Pipelines.Analyzers
                     ComposeFlowInvocations.Add(invocation);
                 else if (name == "Attach")
                     AttachInvocations.Add(invocation);
+                else if (name == "AddExecutionBoundary")
+                    BoundaryInvocations.Add(invocation);
             }
         }
 
@@ -1070,7 +1442,23 @@ namespace Spider.Pipelines.Analyzers
             public IEnumerable<RelationModel> Relations => _relations.Values;
 
             public void AddComponent(ComponentModel component)
-                => _components[component.Id] = component;
+            {
+                if (!_components.TryGetValue(component.Id, out var existing))
+                {
+                    _components[component.Id] = component;
+                    return;
+                }
+
+                var metadata = existing.Metadata.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+                foreach (var pair in component.Metadata)
+                    metadata[pair.Key] = pair.Value;
+
+                var displayName = component.Metadata.ContainsKey("name")
+                    ? component.DisplayName
+                    : existing.Metadata.ContainsKey("name") ? existing.DisplayName : component.DisplayName;
+                var evidence = existing.Evidence.Concat(component.Evidence).ToArray();
+                _components[component.Id] = new ComponentModel(component.Id, component.Kind, displayName, metadata, evidence);
+            }
 
             public void AddRelation(RelationModel relation)
                 => _relations[relation.Id] = relation;

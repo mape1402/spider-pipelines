@@ -36,10 +36,12 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("is-process-detail", html);
             Assert.Contains("data-menu-view=\"pipelines\"", html);
             Assert.Contains("data-menu-view=\"flows\"", html);
+            Assert.Contains("data-menu-view=\"boundaries\"", html);
             Assert.Contains("#e6242d", html);
             Assert.Contains("#1d5fbf", html);
             Assert.Contains("spider-pipeline-list", html);
             Assert.Contains("spider-flow-list", html);
+            Assert.Contains("spider-boundary-list", html);
             Assert.Contains("spider-content", html);
             Assert.Contains("spider-list-view", html);
             Assert.Contains("spider-process-list", html);
@@ -60,6 +62,11 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-node-detail", html);
             Assert.Contains("Pipelines", html);
             Assert.Contains("Flows", html);
+            Assert.Contains("Boundaries", html);
+            Assert.Contains("spider-boundary-count", html);
+            Assert.Contains("spider.boundary:http-orders", html);
+            Assert.Contains("HTTP orders boundary", html);
+            Assert.Contains("boundary-invokes-pipeline", html);
             Assert.Contains("spider-process-graph", html);
             Assert.Contains("Flowchart", html);
             Assert.Contains("spider-flowchart", html);
@@ -80,6 +87,30 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("data-open-process", html);
             Assert.Contains("spider-edge", html);
             Assert.Contains("spider-graph-legend", html);
+            Assert.Contains("Pipeline graph", html);
+            Assert.Contains("Pipeline stage legend", html);
+            Assert.Contains("spider-pipeline-legend-icon", html);
+            Assert.Contains("renderPipelineLegendItem(\"boundary\", \"Boundary\")", html);
+            Assert.Contains("spider-pipeline-legend-svg", html);
+            Assert.Contains("spider-pipeline-legend-mark", html);
+            Assert.Contains("renderRoleGlyphShape", html);
+            Assert.Contains("getGraphEntryBoundaries", html);
+            Assert.Contains("is-boundary", html);
+            Assert.Contains("Entry boundaries", html);
+            Assert.Contains("Open boundary", html);
+            Assert.Contains("is-pipeline-pre", html);
+            Assert.Contains("is-pipeline-middleware", html);
+            Assert.Contains("is-pipeline-target", html);
+            Assert.Contains("is-pipeline-success", html);
+            Assert.Contains("is-pipeline-failure", html);
+            Assert.Contains("spider-node-stage-pill", html);
+            Assert.Contains("spider-node-role-pill", html);
+            Assert.Contains("getGraphRoleMarker", html);
+            Assert.Contains("spider-stage-summary", html);
+            Assert.Contains("Stage summary", html);
+            Assert.Contains("post-failure", html);
+            Assert.Contains("request-normalization", html);
+            Assert.Contains("trace-enrichment", html);
             Assert.Contains("spider-graph-actions", html);
             Assert.Contains("data-process-graph-maximize", html);
             Assert.Contains("spider-graph-maximize-button", html);
@@ -430,6 +461,20 @@ namespace Spider.Pipelines.Web.Tests
                             ["response"] = "CustomerResponse"
                         }),
                     new SpiderComponentDescriptor(
+                        pipelineId + ".pre-process",
+                        "spider.pipeline-stage",
+                        "Pre-process",
+                        new Dictionary<string, string>
+                        {
+                            ["stage"] = "pre-process",
+                            ["count"] = "1",
+                            ["order"] = "1",
+                            ["purpose"] = "Creates a normalized request envelope before execution.",
+                            ["policies"] = "request-normalization,correlation",
+                            ["observability"] = "trace-enrichment",
+                            ["timeout"] = "Expected below 5 ms."
+                        }),
+                    new SpiderComponentDescriptor(
                         pipelineId + ".middleware",
                         "spider.pipeline-stage",
                         "Middleware",
@@ -437,7 +482,55 @@ namespace Spider.Pipelines.Web.Tests
                         {
                             ["stage"] = "middleware",
                             ["count"] = "1",
-                            ["order"] = "2"
+                            ["order"] = "2",
+                            ["wraps"] = "CustomerService.CreateAsync",
+                            ["policies"] = "runtime-tracing,transparent-wrapper",
+                            ["observability"] = "handler-started,handler-completed"
+                        }),
+                    new SpiderComponentDescriptor(
+                        pipelineId + ".target",
+                        "spider.pipeline-stage",
+                        "Target",
+                        new Dictionary<string, string>
+                        {
+                            ["stage"] = "target",
+                            ["count"] = "1",
+                            ["hasOverride"] = "true",
+                            ["order"] = "3"
+                        }),
+                    new SpiderComponentDescriptor(
+                        pipelineId + ".post-success",
+                        "spider.pipeline-stage",
+                        "Post-process success",
+                        new Dictionary<string, string>
+                        {
+                            ["stage"] = "post-success",
+                            ["count"] = "1",
+                            ["order"] = "5"
+                        }),
+                    new SpiderComponentDescriptor(
+                        pipelineId + ".post-failure",
+                        "spider.pipeline-stage",
+                        "Post-process failure",
+                        new Dictionary<string, string>
+                        {
+                            ["stage"] = "post-failure",
+                            ["count"] = "1",
+                            ["order"] = "6"
+                        }),
+                    new SpiderComponentDescriptor(
+                        "spider.boundary:http-orders",
+                        "spider.boundary",
+                        "HTTP orders boundary",
+                        new Dictionary<string, string>
+                        {
+                            ["boundary"] = "HttpOrdersBoundary",
+                            ["boundaryType"] = "HTTP request boundary",
+                            ["entryPoint"] = "POST /orders",
+                            ["protocol"] = "HTTP",
+                            ["contract"] = "CreateCustomerRequest -> CustomerResponse",
+                            ["description"] = "Documents the entry point that invokes the customer pipeline.",
+                            ["policies"] = "auth,validation"
                         })
                 },
                 new[]
@@ -450,7 +543,12 @@ namespace Spider.Pipelines.Web.Tests
                     new SpiderRelationDescriptor("branch-route", branchId, routeId, "branch-route", new Dictionary<string, string> { ["order"] = "1" }),
                     new SpiderRelationDescriptor("route-contains", routeId, routeStepId, "route-contains", new Dictionary<string, string>()),
                     new SpiderRelationDescriptor("route-invokes-flow", routeStepId, nestedFlowId, "invokes-flow", new Dictionary<string, string>()),
-                    new SpiderRelationDescriptor("pipeline-contains-middleware", pipelineId, pipelineId + ".middleware", "contains", new Dictionary<string, string>())
+                    new SpiderRelationDescriptor("pipeline-contains-pre-process", pipelineId, pipelineId + ".pre-process", "contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("pipeline-contains-middleware", pipelineId, pipelineId + ".middleware", "contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("pipeline-contains-target", pipelineId, pipelineId + ".target", "contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("pipeline-contains-success", pipelineId, pipelineId + ".post-success", "contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("pipeline-contains-failure", pipelineId, pipelineId + ".post-failure", "contains", new Dictionary<string, string>()),
+                    new SpiderRelationDescriptor("boundary-invokes-pipeline", "spider.boundary:http-orders", pipelineId, "boundary-invokes-pipeline", new Dictionary<string, string>())
                 });
         }
     }

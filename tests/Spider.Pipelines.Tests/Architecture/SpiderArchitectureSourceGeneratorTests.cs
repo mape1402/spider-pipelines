@@ -57,6 +57,66 @@ namespace Spider.Pipelines.Tests.Architecture
         }
 
         [Fact]
+        public void BuildManifest_WhenPipelineUsesDescriptiveMetadata_ShouldGeneratePipelineAndStageMetadata()
+        {
+            var manifest = GenerateManifest(PipelineMetadataSource);
+            var pipelineId = "spider.pipeline:order-request-to-order-receipt";
+
+            var pipeline = Assert.Single(manifest.Components, component => component.Id == pipelineId);
+            Assert.Equal("Order placement pipeline", pipeline.DisplayName);
+            Assert.Equal("Runs the order handler with operational policy metadata.", pipeline.Metadata["description"]);
+            Assert.Equal("Documents the wrapper around order placement.", pipeline.Metadata["purpose"]);
+            Assert.Equal("POST /orders", pipeline.Metadata["trigger"]);
+            Assert.Equal("OrderService.PlaceAsync", pipeline.Metadata["wraps"]);
+            Assert.Equal("OrderRequest", pipeline.Metadata["input"]);
+            Assert.Equal("OrderReceipt", pipeline.Metadata["output"]);
+            Assert.Equal("validation,audit", pipeline.Metadata["policies"]);
+            Assert.Equal("Log and rethrow", pipeline.Metadata["failureBehavior"]);
+            Assert.Equal("orders", pipeline.Metadata["module"]);
+
+            var preProcess = Assert.Single(manifest.Components, component => component.Id == pipelineId + ".pre-process");
+            Assert.Equal("Validate order", preProcess.DisplayName);
+            Assert.Equal("Checks the order before execution.", preProcess.Metadata["description"]);
+            Assert.Equal("validation", preProcess.Metadata["tags"]);
+            Assert.Equal("Rejects malformed order requests before the handler executes.", preProcess.Metadata["purpose"]);
+            Assert.Equal("validation,guard", preProcess.Metadata["policies"]);
+            Assert.Equal("order-validation-started", preProcess.Metadata["observability"]);
+            Assert.Equal("Expected below 5 ms.", preProcess.Metadata["timeout"]);
+
+            var middleware = Assert.Single(manifest.Components, component => component.Id == pipelineId + ".middleware");
+            Assert.Equal("Trace order handler", middleware.DisplayName);
+            Assert.Equal("telemetry", middleware.Metadata["tags"]);
+            Assert.Equal("OrderService.PlaceAsync", middleware.Metadata["wraps"]);
+            Assert.Equal("runtime-tracing,transparent-wrapper", middleware.Metadata["policies"]);
+            Assert.Equal("handler-started,handler-completed", middleware.Metadata["observability"]);
+            Assert.Equal("Trace and rethrow original exceptions.", middleware.Metadata["failureBehavior"]);
+        }
+
+        [Fact]
+        public void BuildManifest_WhenBoundaryUsesDescriptiveMetadata_ShouldGenerateBoundaryMetadataAndRelations()
+        {
+            var manifest = GenerateManifest(BoundaryMetadataSource);
+            var pipelineId = "spider.pipeline:order-request-to-order-receipt";
+
+            var boundary = Assert.Single(manifest.Components, component => component.Id == "spider.boundary:http-order-boundary");
+            Assert.Equal("HTTP order boundary", boundary.DisplayName);
+            Assert.Equal("Spider boundary around HTTP order requests.", boundary.Metadata["description"]);
+            Assert.Equal("HTTP request boundary", boundary.Metadata["boundaryType"]);
+            Assert.Equal("POST /orders", boundary.Metadata["entryPoint"]);
+            Assert.Equal("HTTP", boundary.Metadata["protocol"]);
+            Assert.Equal("OrderRequest -> OrderReceipt", boundary.Metadata["contract"]);
+            Assert.Equal("auth,validation", boundary.Metadata["policies"]);
+            Assert.Equal("jwt", boundary.Metadata["security"]);
+            Assert.Equal("traces,metrics", boundary.Metadata["observability"]);
+            Assert.Equal("OrderRequest -> OrderReceipt", boundary.Metadata["invokesPipeline"]);
+
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "boundary-invokes-pipeline" &&
+                relation.SourceId == boundary.Id &&
+                relation.TargetId == pipelineId);
+        }
+
+        [Fact]
         public void BuildManifest_WhenSourceFilePathIsAbsolute_ShouldGeneratePortableEvidencePaths()
         {
             var projectDirectory = NormalizeTestPath(Path.Combine(Path.GetTempPath(), "spider-source-root"));
@@ -587,6 +647,102 @@ namespace ArchitectureSample
     public sealed class CreditDecision { }
 
     public sealed class CreditResponse { }
+}
+";
+
+        private const string PipelineMetadataSource = @"
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Extensions;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedPipelines
+    {
+        public void Configure(ISpider spider)
+        {
+            spider
+                .InitBridge<OrderService>()
+                .Attach<OrderRequest, OrderReceipt>(builder => builder
+                    .Named(""Order placement pipeline"")
+                    .Describe(""Runs the order handler with operational policy metadata."")
+                    .Purpose(""Documents the wrapper around order placement."")
+                    .Trigger(""POST /orders"")
+                    .Wraps(""OrderService.PlaceAsync"")
+                    .Input(nameof(OrderRequest))
+                    .Output(nameof(OrderReceipt))
+                    .Policies(""validation"", ""audit"")
+                    .FailureBehavior(""Log and rethrow"")
+                    .Module(""orders"")
+                    .PreProcess((ctx, args) => Task.CompletedTask, stage => stage
+                        .Named(""Validate order"")
+                        .Describe(""Checks the order before execution."")
+                        .Purpose(""Rejects malformed order requests before the handler executes."")
+                        .Policies(""validation"", ""guard"")
+                        .Observability(""order-validation-started"")
+                        .Timeout(""Expected below 5 ms."")
+                        .Tags(""validation""))
+                    .UseMiddleware((ctx, next) => next(), stage => stage
+                        .Named(""Trace order handler"")
+                        .Wraps(""OrderService.PlaceAsync"")
+                        .Policies(""runtime-tracing"", ""transparent-wrapper"")
+                        .Observability(""handler-started"", ""handler-completed"")
+                        .FailureBehavior(""Trace and rethrow original exceptions."")
+                        .Tags(""telemetry"")));
+        }
+    }
+
+    public sealed class OrderService
+    {
+        public Task<OrderReceipt> PlaceAsync(OrderRequest request, CancellationToken token)
+            => Task.FromResult(new OrderReceipt());
+    }
+
+    public sealed class OrderRequest { }
+
+    public sealed class OrderReceipt { }
+}
+";
+
+        private const string BoundaryMetadataSource = @"
+using Microsoft.Extensions.DependencyInjection;
+using Spider.Pipelines.Boundaries;
+using Spider.Pipelines.Core;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedBoundaries
+    {
+        public void Configure(IServiceCollection services, ISpider spider)
+        {
+            services.AddSpider(builder => builder
+                .AddExecutionBoundary<HttpOrderBoundary>()
+                .Named(""HTTP order boundary"")
+                .Describe(""Spider boundary around HTTP order requests."")
+                .BoundaryType(""HTTP request boundary"")
+                .EntryPoint(""POST /orders"")
+                .Protocol(""HTTP"")
+                .Operation(""Create order"")
+                .Contract<OrderRequest, OrderReceipt>()
+                .Policies(""auth"", ""validation"")
+                .Security(""jwt"")
+                .Observability(""traces"", ""metrics"")
+                .InvokesPipeline<OrderRequest, OrderReceipt>());
+
+            spider
+                .InitBridge<OrderService>()
+                .Attach<OrderRequest, OrderReceipt>(pipeline => { });
+        }
+    }
+
+    public sealed class HttpOrderBoundary : PipelineExecutionBoundary { }
+
+    public sealed class OrderService { }
+
+    public sealed class OrderRequest { }
+
+    public sealed class OrderReceipt { }
 }
 ";
 
