@@ -84,6 +84,9 @@ namespace Spider.Pipelines.Web
             html.AppendLine("          <div id=\"spider-topbar-title\" class=\"spider-topbar-title\">Pipelines</div>");
             html.AppendLine("        </div>");
             html.AppendLine("        <div class=\"spider-topbar-actions\">");
+            html.AppendLine("          <button id=\"spider-runtime-import\" class=\"spider-topbar-action spider-runtime-file-action spider-runtime-import-action\" type=\"button\" data-import-runtime-trace>Import trace</button>");
+            html.AppendLine("          <button id=\"spider-runtime-export\" class=\"spider-topbar-action spider-runtime-file-action spider-runtime-export-action\" type=\"button\" data-export-runtime-trace>Export trace</button>");
+            html.AppendLine("          <input id=\"spider-runtime-import-input\" class=\"spider-runtime-file-input\" type=\"file\" accept=\"application/json,.json\" />");
             html.AppendLine("          <button id=\"spider-theme-toggle\" class=\"spider-theme-toggle\" type=\"button\" aria-label=\"Use dark mode\" aria-pressed=\"false\" title=\"Use dark mode\"><span class=\"spider-theme-toggle-dot\" aria-hidden=\"true\"></span><span id=\"spider-theme-toggle-label\">Light</span></button>");
             html.AppendLine("          <div class=\"spider-topbar-badge\">Generated metadata</div>");
             html.AppendLine("        </div>");
@@ -564,6 +567,41 @@ button {
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
+}
+
+.spider-runtime-file-input {
+  display: none;
+}
+
+.spider-topbar-action {
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid var(--spider-line);
+  border-radius: 999px;
+  background: var(--spider-input-bg);
+  color: var(--spider-text);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 6px 10px;
+  transition: border-color 0.12s, box-shadow 0.12s, color 0.12s, background 0.12s;
+}
+
+.spider-topbar-action:hover {
+  border-color: rgba(29, 95, 191, 0.36);
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.08);
+  color: var(--spider-blue);
+}
+
+.spider-runtime-file-action {
+  display: none;
+}
+
+.spider-shell.is-runtime-list .spider-runtime-import-action,
+.spider-shell.is-runtime-trace .spider-runtime-import-action,
+.spider-shell.is-runtime-trace .spider-runtime-export-action {
+  display: inline-flex;
 }
 
 .spider-theme-toggle {
@@ -3863,6 +3901,8 @@ button {
   const runtimeElement = document.getElementById("spider-runtime-trace-data");
   const manifest = JSON.parse(manifestElement.textContent || "{}");
   let runtimeData = JSON.parse(runtimeElement.textContent || "{\"summaries\":[],\"traces\":[]}");
+  const importedRuntimeTraces = new Map();
+  runtimeData = mergeImportedRuntimeData(runtimeData);
   const components = manifest.components || [];
   const relations = manifest.relations || [];
   const byId = new Map(components.map((component) => [component.id, component]));
@@ -3878,6 +3918,7 @@ button {
   const sidebarToggle = document.getElementById("spider-sidebar-toggle");
   const themeToggle = document.getElementById("spider-theme-toggle");
   const themeToggleLabel = document.getElementById("spider-theme-toggle-label");
+  const runtimeImportInput = document.getElementById("spider-runtime-import-input");
   const jsonLink = document.getElementById("spider-json-link");
   const sidebarStorageKey = "spider:architecture:sidebar-collapsed";
   const themeStorageKey = "spider:architecture:theme";
@@ -3909,9 +3950,7 @@ button {
   if (boundaryCount) {
     boundaryCount.textContent = String(boundaries.length);
   }
-  if (runtimeCount) {
-    runtimeCount.textContent = String((runtimeData.summaries || []).length);
-  }
+  updateRuntimeCount();
 
   if (!showJson && jsonLink) {
     jsonLink.classList.add("spider-hidden");
@@ -3936,6 +3975,19 @@ button {
     const trace = event.target.closest("[data-open-trace]");
     if (trace) {
       openTrace(trace.getAttribute("data-open-trace"));
+      return;
+    }
+
+    const importTrace = event.target.closest("[data-import-runtime-trace]");
+    if (importTrace && showRuntime && runtimeImportInput) {
+      runtimeImportInput.value = "";
+      runtimeImportInput.click();
+      return;
+    }
+
+    const exportTrace = event.target.closest("[data-export-runtime-trace]");
+    if (exportTrace && state.view === "runtime" && state.mode === "trace") {
+      exportCurrentRuntimeTrace();
       return;
     }
 
@@ -4035,6 +4087,18 @@ button {
     });
   }
 
+  if (runtimeImportInput) {
+    runtimeImportInput.addEventListener("change", async () => {
+      const file = runtimeImportInput.files && runtimeImportInput.files[0];
+      runtimeImportInput.value = "";
+      if (!file) {
+        return;
+      }
+
+      await importRuntimeTraceFile(file);
+    });
+  }
+
   window.addEventListener("hashchange", openFromHash);
 
   openFromHash();
@@ -4077,10 +4141,12 @@ button {
   function showList(view, skipHash) {
     closeRuntimeRawEventsModal();
     setRuntimeTraceShell(false);
+    setRuntimeListShell(false);
     setProcessDetailShell(false);
     state.view = view === "runtime" && showRuntime
       ? "runtime"
       : view === "boundaries" ? "boundaries" : view === "flows" ? "flows" : "pipelines";
+    setRuntimeListShell(state.view === "runtime");
     state.mode = "list";
     state.processId = "";
     state.nodeId = "";
@@ -4143,6 +4209,7 @@ button {
   function renderRuntimeList() {
     const summaries = runtimeData.summaries || [];
     state.runtimeListSignature = createRuntimeListSignature(summaries);
+    setRuntimeListShell(true);
     setActiveMenu("runtime");
     setTopbarTitle("Runtime traces");
 
@@ -4189,6 +4256,7 @@ button {
       const overview = createRuntimeOverview(getTraceForSummary(item), item);
       const status = overview.status || item.status || "Started";
       const statusClass = getStatusClass(status);
+      const importedChip = item.imported ? `<span class="spider-count-pill">Imported</span>` : "";
       const fault = overview.firstFault ? `
         <span class="spider-runtime-row-fault">${escapeHtml(overview.firstFault)}</span>` : "";
 
@@ -4203,6 +4271,7 @@ button {
           <span class="spider-process-tags">
             ${renderStatusChip(status)}
             <span class="spider-count-pill">${escapeHtml(formatDuration(overview.durationMs))}</span>
+            ${importedChip}
           </span>
           <span class="spider-runtime-row-title">${escapeHtml(overview.title)}</span>
           <span class="spider-runtime-row-meta">
@@ -4266,6 +4335,7 @@ button {
     const visualView = getRuntimeVisualView();
     overview.graphContext = graphContext;
     setRuntimeTraceShell(true);
+    setRuntimeListShell(false);
     setProcessDetailShell(false);
     setActiveMenu("runtime");
     setTopbarTitle(trace.traceId);
@@ -4924,6 +4994,156 @@ button {
     return `${filtered.length} of ${events.length} events`;
   }
 
+  function exportCurrentRuntimeTrace() {
+    const trace = getCurrentRuntimeTrace();
+    if (!trace) {
+      return;
+    }
+
+    const summary = findSummary(trace.traceId) || createRuntimeSummaryFromTrace(trace);
+    const payload = {
+      schema: "spider-runtime-trace",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      summary,
+      trace
+    };
+    const text = JSON.stringify(payload, null, 2);
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${sanitizeFilename("spider-trace-" + (trace.traceId || "runtime"))}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importRuntimeTraceFile(file) {
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const imported = extractRuntimeTraceImports(payload);
+      if (!imported.length) {
+        throw new Error("No trace found in file.");
+      }
+
+      imported.forEach((item) => {
+        importedRuntimeTraces.set(item.trace.traceId, item);
+      });
+      runtimeData = mergeImportedRuntimeData(runtimeData);
+      updateRuntimeCount();
+      state.query = "";
+      openTrace(imported[0].trace.traceId);
+    } catch (error) {
+      window.alert(`Could not import runtime trace: ${error && error.message ? error.message : "Invalid JSON file."}`);
+    }
+  }
+
+  function extractRuntimeTraceImports(payload) {
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+
+    if (payload.trace) {
+      return [normalizeImportedRuntimeTrace(payload.trace, payload.summary || null)];
+    }
+
+    if (payload.traceId && Array.isArray(payload.events)) {
+      return [normalizeImportedRuntimeTrace(payload, null)];
+    }
+
+    if (Array.isArray(payload.traces)) {
+      return payload.traces
+        .map((trace) => {
+          const summary = Array.isArray(payload.summaries)
+            ? payload.summaries.find((item) => item && item.traceId === trace.traceId)
+            : null;
+          return normalizeImportedRuntimeTrace(trace, summary || null);
+        })
+        .filter(Boolean);
+    }
+
+    return [];
+  }
+
+  function normalizeImportedRuntimeTrace(trace, summary) {
+    if (!trace || typeof trace !== "object" || !trace.traceId) {
+      throw new Error("Imported trace is missing traceId.");
+    }
+
+    const normalizedTrace = cloneJson(trace);
+    normalizedTrace.events = Array.isArray(normalizedTrace.events) ? normalizedTrace.events : [];
+    normalizedTrace.events.forEach((event) => {
+      if (event && !event.traceId) {
+        event.traceId = normalizedTrace.traceId;
+      }
+    });
+    normalizedTrace.imported = true;
+
+    const normalizedSummary = summary ? cloneJson(summary) : createRuntimeSummaryFromTrace(normalizedTrace);
+    normalizedSummary.traceId = normalizedTrace.traceId;
+    normalizedSummary.imported = true;
+
+    return {
+      trace: normalizedTrace,
+      summary: normalizedSummary
+    };
+  }
+
+  function createRuntimeSummaryFromTrace(trace) {
+    const overview = createRuntimeOverview(trace, null);
+    const firstEvent = trace && Array.isArray(trace.events) ? trace.events[0] || null : null;
+    return {
+      traceId: trace.traceId,
+      rootComponentId: firstEvent && firstEvent.componentId ? firstEvent.componentId : "",
+      rootDisplayName: overview.title,
+      requestType: firstEvent && firstEvent.inputType ? firstEvent.inputType : "",
+      responseType: firstEvent && firstEvent.outputType ? firstEvent.outputType : "",
+      status: overview.status,
+      startedAt: overview.startedAt,
+      completedAt: overview.completedAt,
+      durationMs: overview.durationMs,
+      eventCount: overview.eventCount,
+      droppedEventCount: 0
+    };
+  }
+
+  function mergeImportedRuntimeData(data) {
+    const next = data && typeof data === "object" ? data : {};
+    const summaryMap = new Map((next.summaries || []).map((summary) => [summary.traceId, summary]));
+    const traceMap = new Map((next.traces || []).map((trace) => [trace.traceId, trace]));
+
+    importedRuntimeTraces.forEach((item, traceId) => {
+      traceMap.set(traceId, item.trace);
+      summaryMap.set(traceId, item.summary);
+    });
+
+    return {
+      ...next,
+      summaries: Array.from(summaryMap.values()),
+      traces: Array.from(traceMap.values())
+    };
+  }
+
+  function updateRuntimeCount() {
+    if (runtimeCount) {
+      runtimeCount.textContent = String((runtimeData.summaries || []).length);
+    }
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function sanitizeFilename(value) {
+    return String(value || "runtime-trace")
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 120) || "runtime-trace";
+  }
+
   function getCurrentRuntimeTrace() {
     return state.runtimeTraceId
       ? (runtimeData.traces || []).find((trace) => trace.traceId === state.runtimeTraceId) || null
@@ -4979,6 +5199,7 @@ button {
     const previousProcessId = state.processId;
     closeRuntimeRawEventsModal();
     setRuntimeTraceShell(false);
+    setRuntimeListShell(false);
     setProcessDetailShell(true);
     const children = orderChildren(process);
     state.view = process.kind === "spider.flow" ? "flows" : "pipelines";
@@ -5066,6 +5287,7 @@ button {
   function openBoundary(boundary, skipHash) {
     closeRuntimeRawEventsModal();
     setRuntimeTraceShell(false);
+    setRuntimeListShell(false);
     setProcessDetailShell(true);
     state.view = "boundaries";
     state.mode = "detail";
@@ -5372,6 +5594,7 @@ button {
 
   function renderJson() {
     setRuntimeTraceShell(false);
+    setRuntimeListShell(false);
     setProcessDetailShell(false);
     state.processGraphMaximized = false;
     setTopbarTitle("Manifest JSON");
@@ -7707,10 +7930,8 @@ button {
         return;
       }
 
-      runtimeData = await response.json();
-      if (runtimeCount) {
-        runtimeCount.textContent = String((runtimeData.summaries || []).length);
-      }
+      runtimeData = mergeImportedRuntimeData(await response.json());
+      updateRuntimeCount();
 
       if (state.view === "runtime" && state.mode === "list") {
         refreshRuntimeListRows();
@@ -7891,6 +8112,10 @@ button {
 
   function setRuntimeTraceShell(active) {
     root.classList.toggle("is-runtime-trace", Boolean(active));
+  }
+
+  function setRuntimeListShell(active) {
+    root.classList.toggle("is-runtime-list", Boolean(active));
   }
 
   function setProcessDetailShell(active) {

@@ -254,6 +254,14 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("spider-runtime-trace-data", html);
             Assert.Contains("data-menu-view=\"runtime\"", html);
             Assert.Contains("Runtime traces", html);
+            Assert.Contains("spider-runtime-import", html);
+            Assert.Contains("spider-runtime-export", html);
+            Assert.Contains("spider-runtime-import-input", html);
+            Assert.Contains("data-import-runtime-trace", html);
+            Assert.Contains("data-export-runtime-trace", html);
+            Assert.Contains("Import trace", html);
+            Assert.Contains("Export trace", html);
+            Assert.Contains("is-runtime-list", html);
             Assert.Contains("spider-runtime-execution-list", html);
             Assert.Contains("spider-runtime-row", html);
             Assert.Contains("spider-runtime-overview", html);
@@ -324,6 +332,12 @@ namespace Spider.Pipelines.Web.Tests
             Assert.Contains("selectRuntimeItem", html);
             Assert.Contains("refreshRuntimeSelectionDetail", html);
             Assert.Contains("selectRuntimeGraphNode", html);
+            Assert.Contains("exportCurrentRuntimeTrace", html);
+            Assert.Contains("importRuntimeTraceFile", html);
+            Assert.Contains("extractRuntimeTraceImports", html);
+            Assert.Contains("mergeImportedRuntimeData", html);
+            Assert.Contains("spider-runtime-trace", html);
+            Assert.Contains("Imported", html);
             Assert.Contains("renderRuntimeSpan", html);
             Assert.Contains("renderRuntimeTimeline", html);
             Assert.Contains("renderRuntimeItemDetail", html);
