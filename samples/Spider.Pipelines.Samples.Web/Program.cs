@@ -28,7 +28,23 @@ namespace Spider.Pipelines.Samples.Web
             builder.Services.AddScoped<CreditApplicationHandler>();
             builder.Services.AddScoped<CreditDecisionWorkflow>();
             builder.Services.AddScoped<CreditOfferWorkflow>();
-            builder.Services.AddSpider(spider => spider.AddExecutionBoundary<RuntimeSampleBoundary>());
+            builder.Services.AddSpider(spider => spider
+                .AddExecutionBoundary<RuntimeSampleBoundary>()
+                .Named("Runtime sample boundary")
+                .Describe("Wraps sample HTTP-triggered Spider executions so runtime traces and boundary events stay visible in the UI.")
+                .Purpose("Shows where an incoming request crosses into Spider pipeline execution.")
+                .BoundaryType("HTTP request boundary")
+                .EntryPoint("Sample endpoints under /_spider/sample")
+                .Protocol("HTTP")
+                .Operation("Execute Spider sample pipeline")
+                .Contract<CreditApplicationRequest, CreditOffer>()
+                .Security("sample-only", "no-auth")
+                .Policies("trace-flush", "fault-capture")
+                .FailureBehavior("Flushes trace data before returning the sample fault response.")
+                .Sla("Interactive demo request")
+                .Timeout("Request cancellation token")
+                .Observability("runtime traces", "boundary events")
+                .InvokesPipeline<CreditApplicationRequest, CreditOffer>());
             builder.Services.AddSpiderRuntimeTracing(tracing =>
             {
                 tracing.QueueCapacity = 1000;
@@ -161,11 +177,56 @@ namespace Spider.Pipelines.Samples.Web
                 return await spider
                     .InitBridge<CreditApplicationHandler>()
                     .Attach<CreditApplicationRequest, CreditDecision>(builder => builder
-                        .PreProcess((ctx, args) => Task.CompletedTask)
-                        .UseMiddleware((ctx, next) => next())
-                        .Parallel((ctx, args) => Task.CompletedTask)
-                        .OnSuccess((ctx, args) => Task.CompletedTask)
-                        .OnFailure((ctx, args) => Task.CompletedTask))
+                        .Named("Credit decision pipeline")
+                        .Describe("Handles the primary credit decision request path with telemetry, side signals, and post-processing.")
+                        .Purpose("Keeps the handler execution observable while preserving the service contract.")
+                        .Trigger("POST /_spider/sample/{success|remote|fault}")
+                        .Wraps("CreditApplicationHandler.HandleAsync")
+                        .Input(nameof(CreditApplicationRequest))
+                        .Output(nameof(CreditDecision))
+                        .Policies("runtime-tracing", "fault-capture")
+                        .FailureBehavior("Flushes trace data and keeps the original business exception.")
+                        .Module("Credit evaluation")
+                        .PreProcess((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Prepare credit request")
+                            .Describe("Prepares request context before invoking the credit handler.")
+                            .Purpose("Normalizes the request envelope and enriches the runtime trace before the handler starts.")
+                            .Policies("request-context", "correlation")
+                            .Observability("credit-request-prepared", "trace-enriched")
+                            .Timeout("Expected below 10 ms.")
+                            .Tags("context", "credit"))
+                        .UseMiddleware((ctx, next) => next(), stage => stage
+                            .Named("Run credit handler")
+                            .Describe("Wraps the handler invocation so the runtime timeline can show the operation.")
+                            .Purpose("Makes the handler visible in runtime traces while preserving the original service contract.")
+                            .Wraps("CreditApplicationHandler.HandleAsync")
+                            .Policies("transparent-wrapper", "runtime-tracing")
+                            .Observability("handler-started", "handler-completed", "handler-faulted")
+                            .Tags("handler", "telemetry"))
+                        .Parallel((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Collect credit side signals")
+                            .Describe("Runs sample side work in parallel with the business execution.")
+                            .Purpose("Models asynchronous enrichment work that should not block the credit decision.")
+                            .Policies("non-blocking", "best-effort")
+                            .Observability("side-signal-collected")
+                            .FailureBehavior("Trace the side effect failure without replacing the handler outcome.")
+                            .Tags("parallel", "signals"))
+                        .OnSuccess((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Record credit success")
+                            .Describe("Captures the successful outcome for the sample trace.")
+                            .Purpose("Adds an audit marker after the credit handler returns successfully.")
+                            .Policies("success-only", "audit")
+                            .Observability("credit-decision-success")
+                            .RelatedFlow<CreditDecision, CreditDecision>()
+                            .Tags("success"))
+                        .OnFailure((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Record credit failure")
+                            .Describe("Captures the failed outcome without changing the thrown exception.")
+                            .Purpose("Keeps the original failure visible and attached to the pipeline execution.")
+                            .Policies("fault-capture", "rethrow-original")
+                            .Observability("credit-decision-fault")
+                            .FailureBehavior("Record diagnostic metadata and keep the original exception.")
+                            .Tags("failure")))
                     .ExecuteAsync(service => (application, token) => service.HandleAsync(application, token), request, cancellationToken);
             }
             finally
@@ -192,11 +253,57 @@ namespace Spider.Pipelines.Samples.Web
                 return await spider
                     .InitBridge<CreditOfferWorkflow>()
                     .Attach<CreditApplicationRequest, CreditOffer>(builder => builder
-                        .PreProcess((ctx, args) => Task.CompletedTask)
-                        .UseMiddleware((ctx, next) => next())
-                        .Parallel((ctx, args) => Task.CompletedTask)
-                        .OnSuccess((ctx, args) => Task.CompletedTask)
-                        .OnFailure((ctx, args) => Task.CompletedTask))
+                        .Named("Complex loan origination pipeline")
+                        .Describe("Wraps the complex offer workflow used to exercise nested branches, batches, and linked flows.")
+                        .Purpose("Documents the richer sample path from request intake to offer dispatch.")
+                        .Trigger("POST /_spider/sample/complex/{scenario}")
+                        .Wraps("CreditOfferWorkflow.BuildComplexOfferAsync")
+                        .Input(nameof(CreditApplicationRequest))
+                        .Output(nameof(CreditOffer))
+                        .Policies("runtime-tracing", "fraud-screening", "fault-capture")
+                        .FailureBehavior("Fault traces stay attached to the failed flow node and are flushed before returning.")
+                        .Module("Loan origination")
+                        .PreProcess((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Prepare origination context")
+                            .Describe("Builds the sample context used by the loan origination workflow.")
+                            .Purpose("Creates the underwriting context used by nested branches and linked flows.")
+                            .Policies("context-building", "correlation")
+                            .Observability("origination-context-created")
+                            .Timeout("Expected below 15 ms.")
+                            .Tags("context", "origination"))
+                        .UseMiddleware((ctx, next) => next(), stage => stage
+                            .Named("Execute origination workflow")
+                            .Describe("Invokes the complex workflow under runtime tracing.")
+                            .Purpose("Makes the full origination workflow visible as the target operation.")
+                            .Wraps("CreditOfferWorkflow.BuildComplexOfferAsync")
+                            .Policies("runtime-tracing", "workflow-boundary")
+                            .Observability("workflow-started", "workflow-completed", "workflow-faulted")
+                            .Tags("handler", "workflow"))
+                        .Parallel((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Collect underwriting signals")
+                            .Describe("Runs side-channel underwriting signals for the visual trace sample.")
+                            .Purpose("Documents parallel underwriting enrichment outside the critical decision path.")
+                            .Policies("best-effort", "non-blocking")
+                            .External("Underwriting signal provider")
+                            .Observability("underwriting-signal-collected")
+                            .FailureBehavior("Side-signal failures are trace data; the workflow result remains authoritative.")
+                            .Tags("parallel", "underwriting"))
+                        .OnSuccess((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Record offer success")
+                            .Describe("Records successful offer generation.")
+                            .Purpose("Publishes an audit marker after an offer is produced.")
+                            .Policies("audit", "success-only")
+                            .Observability("offer-generation-success")
+                            .RelatedFlow<CreditOffer, CreditOffer>()
+                            .Tags("success", "offer"))
+                        .OnFailure((ctx, args) => Task.CompletedTask, stage => stage
+                            .Named("Record offer failure")
+                            .Describe("Records the failed origination path and preserves the original exception.")
+                            .Purpose("Keeps fraud, branch, or workflow failures attached to the trace.")
+                            .Policies("fault-capture", "rethrow-original")
+                            .Observability("offer-generation-fault")
+                            .FailureBehavior("Capture the failure path and keep the original exception.")
+                            .Tags("failure", "offer")))
                     .ExecuteAsync(service => (application, token) => service.BuildComplexOfferAsync(application, token), request, cancellationToken);
             }
             finally

@@ -1,6 +1,7 @@
 namespace Spider.Pipelines.Samples.Basic
 {
     using Microsoft.Extensions.DependencyInjection;
+    using Spider.Pipelines.Boundaries;
     using Spider.Pipelines.Core;
     using Spider.Pipelines.Extensions;
     using Spider.Pipelines.Flows;
@@ -38,7 +39,17 @@ namespace Spider.Pipelines.Samples.Basic
             services.AddSingleton<SampleEventLog>();
             services
                 .AddSpider()
-                .AddExecutionBoundary<ConsoleBoundary>();
+                .AddExecutionBoundary<ConsoleBoundary>()
+                .Named("Console logging boundary")
+                .Describe("Logs the lifecycle of sample order pipeline executions to the console.")
+                .BoundaryType("console diagnostic boundary")
+                .EntryPoint("Basic sample console runner")
+                .Protocol("in-process")
+                .Operation("Run sample order pipeline")
+                .Contract<OrderRequest, OrderReceipt>()
+                .Policies("diagnostic-logging")
+                .Observability("console events")
+                .InvokesPipeline<OrderRequest, OrderReceipt>();
 
             var provider = services.BuildServiceProvider();
             var spider = provider.GetRequiredService<ISpider>();
@@ -80,6 +91,13 @@ namespace Spider.Pipelines.Samples.Basic
                 .AddExecutionBoundary(boundary =>
                 {
                     boundary
+                        .Named("Fluent delegate boundary")
+                        .Describe("Demonstrates callback-based boundary registration on a bridge.")
+                        .BoundaryType("delegate boundary")
+                        .EntryPoint("Bridge-level sample boundary")
+                        .Protocol("in-process")
+                        .Contract<OrderRequest, OrderReceipt>()
+                        .Policies("demo-callbacks")
                         .OnBegin((ctx, token) =>
                         {
                             log.Write($"fluent-boundary: begin {ctx.RequestType.Name}");
@@ -150,33 +168,78 @@ namespace Spider.Pipelines.Samples.Basic
         private static void ConfigureOrderPipeline(IPipelineBuilder<OrderRequest, OrderReceipt> builder, SampleEventLog log)
         {
             builder
+                .Named("Order placement pipeline")
+                .Describe("Wraps order placement with validation, logging middleware, read-model notification, and post-processing.")
+                .Purpose("Documents the operational wrapper around SampleOrderService.PlaceOrderAsync.")
+                .Trigger("Basic console sample")
+                .Wraps("SampleOrderService.PlaceOrderAsync")
+                .Input(nameof(OrderRequest))
+                .Output(nameof(OrderReceipt))
+                .Policies("validation", "console-observability")
+                .FailureBehavior("Writes the failure to the sample event log.")
+                .Module("Order sample")
                 .PreProcess((ctx, args) =>
                 {
                     log.Write($"preprocess: validating order {ctx.Request.OrderId}");
                     return Task.CompletedTask;
-                })
+                }, stage => stage
+                    .Named("Validate order request")
+                    .Describe("Checks the incoming order before the service handler runs.")
+                    .Purpose("Stops malformed console sample requests before the order handler executes.")
+                    .Policies("validation", "guard")
+                    .Observability("order-validation-started")
+                    .Timeout("Expected below 5 ms.")
+                    .Tags("validation", "pre-process"))
                 .UseMiddleware(async (ctx, next) =>
                 {
                     log.Write("middleware: before handler");
                     var response = await next();
                     log.Write("middleware: after handler");
                     return response;
-                })
+                }, stage => stage
+                    .Named("Log handler execution")
+                    .Describe("Writes before and after messages around the target handler.")
+                    .Purpose("Shows how middleware wraps the target service without changing the response contract.")
+                    .Wraps("SampleOrderService.PlaceOrderAsync")
+                    .Policies("console-observability", "transparent-wrapper")
+                    .Observability("handler-before", "handler-after")
+                    .Tags("logging", "middleware"))
                 .Parallel((ctx, args) =>
                 {
                     log.Write("parallel: notifying read model");
                     return Task.CompletedTask;
-                })
+                }, stage => stage
+                    .Named("Notify read model")
+                    .Describe("Simulates a side effect that can run beside the main operation.")
+                    .Purpose("Documents asynchronous read-model notification beside the primary order operation.")
+                    .Policies("non-blocking", "best-effort")
+                    .External("Sample read model")
+                    .Observability("read-model-notified")
+                    .FailureBehavior("Read-model notification failure is diagnostic and does not replace the order response.")
+                    .Tags("parallel", "read-model"))
                 .OnSuccess((ctx, args) =>
                 {
                     log.Write($"postprocess: receipt {ctx.Response.ReceiptId}");
                     return Task.CompletedTask;
-                })
+                }, stage => stage
+                    .Named("Record order receipt")
+                    .Describe("Logs the receipt after a successful order placement.")
+                    .Purpose("Records the sample receipt when the order pipeline succeeds.")
+                    .Policies("success-only", "audit")
+                    .Observability("order-receipt-recorded")
+                    .Tags("success", "receipt"))
                 .OnFailure((ctx, args) =>
                 {
                     log.Write($"postprocess: failure {ctx.Exception?.Message}");
                     return Task.CompletedTask;
-                });
+                }, stage => stage
+                    .Named("Record order failure")
+                    .Describe("Logs the exception captured during order placement.")
+                    .Purpose("Records enough context to understand failed sample order executions.")
+                    .Policies("fault-capture", "diagnostic")
+                    .Observability("order-failure-recorded")
+                    .FailureBehavior("Logs the failure and lets the original exception continue.")
+                    .Tags("failure", "diagnostic"));
         }
 
         /// <summary>

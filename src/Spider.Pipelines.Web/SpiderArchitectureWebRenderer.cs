@@ -69,6 +69,7 @@ namespace Spider.Pipelines.Web
             html.AppendLine("        <div class=\"spider-menu-section\">Map</div>");
             html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"pipelines\"><span class=\"spider-menu-icon pipeline\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Pipelines</span><small>Execution wrappers</small></span><strong id=\"spider-pipeline-count\">0</strong></button>");
             html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"flows\"><span class=\"spider-menu-icon flow\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Flows</span><small>Business processes</small></span><strong id=\"spider-flow-count\">0</strong></button>");
+            html.AppendLine("        <button class=\"spider-menu-item\" type=\"button\" data-menu-view=\"boundaries\"><span class=\"spider-menu-icon boundary\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Boundaries</span><small>Entry points</small></span><strong id=\"spider-boundary-count\">0</strong></button>");
             html.AppendLine("        <button class=\"spider-menu-item spider-runtime-menu-item\" type=\"button\" data-menu-view=\"runtime\"><span class=\"spider-menu-icon runtime\" aria-hidden=\"true\"></span><span class=\"spider-menu-text\"><span>Runtime</span><small>Live executions</small></span><strong id=\"spider-runtime-count\">0</strong></button>");
             html.AppendLine("      </nav>");
             html.AppendLine("      <div class=\"spider-sidebar-footer\">");
@@ -376,6 +377,10 @@ button {
 
 .spider-menu-icon.flow {
   background: linear-gradient(135deg, var(--spider-red), var(--spider-red-strong));
+}
+
+.spider-menu-icon.boundary {
+  background: linear-gradient(135deg, var(--spider-black), var(--spider-red));
 }
 
 .spider-menu-icon.runtime {
@@ -775,6 +780,10 @@ button {
   background: var(--spider-black);
 }
 
+.spider-process-row.boundary .spider-process-accent {
+  background: var(--spider-blue);
+}
+
 .spider-process-row.runtime .spider-process-accent {
   background: var(--spider-blue);
 }
@@ -1098,6 +1107,13 @@ button {
   color: var(--spider-red);
 }
 
+.spider-chip.boundary,
+.spider-kind-boundary {
+  background: var(--spider-blue-soft);
+  border: 1px solid rgba(29, 95, 191, 0.18);
+  color: var(--spider-blue);
+}
+
 .spider-kind-condition {
   background: var(--spider-amber-soft);
   color: var(--spider-amber);
@@ -1150,6 +1166,14 @@ button {
 .spider-detail-layout {
   display: grid;
   grid-template-columns: minmax(220px, 260px) minmax(560px, 1fr) minmax(220px, 280px);
+  gap: 14px;
+  align-items: stretch;
+  min-height: calc(100vh - 220px);
+}
+
+.spider-boundary-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   min-height: calc(100vh - 220px);
@@ -1211,10 +1235,16 @@ button {
   height: calc(100vh - 220px);
 }
 
+.spider-boundary-layout .spider-process-summary,
+.spider-boundary-layout .spider-node-detail {
+  height: calc(100vh - 220px);
+}
+
 .spider-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 10px;
 }
@@ -1225,11 +1255,23 @@ button {
   min-width: 0;
 }
 
+.spider-panel-title h2 {
+  white-space: nowrap;
+}
+
 .spider-graph-actions {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
+  justify-content: flex-end;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+}
+
+.spider-graph-actions .spider-graph-legend {
+  flex: 1 1 260px;
+  min-width: 0;
 }
 
 .spider-graph-maximize-button {
@@ -1519,7 +1561,49 @@ button {
 }
 
 .spider-graph-node.is-stage .spider-node-accent {
-  fill: var(--spider-black);
+  fill: var(--pipeline-stage-accent, var(--spider-black));
+}
+
+.spider-graph-node.is-boundary .spider-node-accent {
+  fill: var(--spider-blue);
+}
+
+.spider-graph-node.is-boundary .spider-node-box {
+  stroke: color-mix(in srgb, var(--spider-blue) 34%, var(--spider-line-strong));
+}
+
+.spider-graph-node.is-pipeline-pre {
+  --pipeline-stage-accent: var(--spider-red);
+}
+
+.spider-graph-node.is-pipeline-middleware {
+  --pipeline-stage-accent: var(--spider-black);
+}
+
+.spider-graph-node.is-pipeline-target {
+  --pipeline-stage-accent: var(--spider-blue);
+}
+
+.spider-graph-node.is-pipeline-parallel {
+  --pipeline-stage-accent: var(--spider-blue-strong);
+}
+
+.spider-graph-node.is-pipeline-success {
+  --pipeline-stage-accent: var(--spider-blue);
+}
+
+.spider-graph-node.is-pipeline-failure {
+  --pipeline-stage-accent: var(--spider-red-strong);
+}
+
+.spider-graph-node.is-pipeline-success .spider-node-box,
+.spider-graph-node.is-pipeline-target .spider-node-box,
+.spider-graph-node.is-pipeline-parallel .spider-node-box {
+  stroke: color-mix(in srgb, var(--pipeline-stage-accent) 34%, var(--spider-line-strong));
+}
+
+.spider-graph-node.is-pipeline-failure .spider-node-box {
+  stroke: color-mix(in srgb, var(--pipeline-stage-accent) 42%, var(--spider-line-strong));
 }
 
 .spider-graph-node.is-condition .spider-node-accent {
@@ -1545,8 +1629,16 @@ button {
   stroke: var(--spider-black);
 }
 
+.spider-graph-node.is-selected.is-stage .spider-node-box {
+  stroke: var(--pipeline-stage-accent, var(--spider-black));
+}
+
 .spider-graph-node.is-selected.is-condition .spider-node-box {
   stroke: var(--spider-red-strong);
+}
+
+.spider-graph-node.is-selected.is-boundary .spider-node-box {
+  stroke: var(--spider-blue);
 }
 
 .spider-architecture-graph.is-runtime-graph .spider-graph-node.is-runtime-not-executed {
@@ -1609,6 +1701,54 @@ button {
 
 .spider-graph-node .spider-node-index {
   fill: var(--spider-muted);
+}
+
+.spider-node-role-pill {
+  --node-role-accent: var(--pipeline-stage-accent, var(--spider-black));
+}
+
+.spider-node-role-pill.is-boundary,
+.spider-node-role-pill.is-target,
+.spider-node-role-pill.is-parallel,
+.spider-node-role-pill.is-success {
+  --node-role-accent: var(--spider-blue);
+}
+
+.spider-node-role-pill.is-failure,
+.spider-node-role-pill.is-pre {
+  --node-role-accent: var(--spider-red);
+}
+
+.spider-node-role-pill.is-middleware,
+.spider-node-role-pill.is-pipeline {
+  --node-role-accent: var(--spider-black);
+}
+
+.spider-node-stage-pill-bg,
+.spider-node-role-pill-bg {
+  fill: color-mix(in srgb, var(--node-role-accent, var(--pipeline-stage-accent, var(--spider-black))) 9%, var(--spider-node-bg));
+  stroke: color-mix(in srgb, var(--node-role-accent, var(--pipeline-stage-accent, var(--spider-black))) 36%, var(--spider-line));
+  stroke-width: 1;
+}
+
+.spider-node-stage-pill-text,
+.spider-node-role-pill-text {
+  fill: var(--node-role-accent, var(--pipeline-stage-accent, var(--spider-black)));
+  font-size: 7.2px;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.spider-node-role-pill-mark {
+  fill: none;
+  stroke: var(--node-role-accent, var(--pipeline-stage-accent, var(--spider-black)));
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spider-node-role-pill-fill {
+  fill: var(--node-role-accent, var(--pipeline-stage-accent, var(--spider-black)));
 }
 
 .spider-graph-link .spider-link-dot {
@@ -2137,6 +2277,8 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .spider-legend-item {
@@ -2299,6 +2441,73 @@ button {
   background: color-mix(in srgb, var(--legend-accent) 12%, var(--legend-fill));
 }
 
+.spider-pipeline-legend-icon {
+  --pipeline-legend-accent: var(--spider-black);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 18px;
+}
+
+.spider-pipeline-legend-icon.pre {
+  --pipeline-legend-accent: var(--spider-red);
+}
+
+.spider-pipeline-legend-icon.middleware {
+  --pipeline-legend-accent: var(--spider-black);
+}
+
+.spider-pipeline-legend-icon.target {
+  --pipeline-legend-accent: var(--spider-blue);
+}
+
+.spider-pipeline-legend-icon.parallel {
+  --pipeline-legend-accent: var(--spider-blue-strong);
+}
+
+.spider-pipeline-legend-icon.success {
+  --pipeline-legend-accent: var(--spider-blue);
+}
+
+.spider-pipeline-legend-icon.failure {
+  --pipeline-legend-accent: var(--spider-red-strong);
+}
+
+.spider-pipeline-legend-icon.boundary {
+  --pipeline-legend-accent: var(--spider-blue);
+}
+
+.spider-pipeline-legend-svg {
+  display: block;
+  width: 34px;
+  height: 18px;
+  overflow: visible;
+}
+
+.spider-pipeline-legend-frame {
+  fill: color-mix(in srgb, var(--pipeline-legend-accent) 6%, var(--spider-panel));
+  stroke: color-mix(in srgb, var(--pipeline-legend-accent) 45%, var(--spider-line));
+  stroke-width: 1.2;
+}
+
+.spider-pipeline-legend-accent {
+  fill: var(--pipeline-legend-accent);
+}
+
+.spider-pipeline-legend-mark {
+  fill: none;
+  stroke: var(--pipeline-legend-accent);
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spider-pipeline-legend-fill {
+  fill: var(--pipeline-legend-accent);
+}
+
 .spider-legend-swatch.runtime-completed {
   background: var(--spider-blue);
 }
@@ -2396,6 +2605,21 @@ button {
   border-top: 1px solid var(--spider-line);
   margin-top: 12px;
   padding-top: 12px;
+}
+
+.spider-stage-summary {
+  border: 1px solid var(--spider-line);
+  border-radius: 8px;
+  background: var(--spider-panel-soft);
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.spider-stage-summary-title {
+  color: var(--spider-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0 0 8px;
 }
 
 .spider-profile-row {
@@ -3390,6 +3614,11 @@ button {
     min-height: 0;
   }
 
+  .spider-boundary-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
   .spider-runtime-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3410,7 +3639,9 @@ button {
 
   .spider-process-summary,
   .spider-graph-panel,
-  .spider-node-detail {
+  .spider-node-detail,
+  .spider-boundary-layout .spider-process-summary,
+  .spider-boundary-layout .spider-node-detail {
     height: auto;
   }
 
@@ -3637,8 +3868,10 @@ button {
   const byId = new Map(components.map((component) => [component.id, component]));
   const flows = components.filter((component) => component.kind === "spider.flow").sort(compareByName);
   const pipelines = components.filter((component) => component.kind === "spider.pipeline").sort(compareByName);
+  const boundaries = components.filter((component) => component.kind === "spider.boundary").sort(compareByName);
   const flowCount = document.getElementById("spider-flow-count");
   const pipelineCount = document.getElementById("spider-pipeline-count");
+  const boundaryCount = document.getElementById("spider-boundary-count");
   const runtimeCount = document.getElementById("spider-runtime-count");
   const topbarTitle = document.getElementById("spider-topbar-title");
   const topbarBack = document.getElementById("spider-topbar-back");
@@ -3673,6 +3906,9 @@ button {
 
   flowCount.textContent = String(flows.length);
   pipelineCount.textContent = String(pipelines.length);
+  if (boundaryCount) {
+    boundaryCount.textContent = String(boundaries.length);
+  }
   if (runtimeCount) {
     runtimeCount.textContent = String((runtimeData.summaries || []).length);
   }
@@ -3817,7 +4053,7 @@ button {
       return;
     }
 
-    if (hash === "flows" || hash === "pipelines" || hash === "runtime") {
+    if (hash === "flows" || hash === "pipelines" || hash === "boundaries" || hash === "runtime") {
       showList(hash, true);
       return;
     }
@@ -3844,7 +4080,7 @@ button {
     setProcessDetailShell(false);
     state.view = view === "runtime" && showRuntime
       ? "runtime"
-      : view === "flows" ? "flows" : "pipelines";
+      : view === "boundaries" ? "boundaries" : view === "flows" ? "flows" : "pipelines";
     state.mode = "list";
     state.processId = "";
     state.nodeId = "";
@@ -3867,12 +4103,14 @@ button {
       return;
     }
 
-    const items = view === "flows" ? flows : pipelines;
-    const title = view === "flows" ? "Flows" : "Pipelines";
-    const description = view === "flows"
-      ? "Method-level business flows documented from ComposeFlow calls."
-      : "Execution pipelines attached around Spider service invocations.";
-    const listId = view === "flows" ? "spider-flow-list" : "spider-pipeline-list";
+    const items = view === "boundaries" ? boundaries : view === "flows" ? flows : pipelines;
+    const title = view === "boundaries" ? "Boundaries" : view === "flows" ? "Flows" : "Pipelines";
+    const description = view === "boundaries"
+      ? "Entry points, contracts, policies, and runtime crossing points documented at compile time."
+      : view === "flows"
+        ? "Method-level business flows documented from ComposeFlow calls."
+        : "Execution pipelines attached around Spider service invocations.";
+    const listId = view === "boundaries" ? "spider-boundary-list" : view === "flows" ? "spider-flow-list" : "spider-pipeline-list";
 
     setActiveMenu(view);
     setTopbarTitle(title);
@@ -4700,11 +4938,14 @@ button {
 
     return matches.map((item) => {
       const children = orderChildren(item);
-      const countLabel = item.kind === "spider.pipeline"
-        ? `${children.length} stages`
-        : `${children.length} steps`;
-      const kindLabel = item.kind === "spider.pipeline" ? "Pipeline" : "Flow";
-      const kindClass = item.kind === "spider.pipeline" ? "pipeline" : "flow";
+      const isBoundary = item.kind === "spider.boundary";
+      const countLabel = isBoundary
+        ? (getMetadata(item, "protocol") || getMetadata(item, "boundaryType") || "Boundary")
+        : item.kind === "spider.pipeline"
+          ? `${children.length} stages`
+          : `${children.length} steps`;
+      const kindLabel = isBoundary ? "Boundary" : item.kind === "spider.pipeline" ? "Pipeline" : "Flow";
+      const kindClass = isBoundary ? "boundary" : item.kind === "spider.pipeline" ? "pipeline" : "flow";
 
       return `
         <button class="spider-process-row ${kindClass}" type="button" data-open-process="${escapeAttribute(item.id)}">
@@ -4727,6 +4968,11 @@ button {
   function openProcess(id, skipHash) {
     const process = byId.get(id);
     if (!process) {
+      return;
+    }
+
+    if (process.kind === "spider.boundary") {
+      openBoundary(process, skipHash);
       return;
     }
 
@@ -4817,6 +5063,106 @@ button {
     bindGraphTooltip();
   }
 
+  function openBoundary(boundary, skipHash) {
+    closeRuntimeRawEventsModal();
+    setRuntimeTraceShell(false);
+    setProcessDetailShell(true);
+    state.view = "boundaries";
+    state.mode = "detail";
+    state.processId = boundary.id;
+    state.nodeId = boundary.id;
+    state.runtimeSelectedComponentId = "";
+    state.runtimeSelectedItemKey = "";
+    state.runtimeVisualMaximized = false;
+    state.processGraphMaximized = false;
+    if (!skipHash) {
+      setHash(boundary.id);
+    }
+
+    renderBoundaryDetail(boundary);
+    resetMainScroll();
+  }
+
+  function renderBoundaryDetail(boundary) {
+    setActiveMenu("boundaries");
+    setTopbarTitle(boundary.displayName || "Boundary");
+    setTopbarBackLabel("Back to Boundaries");
+
+    content.innerHTML = `
+      <article class="spider-detail-view spider-boundary-detail-view">
+        <header class="spider-detail-toolbar">
+          <div>
+            <div class="spider-detail-actions">
+              <span class="spider-chip boundary">Boundary</span>
+              <span class="spider-chip">${escapeHtml(getSignature(boundary))}</span>
+            </div>
+            <h1 class="spider-detail-title">${escapeHtml(boundary.displayName || boundary.id)}</h1>
+            <p class="spider-detail-subtitle">${escapeHtml(describeBoundary(boundary))}</p>
+          </div>
+        </header>
+        <div class="spider-boundary-layout">
+          <aside class="spider-panel spider-process-summary">
+            ${renderBoundarySummary(boundary)}
+          </aside>
+          <section id="spider-node-detail" class="spider-node-detail spider-boundary-node-detail">
+            ${renderNodeDetail(boundary, boundary, 0)}
+          </section>
+        </div>
+      </article>`;
+  }
+
+  function renderBoundarySummary(boundary) {
+    const summaryRows = [
+      { label: "Purpose", key: "purpose", value: getMetadata(boundary, "purpose") },
+      { label: "Entry point", key: "entryPoint", value: getMetadata(boundary, "entryPoint") },
+      { label: "Protocol", key: "protocol", value: getMetadata(boundary, "protocol") },
+      { label: "Operation", key: "operation", value: getMetadata(boundary, "operation") },
+      { label: "Contract", key: "contract", value: getMetadata(boundary, "contract") },
+      { label: "Policies", key: "policies", value: getMetadata(boundary, "policies") },
+      { label: "Security", key: "security", value: getMetadata(boundary, "security") },
+      { label: "SLA", key: "sla", value: getMetadata(boundary, "sla") },
+      { label: "Timeout", key: "timeout", value: getMetadata(boundary, "timeout") }
+    ].filter((row) => row.value);
+
+    const tags = getTags(boundary);
+    return `
+      <div class="spider-panel-header">
+        <h2>Boundary summary</h2>
+      </div>
+      <div class="spider-summary-grid">
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">Type</span>
+          <span class="spider-summary-value">${escapeHtml(getMetadata(boundary, "boundaryType") || "Execution boundary")}</span>
+        </div>
+        ${summaryRows.map((row) => `
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">${escapeHtml(row.label)}</span>
+          <span class="spider-summary-value">${escapeHtml(formatMetadataValue(row.key, row.value))}</span>
+        </div>`).join("")}
+        ${tags.length ? `
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">Tags</span>
+          <span class="spider-summary-value">${escapeHtml(tags.join(", "))}</span>
+        </div>` : ""}
+      </div>
+      ${renderBoundaryRelations(boundary)}`;
+  }
+
+  function renderBoundaryRelations(boundary) {
+    const pipelines = getOutgoing(boundary.id, "boundary-invokes-pipeline");
+    const flows = getOutgoing(boundary.id, "boundary-invokes-flow");
+    const sections = [];
+    if (pipelines.length) {
+      sections.push(renderRelatedButtons("Linked pipelines", pipelines, "Open pipeline"));
+    }
+
+    if (flows.length) {
+      sections.push(renderRelatedButtons("Linked flows", flows, "Open flow"));
+    }
+
+    return sections.length ? `<div class="spider-detail-section">${sections.join("")}</div>` : "";
+  }
+
   function renderProcessSummary(process, children, profiles) {
     const kind = process.kind === "spider.flow" ? "Flow" : "Pipeline";
     const childLabel = process.kind === "spider.flow" ? "Steps" : "Stages";
@@ -4825,6 +5171,16 @@ button {
       : "None";
     const description = getMetadata(process, "description");
     const tags = getTags(process);
+    const extraSummary = [
+      { label: "Purpose", key: "purpose", value: getMetadata(process, "purpose") },
+      { label: "Trigger", key: "trigger", value: getMetadata(process, "trigger") },
+      { label: "Wraps", key: "wraps", value: getMetadata(process, "wraps") },
+      { label: "Input", key: "input", value: getMetadata(process, "input") },
+      { label: "Output", key: "output", value: getMetadata(process, "output") },
+      { label: "Policies", key: "policies", value: getMetadata(process, "policies") },
+      { label: "Failure behavior", key: "failureBehavior", value: getMetadata(process, "failureBehavior") },
+      { label: "Module", key: "module", value: getMetadata(process, "module") }
+    ].filter((row) => row.value);
 
     return `
       <div class="spider-panel-header">
@@ -4843,6 +5199,11 @@ button {
           <span class="spider-summary-label">Profiles</span>
           <span class="spider-summary-value">${escapeHtml(profileText)}</span>
         </div>
+        ${extraSummary.map((row) => `
+        <div class="spider-summary-item">
+          <span class="spider-summary-label">${escapeHtml(row.label)}</span>
+          <span class="spider-summary-value">${escapeHtml(formatMetadataValue(row.key, row.value))}</span>
+        </div>`).join("")}
         ${description ? `
         <div class="spider-summary-item">
           <span class="spider-summary-label">Description</span>
@@ -4860,6 +5221,7 @@ button {
 
   function renderProcessRelations(process) {
     const invokedFlows = getOutgoing(process.id, "pipeline-invokes-flow");
+    const entryBoundaries = getGraphEntryBoundaries(process);
     const usedByPipelines = getIncoming(process.id, "pipeline-invokes-flow");
     const usedBySteps = getIncoming(process.id, "invokes-flow")
       .map((source) => {
@@ -4869,6 +5231,10 @@ button {
       .filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index);
 
     const sections = [];
+    if (entryBoundaries.length) {
+      sections.push(renderRelatedButtons("Entry boundaries", entryBoundaries, "Open boundary"));
+    }
+
     if (invokedFlows.length) {
       sections.push(renderRelatedButtons("Linked flows", invokedFlows, "Open flow"));
     }
@@ -4926,7 +5292,7 @@ button {
   }
 
   function getGraphPanelTitle(process) {
-    return process.kind === "spider.flow" ? "Flowchart" : "Graph";
+    return process.kind === "spider.flow" ? "Flowchart" : "Pipeline graph";
   }
 
   function renderGraphLegend(process) {
@@ -4944,13 +5310,64 @@ button {
     }
 
     return `
-      <div class="spider-graph-legend" aria-label="Graph operation legend">
-        <span class="spider-legend-item"><i class="spider-legend-swatch"></i>Step</span>
-        <span class="spider-legend-item"><i class="spider-legend-swatch branch"></i>Branch</span>
-        <span class="spider-legend-item"><i class="spider-legend-swatch route"></i>Route</span>
-        <span class="spider-legend-item"><i class="spider-legend-swatch stage"></i>Pipeline</span>
-        <span class="spider-legend-item">Linked flow</span>
+      <div class="spider-graph-legend" aria-label="Pipeline stage legend">
+        ${renderPipelineLegendItem("pre", "Pre-process")}
+        ${renderPipelineLegendItem("middleware", "Middleware")}
+        ${renderPipelineLegendItem("target", "Target")}
+        ${renderPipelineLegendItem("parallel", "Parallel")}
+        ${renderPipelineLegendItem("success", "Success")}
+        ${renderPipelineLegendItem("failure", "Failure")}
+        ${renderPipelineLegendItem("boundary", "Boundary")}
       </div>`;
+  }
+
+  function renderPipelineLegendItem(role, label) {
+    return `<span class="spider-legend-item"><span class="spider-pipeline-legend-icon ${escapeAttribute(role)}" aria-hidden="true">${renderPipelineLegendIcon(role)}</span>${escapeHtml(label)}</span>`;
+  }
+
+  function renderPipelineLegendIcon(role) {
+    const rounded = role === "success" || role === "boundary" ? 7 : 5;
+    const sideAccent = role === "parallel" || role === "success" || role === "boundary"
+      ? ""
+      : `<rect class="spider-pipeline-legend-accent" x="1.5" y="2.5" width="3" height="13" rx="1.5"></rect>`;
+    const parallelAccent = role === "parallel"
+      ? `<path class="spider-pipeline-legend-mark" d="M7 4.5H27M7 13.5H27"></path>`
+      : "";
+    const boundaryAccent = role === "boundary"
+      ? `<circle class="spider-pipeline-legend-mark" cx="7.5" cy="9" r="4.4"></circle>`
+      : "";
+
+    return `
+      <svg class="spider-pipeline-legend-svg" viewBox="0 0 34 18" focusable="false">
+        <rect class="spider-pipeline-legend-frame" x="1.5" y="2.5" width="31" height="13" rx="${rounded}"></rect>
+        ${sideAccent}
+        ${parallelAccent}
+        ${boundaryAccent}
+        <g transform="translate(12, 3)">${renderRoleGlyphShape(role, "spider-pipeline-legend-mark", "spider-pipeline-legend-fill")}</g>
+      </svg>`;
+  }
+
+  function renderRoleGlyphShape(role, markClass, fillClass) {
+    switch (role) {
+      case "pre":
+        return `<path class="${markClass}" d="M1.5 6H9.5M6.8 3.4L9.5 6L6.8 8.6"></path>`;
+      case "middleware":
+        return `<path class="${markClass}" d="M4 2.3H2.3V9.7H4M8 2.3H9.7V9.7H8M5.2 4.1H6.8M5.2 7.9H6.8"></path>`;
+      case "target":
+        return `<circle class="${markClass}" cx="6" cy="6" r="4"></circle><circle class="${markClass}" cx="6" cy="6" r="1.4"></circle><path class="${markClass}" d="M6 1.2V3M6 9V10.8M1.2 6H3M9 6H10.8"></path>`;
+      case "parallel":
+        return `<path class="${markClass}" d="M3 2V10M9 2V10M3 4H9M3 8H9"></path>`;
+      case "success":
+        return `<path class="${markClass}" d="M2.3 6.2L4.7 8.5L9.8 3.4"></path>`;
+      case "failure":
+        return `<path class="${markClass}" d="M3 3L9 9M9 3L3 9"></path>`;
+      case "boundary":
+        return `<path class="${markClass}" d="M2.8 2.5H8.3V9.5H2.8ZM8.4 4.2L10.2 6L8.4 7.8M5 6H10.1"></path>`;
+      case "pipeline":
+        return `<path class="${markClass}" d="M2.2 3H9.8M2.2 6H9.8M2.2 9H9.8"></path>`;
+      default:
+        return `<circle class="${fillClass}" cx="6" cy="6" r="2.2"></circle>`;
+    }
   }
 
   function renderJson() {
@@ -5131,18 +5548,39 @@ button {
 
   function renderVerticalGraph(process, children, graphContext) {
     const branchWidth = getGraphBranchWidth(children);
-    const width = Math.max(420, branchWidth);
+    const entryBoundaries = getGraphEntryBoundaries(process);
     const nodeWidth = 250;
     const nodeHeight = 50;
+    const boundaryNodeWidth = entryBoundaries.length > 1 ? 220 : nodeWidth;
+    const boundaryGapX = 24;
+    const boundaryWidth = entryBoundaries.length
+      ? (entryBoundaries.length * boundaryNodeWidth) + ((entryBoundaries.length - 1) * boundaryGapX)
+      : 0;
+    const width = Math.max(420, branchWidth, boundaryWidth + 36);
     const nodeX = Math.round((width - nodeWidth) / 2);
     const top = 16;
     const gap = 74;
     const center = nodeX + (nodeWidth / 2);
     const edges = [];
     const renderedNodes = [];
+    const entryExits = [];
     let y = top;
 
+    if (entryBoundaries.length) {
+      const boundaryStartX = Math.round((width - boundaryWidth) / 2);
+      entryBoundaries.forEach((boundary, boundaryIndex) => {
+        const boundaryX = boundaryStartX + (boundaryIndex * (boundaryNodeWidth + boundaryGapX));
+        const boundaryCenter = boundaryX + (boundaryNodeWidth / 2);
+        renderedNodes.push(renderGraphNode(boundary, `B${boundaryIndex + 1}`, boundaryX, y, boundaryNodeWidth, nodeHeight, getGraphClass(boundary), getNodeSubtitle(boundary), graphContext));
+        entryExits.push({ x: boundaryCenter, y: y + nodeHeight, id: boundary.id });
+      });
+      y += gap;
+    }
+
     renderedNodes.push(renderGraphNode(process, "0", nodeX, y, nodeWidth, nodeHeight, " is-root", getSignature(process), graphContext));
+    entryExits.forEach((entry) => {
+      edges.push(renderGraphEdge(entry.x, entry.y, center, y, entry.id, process.id, graphContext));
+    });
     let previousExit = { x: center, y: y + nodeHeight, id: process.id };
     y += gap;
 
@@ -5180,6 +5618,18 @@ button {
         ${edges.join("")}
         ${renderedNodes.join("")}
       </svg>`;
+  }
+
+  function getGraphEntryBoundaries(process) {
+    if (process.kind === "spider.pipeline") {
+      return getIncoming(process.id, "boundary-invokes-pipeline");
+    }
+
+    if (process.kind === "spider.flow") {
+      return getIncoming(process.id, "boundary-invokes-flow");
+    }
+
+    return [];
   }
 
   function renderBranchGraph(branch, branchNumber, branchExit, startY, width, graphContext) {
@@ -5236,19 +5686,24 @@ button {
     const linkedClass = linkedFlow ? " is-linked-flow" : "";
     const graphClass = (extraClass || "") + linkedClass + getRuntimeGraphClass(node.id, graphContext);
     const numberText = String(number || "");
+    const roleMarker = getGraphRoleMarker(node, extraClass || "");
     const textX = numberText.length > 4 ? 58 : 43;
     const titleFontSize = numberText.length > 4 ? 9.4 : 10;
     const subtitleFontSize = numberText.length > 4 ? 8.5 : 8.8;
     const titleLimit = width > 220
-      ? (linkedFlow ? 23 : 30)
-      : (linkedFlow ? 17 : 21);
+      ? (linkedFlow ? 22 : roleMarker ? 24 : 30)
+      : (linkedFlow ? 16 : roleMarker ? 18 : 21);
     const subtitleLimit = width > 220
-      ? (linkedFlow ? 27 : 34)
-      : (linkedFlow ? 19 : 24);
+      ? (linkedFlow ? 26 : roleMarker ? 28 : 34)
+      : (linkedFlow ? 18 : roleMarker ? 21 : 24);
     const tooltipAttributes = renderGraphTooltipAttributes(node);
     const nativeTitle = tooltipAttributes
       ? ""
       : `<title>${escapeHtml(node.displayName || node.id)}</title>`;
+    const roleMarkerX = roleMarker
+      ? width - roleMarker.width - (linkedFlow ? 36 : 10)
+      : 0;
+    const roleMarkerSvg = roleMarker ? renderGraphRolePill(roleMarker, roleMarkerX) : "";
     const linkBadge = linkedFlow
       ? `
         <g class="spider-graph-link" data-open-process="${escapeAttribute(linkedFlow.id)}" transform="translate(${width - 20}, 9)">
@@ -5265,8 +5720,19 @@ button {
         <text class="spider-node-index" x="14" y="${height > 48 ? 30 : 28}" font-size="9.5" font-weight="700">${escapeHtml(numberText)}</text>
         <text x="${textX}" y="${height > 48 ? 21 : 20}" font-size="${titleFontSize}" font-weight="650">${escapeHtml(truncate(node.displayName || node.id, titleLimit))}</text>
         <text class="spider-node-subtitle" x="${textX}" y="${height > 48 ? 37 : 35}" font-size="${subtitleFontSize}">${escapeHtml(truncate(subtitle, subtitleLimit))}</text>
+        ${roleMarkerSvg}
         ${linkBadge}
       </g>`;
+  }
+
+  function renderGraphRolePill(marker, x) {
+    const icon = renderRoleGlyphShape(marker.role, "spider-node-role-pill-mark", "spider-node-role-pill-fill");
+    return `
+        <g class="spider-node-stage-pill spider-node-role-pill is-${escapeAttribute(marker.role)}" transform="translate(${x}, 8)">
+          <rect class="spider-node-stage-pill-bg spider-node-role-pill-bg" width="${marker.width}" height="16" rx="8"></rect>
+          <g transform="translate(5, 2.2)">${icon}</g>
+          <text class="spider-node-stage-pill-text spider-node-role-pill-text" x="${marker.width - 5}" y="10.9" text-anchor="end">${escapeHtml(marker.label)}</text>
+        </g>`;
   }
 
   function renderGraphEdge(fromX, fromY, toX, toY, fromId, toId, graphContext) {
@@ -5538,6 +6004,7 @@ button {
     const relationRows = renderNodeRelations(node, process);
     const description = getMetadata(node, "description");
     const tagChips = renderTagChips(node);
+    const stageSummary = renderPipelineStageSummary(node);
 
     return `
       <div class="spider-node-detail-top">
@@ -5550,6 +6017,7 @@ button {
         <button class="spider-inspector-toggle" type="button" data-toggle-inspector title="${state.inspectorCollapsed ? "Show details" : "Hide details"}" aria-label="${state.inspectorCollapsed ? "Show details" : "Hide details"}">${state.inspectorCollapsed ? "i" : "×"}</button>
       </div>
       <div class="spider-node-detail-body">
+        ${stageSummary}
         <dl class="spider-definition">
           ${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "Not declared")}</dd>`).join("")}
         </dl>
@@ -5557,6 +6025,68 @@ button {
         ${relationRows}
         ${evidenceRows}
       </div>`;
+  }
+
+  function renderPipelineStageSummary(node) {
+    if (node.kind !== "spider.pipeline-stage") {
+      return "";
+    }
+
+    const summaryRows = [
+      ["Stage role", getPipelineStageLabel(node)],
+      ["Configured actions", getMetadata(node, "count")],
+      ["Purpose", getMetadata(node, "purpose")],
+      ["Wraps", getMetadata(node, "wraps")],
+      ["Input", getMetadata(node, "input")],
+      ["Output", getMetadata(node, "output")],
+      ["Module", getMetadata(node, "module")],
+      ["Policies", getMetadata(node, "policies")],
+      ["Security", getMetadata(node, "security")],
+      ["Observability", getMetadata(node, "observability")],
+      ["Failure behavior", getMetadata(node, "failureBehavior")],
+      ["Timeout", getMetadata(node, "timeout")],
+      ["SLA", getMetadata(node, "sla")],
+      ["External system", getMetadata(node, "external")],
+      ["Related flow", getMetadata(node, "relatedFlow")],
+      ["Target method", getMetadata(node, "target")],
+      ["Override configured", getMetadata(node, "hasOverride")]
+    ]
+      .filter(([, value]) => value)
+      .map(([label, value]) => {
+        const metadataKey = getMetadataKeyFromLabel(label);
+        return `
+          <div class="spider-summary-item">
+            <span class="spider-summary-label">${escapeHtml(label)}</span>
+            <span class="spider-summary-value">${escapeHtml(formatMetadataValue(metadataKey, value))}</span>
+          </div>`;
+      })
+      .join("");
+
+    if (!summaryRows) {
+      return "";
+    }
+
+    return `
+      <div class="spider-stage-summary">
+        <h3 class="spider-stage-summary-title">Stage summary</h3>
+        <div class="spider-summary-grid">
+          ${summaryRows}
+        </div>
+      </div>`;
+  }
+
+  function getMetadataKeyFromLabel(label) {
+    const keys = {
+      "Configured actions": "count",
+      "External system": "external",
+      "Failure behavior": "failureBehavior",
+      "Override configured": "hasOverride",
+      "Related flow": "relatedFlow",
+      "Stage role": "stage",
+      "Target method": "target"
+    };
+
+    return keys[label] || label.charAt(0).toLowerCase() + label.slice(1).replace(/\s+/g, "");
   }
 
   function renderBranchDetail(node) {
@@ -5664,7 +6194,7 @@ button {
 
     const metadata = Object.entries(node.metadata || {});
     for (const [key, value] of metadata) {
-      if (key === "name" || key === "description" || key === "tags") {
+      if (key === "name" || key === "description" || key === "tags" || isPromotedStageMetadataKey(node, key)) {
         continue;
       }
 
@@ -5679,23 +6209,70 @@ button {
     return rows;
   }
 
+  function isPromotedStageMetadataKey(node, key) {
+    if (node.kind !== "spider.pipeline-stage") {
+      return false;
+    }
+
+    return [
+      "count",
+      "external",
+      "failureBehavior",
+      "hasOverride",
+      "input",
+      "module",
+      "observability",
+      "output",
+      "policies",
+      "purpose",
+      "relatedFlow",
+      "security",
+      "sla",
+      "stage",
+      "target",
+      "timeout",
+      "wraps"
+    ].includes(key);
+  }
+
   function getMetadataLabel(key) {
     const labels = {
+      boundary: "Boundary implementation",
+      boundaryKind: "Boundary kind",
+      boundaryType: "Boundary type",
       branchType: "Branch type",
       condition: "Condition",
+      contract: "Contract",
       count: "Configured actions",
       delegate: "Action",
+      entryPoint: "Entry point",
+      external: "External system",
+      failureBehavior: "Failure behavior",
       genericArguments: "Type arguments",
       hasOverride: "Override configured",
       hasResponse: "Returns value",
+      input: "Input",
+      invokesFlow: "Invokes flow",
+      invokesPipeline: "Invokes pipeline",
+      module: "Module",
+      observability: "Observability",
       operation: "Fluent call",
       otherwise: "Otherwise",
+      policies: "Policies",
+      protocol: "Protocol",
+      purpose: "Purpose",
+      relatedFlow: "Related flow",
       request: "Input",
       response: "Output",
       routeKind: "Route type",
+      security: "Security",
       service: "Service",
+      sla: "SLA",
       stage: "Pipeline stage",
-      target: "Target method"
+      target: "Target method",
+      timeout: "Timeout",
+      trigger: "Trigger",
+      wraps: "Wraps"
     };
 
     if (key === "order" ||
@@ -5712,6 +6289,10 @@ button {
   function formatMetadataValue(key, value) {
     if (key === "hasResponse" || key === "hasOverride") {
       return value === "true" || value === "True" ? "Yes" : "No";
+    }
+
+    if (key === "tags" || key === "policies" || key === "security" || key === "observability") {
+      return String(value || "").split(",").map((item) => item.trim()).filter(Boolean).join(", ");
     }
 
     return value;
@@ -5917,7 +6498,20 @@ button {
     return `${children.length} ${childNoun}${children.length === 1 ? "" : "s"} discovered at compile time.`;
   }
 
+  function describeBoundary(boundary) {
+    return getMetadata(boundary, "description") ||
+      getMetadata(boundary, "purpose") ||
+      "Execution boundary documented at compile time.";
+  }
+
   function getSignature(component) {
+    if (component.kind === "spider.boundary") {
+      return getMetadata(component, "contract") ||
+        getMetadata(component, "entryPoint") ||
+        getMetadata(component, "boundary") ||
+        "Boundary";
+    }
+
     const request = shortName(getMetadata(component, "request"));
     const response = shortName(getMetadata(component, "response"));
 
@@ -5933,15 +6527,116 @@ button {
   }
 
   function getNodeSubtitle(component) {
+    if (component.kind === "spider.boundary") {
+      return getMetadata(component, "entryPoint") ||
+        getMetadata(component, "boundaryType") ||
+        getMetadata(component, "protocol") ||
+        "Entry boundary";
+    }
+
     if (component.kind === "spider.pipeline-stage") {
       const count = getMetadata(component, "count") || "0";
-      return `${count} configured action${count === "1" ? "" : "s"}`;
+      return `${getPipelineStageLabel(component)} · ${count} action${count === "1" ? "" : "s"}`;
     }
 
     return getMetadata(component, "delegate") || getMetadata(component, "operation") || getFriendlyKind(component);
   }
 
+  function getPipelineStageKey(component) {
+    return (getMetadata(component, "stage") || "").toLowerCase();
+  }
+
+  function getPipelineStageVisualKey(component) {
+    switch (getPipelineStageKey(component)) {
+      case "pre-process":
+        return "pre";
+      case "middleware":
+        return "middleware";
+      case "target":
+        return "target";
+      case "parallel":
+        return "parallel";
+      case "post-success":
+        return "success";
+      case "post-failure":
+        return "failure";
+      default:
+        return "";
+    }
+  }
+
+  function getPipelineStageLabel(component) {
+    switch (getPipelineStageKey(component)) {
+      case "pre-process":
+        return "Pre-process";
+      case "middleware":
+        return "Middleware";
+      case "target":
+        return getMetadata(component, "hasOverride") === "true" ? "Target override" : "Target";
+      case "parallel":
+        return "Parallel";
+      case "post-success":
+        return "Success";
+      case "post-failure":
+        return "Failure";
+      default:
+        return "Pipeline stage";
+    }
+  }
+
+  function getPipelineStageMarker(component) {
+    if (component.kind !== "spider.pipeline-stage") {
+      return null;
+    }
+
+    switch (getPipelineStageVisualKey(component)) {
+      case "pre":
+        return { label: "PRE", width: 31 };
+      case "middleware":
+        return { label: "MID", width: 31 };
+      case "target":
+        return { label: "TARGET", width: 49 };
+      case "parallel":
+        return { label: "PAR", width: 31 };
+      case "success":
+        return { label: "SUCCESS", width: 52 };
+      case "failure":
+        return { label: "FAILURE", width: 52 };
+      default:
+        return null;
+    }
+  }
+
+  function getGraphRoleMarker(component, extraClass) {
+    if (component.kind === "spider.boundary") {
+      return createGraphRoleMarker("boundary", "BOUND");
+    }
+
+    if (component.kind === "spider.pipeline" && (extraClass || "").includes("is-root")) {
+      return createGraphRoleMarker("pipeline", "PIPE");
+    }
+
+    const stageMarker = getPipelineStageMarker(component);
+    if (!stageMarker) {
+      return null;
+    }
+
+    return createGraphRoleMarker(getPipelineStageVisualKey(component), stageMarker.label);
+  }
+
+  function createGraphRoleMarker(role, label) {
+    return {
+      role,
+      label,
+      width: Math.max(42, Math.round((label.length * 5.2) + 26))
+    };
+  }
+
   function getFriendlyKind(component) {
+    if (component.kind === "spider.boundary") {
+      return "Boundary";
+    }
+
     if (component.kind === "spider.pipeline") {
       return "Pipeline";
     }
@@ -5951,7 +6646,7 @@ button {
     }
 
     if (component.kind === "spider.pipeline-stage") {
-      return "Stage";
+      return `${getPipelineStageLabel(component)} stage`;
     }
 
     if (component.kind === "spider.flow-condition") {
@@ -5970,6 +6665,10 @@ button {
   }
 
   function getKindClass(component) {
+    if (component.kind === "spider.boundary") {
+      return "spider-kind-boundary";
+    }
+
     if (component.kind === "spider.flow-condition") {
       return "spider-kind-condition";
     }
@@ -5986,8 +6685,13 @@ button {
   }
 
   function getGraphClass(component) {
+    if (component.kind === "spider.boundary") {
+      return " is-boundary";
+    }
+
     if (component.kind === "spider.pipeline-stage") {
-      return " is-stage";
+      const visualKey = getPipelineStageVisualKey(component);
+      return ` is-stage${visualKey ? ` is-pipeline-${visualKey}` : ""}`;
     }
 
     if (component.kind === "spider.flow-condition") {
