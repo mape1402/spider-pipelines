@@ -8,7 +8,7 @@
 
 Spider.Pipelines is a lightweight .NET library for composing service execution pipelines. It lets you attach preprocessors, middleware, override handlers, parallel steps, and postprocessors around existing logic with a clean, dependency-injection-friendly API.
 
-Version 2.1.0 targets .NET 8, .NET 9, and .NET 10.
+Version 2.2.0 targets .NET 8, .NET 9, and .NET 10.
 
 ## Features
 
@@ -19,8 +19,11 @@ Version 2.1.0 targets .NET 8, .NET 9, and .NET 10.
 - Thread-safe context state for concurrent target and parallel stages.
 - Provider-agnostic execution boundaries for wrapping complete pipeline execution.
 - Method-level `ComposeFlow` for describing local business processes with `Then`, `ThenWith`, `ContinueIf`, and `Branch`.
+- Descriptive metadata with `Named`, `Describe`, and `Tags` for flows, steps, branch routes, pipelines, stages, and boundaries.
 - Compile-time architecture metadata manifest generated from pipelines and composed flows.
 - Graphical web documentation renderer for architecture manifests through `Spider.Pipelines.Web`.
+- Runtime tracing for pipelines, flows, boundaries, stages, branch selections, faults, and cancellations.
+- Web runtime trace viewer with execution story lines, flow graphs, raw event inspection, trace import, and trace export.
 - Testing helpers for boundary traces, execution ordering, transaction assertions, and failure simulation.
 - .NET 8, .NET 9, and .NET 10 support.
 - Tested with xUnit and NSubstitute.
@@ -66,11 +69,16 @@ Pipelines wrap execution with cross-cutting behavior. `ComposeFlow` describes lo
 ```csharp
 var receipt = await spider
     .ComposeFlow<OrderRequest, OrderReceipt>("Create order receipt")
+    .Describe("Validates, saves, and returns a receipt for an order request.")
+    .Tags("order", "receipt")
     .UsingProfile("Business")
-    .Then(Validate)
-    .Then(Map)
-    .ThenWith<OrderRequest, Order>(Save)
-    .Then(ReturnReceipt)
+    .Then(Validate, step => step
+        .Named("Validate order")
+        .Describe("Stops invalid requests before mapping.")
+        .Tags("validation", "guard"))
+    .Then(Map, step => step.Named("Map order"))
+    .ThenWith<OrderRequest, Order>(Save, step => step.Tags("persistence"))
+    .Then(ReturnReceipt, step => step.Named("Return receipt"))
     .RunAsync(request, cancellationToken);
 ```
 
@@ -91,11 +99,16 @@ var receipt = await spider
     .ComposeFlow<OrderRequest, OrderReceipt>("Approve order")
     .Then(Map)
     .Branch<OrderDecision>(branch => branch
+        .Named("Approval decision")
+        .Describe("Chooses the correct approval route.")
+        .Tags("decision")
         .When(IsSmallOrder, small => small.Then(AutoApprove))
         .Otherwise(large => large.Then(RequireManualReview)))
     .Then(ReturnReceipt)
     .RunAsync(request, cancellationToken);
 ```
+
+Metadata is optional at runtime, but it is useful for generated architecture docs and runtime trace views. The same `Named`, `Describe`, and `Tags` pattern is available on branch routes, pipeline builders, pipeline stages, and execution boundaries.
 
 ## Architecture Metadata
 
@@ -111,10 +124,12 @@ The generated manifest includes:
 
 - `spider.pipeline` components for attached pipelines.
 - `spider.pipeline-stage` components for preprocess, middleware, target, parallel, success postprocess, and failure postprocess stages.
+- `spider.boundary` components for execution boundaries registered through Spider.
 - `spider.flow` components for method-level flows.
 - `spider.flow-step`, `spider.flow-condition`, and `spider.flow-branch` components for flow steps.
 - `spider.flow-profile` components for profiles selected with `UsingProfile`.
-- `contains`, `next`, and `uses-profile` relations.
+- `contains`, `next`, `uses-profile`, and related-component relations.
+- optional names, descriptions, tags, source metadata, and operational context when configured.
 - source evidence with file, line, containing type, and member name when the compiler can resolve it.
 
 This metadata describes the configured architecture and pseudocode-level process map at build time. Runtime execution stays focused on running pipelines and flows.
@@ -137,7 +152,43 @@ var html = renderer.Render(manifest, new SpiderArchitectureWebOptions
 });
 ```
 
-The rendered UI includes an SVG graph, flow and pipeline views, source evidence, filters, search, details, and raw JSON inspection. The web sample shows the simplest middleware-based host.
+The rendered UI includes flow and pipeline diagrams, source evidence, filters, search, details, related links, raw JSON inspection, light and dark modes, collapsible navigation, and graph maximization. The web sample shows the simplest middleware-based host.
+
+When runtime traces are enabled, the same renderer can show live executions beside the generated architecture metadata:
+
+```csharp
+var html = renderer.Render(manifest, new SpiderArchitectureWebOptions
+{
+    Title = "Service Architecture",
+    IncludeRuntimeTraces = true,
+    RuntimeTracesEndpoint = "/_spider/runtime/traces",
+    RuntimeTraceSummaries = snapshot.Summaries,
+    RuntimeTraces = snapshot.Traces
+});
+```
+
+Runtime trace views include a story line, an execution-aware flow graph, a metadata detail panel, raw event search, and trace import/export for preserving ephemeral local traces.
+
+## Runtime Tracing
+
+Runtime tracing is opt-in. Register it when you want live diagnostics, development-time inspection, or a custom trace export path:
+
+```csharp
+using Spider.Pipelines.RuntimeTracing;
+
+services.AddSpiderRuntimeTracing(tracing =>
+{
+    tracing.QueueCapacity = 1000;
+    tracing.UseInMemoryStore(options =>
+    {
+        options.MaxTraces = 100;
+        options.MaxEventsPerTrace = 500;
+        options.TraceTtl = TimeSpan.FromMinutes(60);
+    });
+});
+```
+
+If no store is configured, Spider uses the in-memory store by default. The store is replaceable through `UseStore<TStore>()` or `UseStore(factory)`, and trace sinks/observers can be registered with `AddSink<TSink>()` and `AddObserver<TObserver>()`.
 
 ## Testing Package
 
@@ -243,29 +294,32 @@ var bridge = spider.InitBridge<MyService>();
 var typedBridge = bridge.Attach<string, string>(builder =>
 {
     builder
+        .Named("Greeting pipeline")
+        .Describe("Wraps greeting execution with logging and side effects.")
+        .Tags("sample", "greeting")
         .PreProcess((ctx, args) =>
         {
             Console.WriteLine($"Preprocessing: {ctx.Request}");
             return Task.CompletedTask;
-        })
+        }, stage => stage.Named("Prepare request").Tags("pre-process"))
         .UseMiddleware(async (ctx, next) =>
         {
             Console.WriteLine("Before target");
             var response = await next();
             Console.WriteLine("After target");
             return response;
-        })
+        }, stage => stage.Named("Log target").Tags("middleware"))
         .UseOverride((req, token) => Task.FromResult($"Targeted: {req}"))
         .Parallel((ctx, args) =>
         {
             Console.WriteLine($"Parallel work for: {ctx.Request}");
             return Task.CompletedTask;
-        })
+        }, stage => stage.Named("Notify side channel").Tags("parallel"))
         .OnSuccess((ctx, args) =>
         {
             Console.WriteLine($"Success: {ctx.Response}");
             return Task.CompletedTask;
-        });
+        }, stage => stage.Named("Record success").Tags("success"));
 });
 ```
 
