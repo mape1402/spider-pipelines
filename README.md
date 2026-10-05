@@ -2,8 +2,9 @@
 
 **Modular, flexible operation pipelines for .NET.**
 
-[![Build](https://github.com/mape1402/spider-pipelines/actions/workflows/CI.yml/badge.svg)](https://github.com/mape1402/spider-pipelines/actions/workflows/CI.yml)
+[![Build](https://github.com/mape1402/spider-pipelines/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/spider-pipelines/actions/workflows/build-and-release.yml)
 [![NuGet](https://img.shields.io/nuget/v/Spider.Pipelines.svg)](https://www.nuget.org/packages/Spider.Pipelines/)
+[![NuGet downloads](https://img.shields.io/nuget/dt/Spider.Pipelines.svg)](https://www.nuget.org/packages/Spider.Pipelines/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Spider.Pipelines is a lightweight .NET library for composing service execution pipelines. It lets you attach preprocessors, middleware, override handlers, parallel steps, and postprocessors around existing logic with a clean, dependency-injection-friendly API.
