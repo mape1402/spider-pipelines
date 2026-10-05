@@ -1,6 +1,7 @@
 using Spider.Pipelines.Core;
 using Spider.Pipelines.Core.Internals;
 using Spider.Pipelines.Extensions;
+using Spider.Pipelines.RuntimeTracing;
 using Spider.Pipelines.Targeting;
 using Spider.Pipelines.Tests.Boundaries;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,6 +83,61 @@ namespace Spider.Pipelines.Tests.Core
             Assert.False(plan.TargetingRan);
             Assert.False(plan.PostProcessRan);
         }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracingIsEnabled_ShouldEmitRequestOnlyPipelineTrace()
+        {
+            using var provider = PipelineTestServices.CreateTracingProvider();
+            var plan = new RecordingExecutionPlan();
+            var pipeline = new Pipeline<string>((req, token) => Task.CompletedTask, plan, provider);
+
+            await pipeline.RunAsync("request");
+
+            var trace = await PipelineTestServices.GetOnlyTraceAsync(provider);
+
+            Assert.Equal(SpiderTraceStatus.Completed, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStarted && item.OutputType == null);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineCompleted);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStageStarted && item.DisplayName == "Pre-process");
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStageCompleted && item.DisplayName == "Post-process");
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedRequestOnlyPipelineFaults_ShouldEmitFaultedTrace()
+        {
+            using var provider = PipelineTestServices.CreateTracingProvider();
+            var plan = new ThrowingTargetExecutionPlan();
+            var pipeline = new Pipeline<string>(
+                (req, token) => throw new InvalidOperationException("Target failed."),
+                plan,
+                provider);
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => pipeline.RunAsync("request"));
+            var trace = await PipelineTestServices.GetOnlyTraceAsync(provider);
+
+            Assert.Equal("Target failed.", exception.Message);
+            Assert.Equal(SpiderTraceStatus.Faulted, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineFaulted);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStageFaulted && item.DisplayName == "Target");
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedRequestOnlyPipelineIsCancelled_ShouldEmitCancelledTrace()
+        {
+            using var provider = PipelineTestServices.CreateTracingProvider();
+            var plan = new ThrowingTargetExecutionPlan();
+            var pipeline = new Pipeline<string>(
+                (req, token) => throw new OperationCanceledException("Target cancelled."),
+                plan,
+                provider);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => pipeline.RunAsync("request"));
+            var trace = await PipelineTestServices.GetOnlyTraceAsync(provider);
+
+            Assert.Equal(SpiderTraceStatus.Cancelled, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineCancelled);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStageFaulted && item.Status == SpiderTraceStatus.Cancelled);
+        }
     }
 
     public class PipelineGenericTests
@@ -151,6 +207,43 @@ namespace Spider.Pipelines.Tests.Core
             Assert.False(plan.TargetingRan);
             Assert.False(plan.PostProcessRan);
         }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedGenericPipelineFaults_ShouldEmitFaultedTrace()
+        {
+            using var provider = PipelineTestServices.CreateTracingProvider();
+            var plan = new ThrowingTargetExecutionPlanGeneric();
+            var pipeline = new Pipeline<string, int>(
+                (req, token) => throw new InvalidOperationException("Generic target failed."),
+                plan,
+                provider);
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => pipeline.RunAsync("request"));
+            var trace = await PipelineTestServices.GetOnlyTraceAsync(provider);
+
+            Assert.Equal("Generic target failed.", exception.Message);
+            Assert.Equal(SpiderTraceStatus.Faulted, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineFaulted);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStageFaulted && item.DisplayName == "Target");
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedGenericPipelineIsCancelled_ShouldEmitCancelledTrace()
+        {
+            using var provider = PipelineTestServices.CreateTracingProvider();
+            var plan = new ThrowingTargetExecutionPlanGeneric();
+            var pipeline = new Pipeline<string, int>(
+                (req, token) => throw new OperationCanceledException("Generic target cancelled."),
+                plan,
+                provider);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => pipeline.RunAsync("request"));
+            var trace = await PipelineTestServices.GetOnlyTraceAsync(provider);
+
+            Assert.Equal(SpiderTraceStatus.Cancelled, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineCancelled);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.PipelineStageFaulted && item.Status == SpiderTraceStatus.Cancelled);
+        }
     }
 
     internal static class PipelineTestServices
@@ -161,6 +254,27 @@ namespace Spider.Pipelines.Tests.Core
             services.AddSingleton(log);
             services.AddTransient<RecordingBoundary>();
             return services.BuildServiceProvider();
+        }
+
+        public static ServiceProvider CreateTracingProvider()
+        {
+            var services = new ServiceCollection();
+            services.AddSpiderRuntimeTracing();
+            return services.BuildServiceProvider();
+        }
+
+        public static async Task<SpiderTrace> GetOnlyTraceAsync(IServiceProvider provider)
+        {
+            var dispatcher = provider.GetRequiredService<ISpiderTraceDispatcher>();
+            await dispatcher.FlushAsync(CancellationToken.None);
+
+            var reader = provider.GetRequiredService<ISpiderTraceReader>();
+            var summaries = new List<SpiderTraceSummary>();
+            await foreach (var summary in reader.QueryAsync(new SpiderTraceQuery { Limit = 10 }, CancellationToken.None))
+                summaries.Add(summary);
+
+            var only = Assert.Single(summaries);
+            return await reader.GetAsync(only.TraceId, CancellationToken.None);
         }
     }
 
@@ -282,6 +396,16 @@ namespace Spider.Pipelines.Tests.Core
         }
     }
 
+    public class ThrowingTargetExecutionPlan : IExecutionPlan<string>
+    {
+        public Task OnPreProcessAsync(IReadOnlyContext<string> context) => Task.CompletedTask;
+
+        public Task OnTargetingAsync(IReadOnlyContext<string> context, TargetHandler<string> handler)
+            => handler(context.Request, context.CancellationToken);
+
+        public Task OnPostProcessAsync(IReadOnlyContext<string> context) => Task.CompletedTask;
+    }
+
     public class ThrowingPreProcessExecutionPlanGenericStub : IExecutionPlan<string, int>
     {
         public bool TargetingRan { get; private set; }
@@ -301,5 +425,15 @@ namespace Spider.Pipelines.Tests.Core
             PostProcessRan = true;
             return Task.CompletedTask;
         }
+    }
+
+    public class ThrowingTargetExecutionPlanGeneric : IExecutionPlan<string, int>
+    {
+        public Task OnPreProcessAsync(IReadOnlyContext<string, int> context) => Task.CompletedTask;
+
+        public Task<int> OnTargetingAsync(IReadOnlyContext<string, int> context, TargetHandler<string, int> handler)
+            => handler(context.Request, context.CancellationToken);
+
+        public Task OnPostProcessAsync(IReadOnlyContext<string, int> context) => Task.CompletedTask;
     }
 }

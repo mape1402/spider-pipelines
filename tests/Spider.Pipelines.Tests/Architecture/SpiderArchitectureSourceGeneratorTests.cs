@@ -280,6 +280,63 @@ namespace Spider.Pipelines.Tests.Architecture
                 relation.TargetId == targetFlow.Id);
         }
 
+        [Fact]
+        public void BuildManifest_WhenBoundaryUsesTypeOfAndDelegateMetadata_ShouldGenerateBoundaryVariantsAndRelations()
+        {
+            var manifest = GenerateManifest(BoundaryVariantSource);
+            var pipeline = Assert.Single(manifest.Components, component => component.Id == "spider.pipeline:order-request-to-order-receipt");
+            var flow = Assert.Single(manifest.Components, component => component.Id == "spider.flow:fulfill-order");
+            var typeBoundary = Assert.Single(manifest.Components, component => component.Id == "spider.boundary:type-of-boundary");
+            var delegateBoundary = Assert.Single(manifest.Components, component => component.DisplayName == "Delegate order boundary");
+
+            Assert.Equal("TypeOfBoundary", typeBoundary.DisplayName);
+            Assert.Equal("ArchitectureSample.TypeOfBoundary", typeBoundary.Metadata["boundary"]);
+
+            Assert.Equal("delegate", delegateBoundary.Metadata["boundary"]);
+            Assert.Equal("Delegates order execution through a local boundary.", delegateBoundary.Metadata["description"]);
+            Assert.Equal("delegate-boundary", delegateBoundary.Metadata["module"]);
+            Assert.Equal("FlowRequest -> FlowResponse", delegateBoundary.Metadata["invokesFlow"]);
+            Assert.Equal("OrderRequest -> OrderReceipt", delegateBoundary.Metadata["invokesPipeline"]);
+
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "boundary-invokes-pipeline" &&
+                relation.SourceId == delegateBoundary.Id &&
+                relation.TargetId == pipeline.Id);
+            Assert.Contains(manifest.Relations, relation =>
+                relation.Kind == "boundary-invokes-flow" &&
+                relation.SourceId == delegateBoundary.Id &&
+                relation.TargetId == flow.Id);
+        }
+
+        [Fact]
+        public void BuildManifest_WhenAttachHasNoConfigureLambda_ShouldGenerateMinimalPipeline()
+        {
+            var manifest = GenerateManifest(MinimalAttachSource);
+            var pipeline = Assert.Single(manifest.Components, component => component.Id == "spider.pipeline:order-request");
+
+            Assert.Equal("OrderRequest", pipeline.DisplayName);
+            Assert.Equal("ArchitectureSample.OrderRequest", pipeline.Metadata["request"]);
+            Assert.Equal("false", pipeline.Metadata["hasResponse"]);
+            Assert.DoesNotContain("service", pipeline.Metadata.Keys);
+            AssertStage(manifest, pipeline.Id + ".pre-process", "0");
+            AssertStage(manifest, pipeline.Id + ".target", "1", "False");
+        }
+
+        [Fact]
+        public void BuildManifest_WhenFlowUsesLambdaStepsAndEmptyValues_ShouldGenerateFallbackMetadata()
+        {
+            var manifest = GenerateManifest(InlineFlowSource, string.Empty);
+            var flow = Assert.Single(manifest.Components, component => component.Id == "spider.flow:inline-only");
+            var step = Assert.Single(manifest.Components, component => component.Id == "spider.flow:inline-only.001-lambda");
+            var branch = Assert.Single(manifest.Components, component => component.Id == "spider.flow:inline-only.002-branch");
+
+            Assert.Equal("ArchitectureSample.FlowRequest", flow.Metadata["request"]);
+            Assert.Equal("false", flow.Metadata["hasResponse"]);
+            Assert.Equal("lambda", step.DisplayName);
+            Assert.Equal(string.Empty, step.Evidence.Single().FilePath);
+            Assert.Equal("Branch", branch.DisplayName);
+        }
+
         private static void AssertStage(SpiderArchitectureManifest manifest, string id, string count, string hasOverride = null)
         {
             var stage = Assert.Single(manifest.Components, component => component.Id == id);
@@ -832,6 +889,119 @@ namespace ArchitectureSample
     public sealed class CreateCustomerRequest { }
 
     public sealed class CustomerResponse { }
+}
+";
+
+        private const string BoundaryVariantSource = @"
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Spider.Pipelines.Boundaries;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Extensions;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedBoundaries
+    {
+        public void Configure(IServiceCollection services, ISpider spider)
+        {
+            spider
+                .InitBridge<OrderService>()
+                .AddExecutionBoundary(typeof(TypeOfBoundary))
+                .Attach<OrderRequest, OrderReceipt>(builder => { });
+
+            spider
+                .InitBridge<OrderService>()
+                .AddExecutionBoundary(boundary => boundary
+                    .Named(""Delegate order boundary"")
+                    .Describe(""Delegates order execution through a local boundary."")
+                    .Module(""delegate-boundary"")
+                    .InvokesPipeline<OrderRequest, OrderReceipt>()
+                    .InvokesFlow<FlowRequest, FlowResponse>());
+
+            spider
+                .InitBridge<OrderService>()
+                .Attach<OrderRequest, OrderReceipt>(builder => builder
+                    .Named(""Order pipeline"")
+                    .Wraps<OrderRequest, OrderReceipt, OrderService>()
+                    .Input<OrderRequest, OrderReceipt, OrderRequest>()
+                    .Output<OrderRequest, OrderReceipt, OrderReceipt>());
+
+            _ = spider
+                .ComposeFlow<FlowRequest, FlowResponse>(""Fulfill order"")
+                .Then(request => new FlowResponse())
+                .RunAsync(new FlowRequest(), CancellationToken.None);
+        }
+    }
+
+    public sealed class TypeOfBoundary : PipelineExecutionBoundary { }
+
+    public sealed class OrderService { }
+
+    public sealed class OrderRequest { }
+
+    public sealed class OrderReceipt { }
+
+    public sealed class FlowRequest { }
+
+    public sealed class FlowResponse { }
+}
+";
+
+        private const string MinimalAttachSource = @"
+using System;
+
+namespace ArchitectureSample
+{
+    public sealed class DocumentedPipelines
+    {
+        public void Configure(ExternalBuilder builder)
+        {
+            builder.Attach<OrderRequest>(null);
+        }
+    }
+
+    public sealed class ExternalBuilder
+    {
+        public void Attach<TRequest>(Action<object> configure) { }
+    }
+
+    public sealed class OrderRequest { }
+}
+";
+
+        private const string InlineFlowSource = @"
+using System;
+using System.Threading;
+using Spider.Pipelines.Core;
+using Spider.Pipelines.Flows;
+
+namespace ArchitectureSample
+{
+    public sealed class InlineFlows
+    {
+        public void Configure(ISpider spider, FlowRequest request, CancellationToken token)
+        {
+            _ = spider
+                .ComposeFlow<FlowRequest>(""Inline only"")
+                .Then(item => { })
+                .Branch(branch => { })
+                .RunAsync(request, token);
+        }
+    }
+
+    public static class FlowSyntaxExtensions
+    {
+        public static ISpiderFlowBuilder<TRequest, TCurrent> Branch<TRequest, TCurrent>(
+            this ISpiderFlowBuilder<TRequest, TCurrent> builder,
+            Action<object> configure)
+            => builder;
+    }
+
+    public sealed class FlowRequest { }
 }
 ";
     }

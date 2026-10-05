@@ -34,6 +34,43 @@ namespace Spider.Pipelines.Tests.Targeting
             Assert.True(overrideCalled);
             Assert.False(targetCalled);
         }
+
+        [Fact]
+        public async Task OnTargetExecution_WhenContextIsCancelled_ShouldSkipTargetAndOverride()
+        {
+            var execution = new TargetExecution<string>(
+                (req, token) => throw new InvalidOperationException("Override should not run."),
+                (ctx, args) => true);
+
+            await execution.OnTargetExecution(
+                new ReadOnlyContextStub(cancelled: true),
+                (req, token) => throw new InvalidOperationException("Target should not run."));
+        }
+
+        [Theory]
+        [InlineData(true, "override")]
+        [InlineData(false, "target")]
+        public async Task OnTargetExecution_WhenOverrideConditionIsConfigured_ShouldSelectExpectedHandler(bool overrideCondition, string expected)
+        {
+            var calls = new List<string>();
+            var execution = new TargetExecution<string>(
+                (req, token) =>
+                {
+                    calls.Add("override");
+                    return Task.CompletedTask;
+                },
+                (ctx, args) => overrideCondition);
+
+            await execution.OnTargetExecution(
+                new ReadOnlyContextStub(),
+                (req, token) =>
+                {
+                    calls.Add("target");
+                    return Task.CompletedTask;
+                });
+
+            Assert.Equal(new[] { expected }, calls);
+        }
     }
 
     public class TargetExecutionGenericTests
@@ -68,14 +105,49 @@ namespace Spider.Pipelines.Tests.Targeting
             Assert.True(overrideCalled);
             Assert.False(targetCalled);
         }
+
+        [Fact]
+        public async Task OnTargetExecution_WhenContextIsCancelled_ShouldReturnDefaultAndSkipHandlers()
+        {
+            var execution = new TargetExecution<string, int>(
+                (req, token) => throw new InvalidOperationException("Override should not run."),
+                (ctx, args) => true);
+
+            var result = await execution.OnTargetExecution(
+                new ReadOnlyContextGenericStub(cancelled: true),
+                (req, token) => throw new InvalidOperationException("Target should not run."));
+
+            Assert.Equal(default, result);
+        }
+
+        [Theory]
+        [InlineData(true, 7)]
+        [InlineData(false, 42)]
+        public async Task OnTargetExecution_WhenOverrideConditionIsConfigured_ShouldSelectExpectedHandler(bool overrideCondition, int expected)
+        {
+            var execution = new TargetExecution<string, int>(
+                (req, token) => Task.FromResult(7),
+                (ctx, args) => overrideCondition);
+
+            var result = await execution.OnTargetExecution(
+                new ReadOnlyContextGenericStub(),
+                (req, token) => Task.FromResult(42));
+
+            Assert.Equal(expected, result);
+        }
     }
 
     // Stub for IReadOnlyContext<string>
     public class ReadOnlyContextStub : IReadOnlyContext<string>
     {
+        private readonly bool _cancelled;
+
+        public ReadOnlyContextStub(bool cancelled = false)
+            => _cancelled = cancelled;
+
         public string Request => "test";
         public IServiceProvider Services => null;
-        public bool Cancelled => false;
+        public bool Cancelled => _cancelled;
         public PipelineState PipelineState => PipelineState.OnPreProcess;
         public CancellationToken CancellationToken => CancellationToken.None;
         public ResultState ResultState => ResultState.Pending;
@@ -85,10 +157,15 @@ namespace Spider.Pipelines.Tests.Targeting
     // Stub for IReadOnlyContext<string, int>
     public class ReadOnlyContextGenericStub : IReadOnlyContext<string, int>
     {
+        private readonly bool _cancelled;
+
+        public ReadOnlyContextGenericStub(bool cancelled = false)
+            => _cancelled = cancelled;
+
         public string Request => "test";
         public int Response => 42;
         public IServiceProvider Services => null;
-        public bool Cancelled => false;
+        public bool Cancelled => _cancelled;
         public PipelineState PipelineState => PipelineState.OnPreProcess;
         public CancellationToken CancellationToken => CancellationToken.None;
         public ResultState ResultState => ResultState.Pending;

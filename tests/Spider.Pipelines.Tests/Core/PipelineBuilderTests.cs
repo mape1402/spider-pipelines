@@ -19,6 +19,26 @@ namespace Spider.Pipelines.Tests.Core
         }
 
         [Fact]
+        public void ConfigurationMethods_WhenConfigIsNull_ShouldThrow()
+        {
+            var builder = new PipelineBuilder<string>(new ServiceProviderStub());
+
+            Assert.Throws<ArgumentNullException>(() => builder.OnTargeting(null));
+            Assert.Throws<ArgumentNullException>(() => builder.OnParallel(null));
+            Assert.Throws<ArgumentNullException>(() => builder.OnPostProcess(null));
+            Assert.Throws<ArgumentNullException>(() => builder.OnMiddleware(null));
+        }
+
+        [Fact]
+        public void Typed_WhenBuilderTypeDoesNotMatch_ShouldThrow()
+        {
+            var builder = new PipelineBuilder<string>(new ServiceProviderStub());
+
+            Assert.Throws<NotSupportedException>(() => builder.Typed<int>());
+            Assert.Throws<NotSupportedException>(() => builder.Typed<string, int>());
+        }
+
+        [Fact]
         public void Build_WhenTargetHandlerIsNull_ShouldThrow()
         {
             var builder = new PipelineBuilder<string>(new ServiceProviderStub());
@@ -40,6 +60,17 @@ namespace Spider.Pipelines.Tests.Core
         {
             var builder = new PipelineBuilder<string, int>(new ServiceProviderStub());
             Assert.Throws<ArgumentNullException>(() => builder.OnPreProcess(null));
+        }
+
+        [Fact]
+        public void ConfigurationMethods_WhenConfigIsNull_ShouldThrow()
+        {
+            var builder = new PipelineBuilder<string, int>(new ServiceProviderStub());
+
+            Assert.Throws<ArgumentNullException>(() => builder.OnTargeting(null));
+            Assert.Throws<ArgumentNullException>(() => builder.OnParallel(null));
+            Assert.Throws<ArgumentNullException>(() => builder.OnPostProcess(null));
+            Assert.Throws<ArgumentNullException>(() => builder.OnMiddleware(null));
         }
 
         [Fact]
