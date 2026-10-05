@@ -1,28 +1,28 @@
-# Diseno E Implementacion De ComposeFlow
+# ComposeFlow Design And Implementation
 
-## Estado
+## Status
 
-Arquitectura de `ComposeFlow` dentro de Spider y metadata de arquitectura generada en compilation time.
+This document describes the `ComposeFlow` architecture inside Spider and the architecture metadata generated at compile time.
 
-El corte actual implementa un source generator en `Spider.Pipelines.Analyzers`. El generator extrae flows y pipelines durante compilacion y produce `SpiderGeneratedArchitecture.BuildManifest()` sin ejecutar la aplicacion.
+The current implementation includes a source generator in `Spider.Pipelines.Analyzers`. The generator extracts flows and pipelines during compilation and produces `SpiderGeneratedArchitecture.BuildManifest()` without running the application.
 
-Este documento reemplaza la discusion previa de nombres sueltos. La meta ya no es solo tener un builder bonito. La meta es que Spider pueda describir procesos de negocio locales y generar metadata estatica sin mezclar eso con los pipelines globales que ya existen.
+This document replaces the earlier discussion around isolated naming ideas. The goal is no longer just to have a pleasant builder API. The goal is for Spider to describe local business processes and generate static metadata without mixing that responsibility with the global pipelines that already exist.
 
-## Problema A Resolver
+## Problem To Solve
 
-Spider actualmente modela pipelines como una envoltura transversal de ejecucion. Eso sirve para concerns globales:
+Spider currently models pipelines as a cross-cutting execution wrapper. That is useful for global concerns:
 
 - boundaries;
-- pre-processors;
-- post-processors;
+- preprocessors;
+- postprocessors;
 - middleware;
 - parallel execution;
 - target execution;
-- tracing/logging/transactions/retries.
+- tracing, logging, transactions, and retries.
 
-Pero no describe con precision el pseudocodigo de negocio dentro de un metodo.
+However, it does not precisely describe the business pseudocode inside a method.
 
-Ejemplo:
+Example:
 
 ```txt
 CreateCustomer
@@ -32,17 +32,17 @@ CreateCustomer
   ReturnResponse
 ```
 
-Ese flujo local no debe vivir como pipeline global. Es logica de negocio del metodo. El valor de `ComposeFlow` es volver esa logica:
+That local flow should not live as a global pipeline. It is the method's business logic. The value of `ComposeFlow` is to make that logic:
 
-- legible;
-- tipada;
-- simple de adoptar;
-- documentable con analyzers/source generators;
-- observable en runtime en una fase posterior.
+- readable;
+- typed;
+- simple to adopt;
+- documentable with analyzers and source generators;
+- observable at runtime in a later phase.
 
-## Metadata Y Telemetria
+## Metadata And Telemetry
 
-La arquitectura separa dos planos:
+The architecture separates two planes:
 
 ```txt
 Definition plane:
@@ -66,37 +66,37 @@ Producer:
   telemetry adapter
 ```
 
-`ComposeFlow` debe producir dos tipos de informacion.
+`ComposeFlow` must produce two kinds of information.
 
-### Metadata Estatica
+### Static Metadata
 
-Build-time, mediante analyzer/source generator.
+Build-time, through an analyzer/source generator.
 
-Debe publicar un manifest semantico con:
+It must publish a semantic manifest with:
 
-- componente `spider.flow`;
-- operaciones `spider.execute-flow` y `spider.flow-step`;
-- relaciones `contains`, `next`, `branches-to`, `uses`, `returns`, `calls-flow`;
-- evidence de CLR/source;
-- warnings/diagnostics;
-- metadata especializada de Spider.
+- `spider.flow` components;
+- `spider.execute-flow` and `spider.flow-step` operations;
+- `contains`, `next`, `branches-to`, `uses`, `returns`, and `calls-flow` relations;
+- CLR/source evidence;
+- warnings and diagnostics;
+- specialized Spider metadata.
 
-### Telemetria Para RavenTracer
+### Telemetry For RavenTracer
 
-Runtime, cuando el flow se ejecuta, en una fase posterior.
+Runtime, when the flow executes, in a later phase.
 
-Debe emitir eventos semanticos:
+It must emit semantic events:
 
-- flow started/completed/faulted/cancelled;
-- step started/completed/faulted;
+- flow started, completed, faulted, and cancelled;
+- step started, completed, and faulted;
 - condition evaluated;
 - branch selected;
 - early return;
-- nested flow started/completed.
+- nested flow started and completed.
 
-La documentacion no debe depender de runtime. Runtime es para telemetria.
+Documentation must not depend on runtime execution. Runtime is for telemetry.
 
-## Separacion Con Pipelines
+## Separation From Pipelines
 
 Pipelines:
 
@@ -104,9 +104,9 @@ Pipelines:
 Endpoint
   Spider pipeline
     boundaries
-    pre-processors
+    preprocessors
     target
-    post-processors
+    postprocessors
 ```
 
 ComposeFlow:
@@ -120,17 +120,17 @@ ServiceMethod
     ReturnResponse
 ```
 
-Un endpoint puede estar envuelto por un pipeline y dentro ejecutar handlers/services que usan `ComposeFlow`.
+An endpoint can be wrapped by a pipeline and then execute handlers/services that use `ComposeFlow`.
 
-Ejemplo:
+Example:
 
 ```txt
 POST /loan/evaluation
   spider.pipeline:http.loan-evaluation
-    pelican.handler:LeanEvaluationCommandHandler
+    pelican.handler:LoanEvaluationCommandHandler
       spider.flow:loan.evaluate
-        CheckBuroCredito
-          spider.flow:buro.check-status
+        CheckCreditBureau
+          spider.flow:bureau.check-status
             BuildRequest
             CallRemoteService
             EvaluateResponse
@@ -143,22 +143,22 @@ POST /loan/evaluation
         ReturnReport
 ```
 
-El manifest debe poder representar el mapa estatico. La telemetria runtime debe poder representar la ejecucion real en una fase posterior.
+The manifest must be able to represent the static map. Runtime telemetry must be able to represent the real execution in a later phase.
 
-## Principios De API
+## API Principles
 
-1. El flow debe leerse como pseudocodigo.
-2. El primer step no necesita nombre especial.
-3. No debe existir `Context` publico de Spider.
-4. No debe obligar `Result<T>`.
-5. No debe resolver magicamente cualquier parametro desde cualquier output previo.
-6. Si un step necesita valores previos, debe decirlo explicitamente.
-7. Si el flow declara respuesta, toda salida temprana debe respetar `TResponse` o lanzar excepcion.
-8. Flows sin respuesta deben ser ciudadanos de primera clase.
-9. Branches deben converger a una firma comun o terminar el flow.
-10. Metadata estatica y telemetria runtime son cosas separadas.
+1. The flow must read like pseudocode.
+2. The first step does not need a special name.
+3. There must be no public Spider `Context`.
+4. It must not force `Result<T>`.
+5. It must not magically resolve any parameter from any previous output.
+6. If a step needs previous values, it must say so explicitly.
+7. If the flow declares a response, every early exit must respect `TResponse` or throw an exception.
+8. Flows without a response must be first-class citizens.
+9. Branches must converge to a common signature or terminate the flow.
+10. Static metadata and runtime telemetry are separate concerns.
 
-## Vocabulario Recomendado
+## Recommended Vocabulary
 
 ```csharp
 ComposeFlow(...)
@@ -174,7 +174,7 @@ Otherwise(...)
 RunAsync(...)
 ```
 
-No usar como API principal:
+Do not use these names as the primary API:
 
 ```txt
 StartWith
@@ -189,25 +189,25 @@ End
 Reject
 ```
 
-Razon:
+Reasoning:
 
-- `Then` se entiende como el siguiente paso.
-- `ThenWith` se entiende como el siguiente paso usando valores adicionales.
-- `ContinueIf` comunica guard de continuidad.
-- `Branch` comunica division del flujo.
-- `Return` y `End` son innecesarios si las reglas de `Then` y `RunAsync` ya expresan salida final.
-- `Reject` no debe ser outcome generico porque rompe contratos de flows con `TResponse`.
+- `Then` reads as the next step.
+- `ThenWith` reads as the next step using additional values.
+- `ContinueIf` communicates a continuity guard.
+- `Branch` communicates a flow split.
+- `Return` and `End` are unnecessary when `Then` and `RunAsync` already express the final output rules.
+- `Reject` must not be a generic outcome because it breaks contracts for flows with `TResponse`.
 
-## Flows Con Y Sin Respuesta
+## Flows With And Without A Response
 
-Debe haber dos familias.
+There must be two families.
 
 ```csharp
 ComposeFlow<TRequest>(string name)
 ComposeFlow<TRequest, TResponse>(string name)
 ```
 
-Flow con respuesta:
+Flow with response:
 
 ```csharp
 return spider
@@ -220,7 +220,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-Flow sin respuesta:
+Flow without response:
 
 ```csharp
 await spider
@@ -232,28 +232,28 @@ await spider
     .RunAsync(request, cancellationToken);
 ```
 
-Reglas:
+Rules:
 
-- `ComposeFlow<TRequest>` regresa `Task` o `ValueTask`.
-- `ComposeFlow<TRequest, TResponse>` regresa `Task<TResponse>` o `ValueTask<TResponse>`.
-- En flows sin respuesta, la firma activa final puede ser cualquier tipo.
-- En flows con respuesta, la firma activa final debe ser `TResponse`.
-- Si falta `TResponse`, debe fallar analyzer/build y runtime validation.
+- `ComposeFlow<TRequest>` returns `Task` or `ValueTask`.
+- `ComposeFlow<TRequest, TResponse>` returns `Task<TResponse>` or `ValueTask<TResponse>`.
+- In flows without a response, the final active signature can be any type.
+- In flows with a response, the final active signature must be `TResponse`.
+- If `TResponse` is missing, analyzer/build validation and runtime validation must fail.
 
-## Firma Activa E Historial
+## Active Signature And History
 
-El runtime mantiene dos conceptos internos.
+The runtime maintains two internal concepts.
 
 ```txt
-Firma activa:
-  Valor que usa Then por default.
+Active signature:
+  The value that Then uses by default.
 
-Historial:
-  Valores iniciales y outputs previos.
-  Solo se usan cuando el usuario lo declara con ThenWith.
+History:
+  Initial values and previous outputs.
+  Used only when the user declares that need with ThenWith.
 ```
 
-Ejemplo:
+Example:
 
 ```csharp
 spider
@@ -265,7 +265,7 @@ spider
     .RunAsync(request, cancellationToken);
 ```
 
-Metodos:
+Methods:
 
 ```csharp
 Task Validate(CreateCustomerRequest request, CancellationToken cancellationToken);
@@ -282,7 +282,7 @@ Task<CustomerResponse> ReturnResponse(
     CancellationToken cancellationToken);
 ```
 
-Ejecucion:
+Execution:
 
 ```txt
 Initial:
@@ -313,11 +313,11 @@ Then(ReturnResponse):
 
 ## Then
 
-`Then` ejecuta el siguiente step usando la firma activa.
+`Then` executes the next step using the active signature.
 
-Tambien se usa como primer step.
+It is also used as the first step.
 
-Firmas base:
+Base signatures:
 
 ```csharp
 .Then(Func<TCurrent, TNext> step)
@@ -328,36 +328,36 @@ Firmas base:
 .Then(Func<TCurrent, CancellationToken, ValueTask> step)
 ```
 
-Reglas:
+Rules:
 
-- Si el step regresa valor, ese valor se vuelve firma activa.
-- Si el step no regresa valor, la firma activa se conserva.
-- Si lanza excepcion, el flow queda `faulted`.
-- Si se cancela el token, el flow queda `cancelled`.
+- If the step returns a value, that value becomes the active signature.
+- If the step does not return a value, the active signature is preserved.
+- If the step throws, the flow becomes `faulted`.
+- If the token is cancelled, the flow becomes `cancelled`.
 
-Validacion exception-based:
+Exception-based validation:
 
 ```csharp
 .Then(Validate)
 ```
 
-Si `Validate` lanza, falla el flow. Eso no requiere `ContinueIf`.
+If `Validate` throws, the flow fails. That does not require `ContinueIf`.
 
 ## ThenWith
 
-`ThenWith` ejecuta el siguiente step usando valores concretos del historial.
+`ThenWith` executes the next step using specific values from the history.
 
 ```csharp
 .ThenWith<CreateCustomerRequest, Customer>(Save)
 ```
 
-Se lee:
+It reads as:
 
 ```txt
-Luego guarda con CreateCustomerRequest y Customer.
+Then save with CreateCustomerRequest and Customer.
 ```
 
-Firmas:
+Signatures:
 
 ```csharp
 .ThenWith<T1>(Func<T1, TNext> step)
@@ -373,29 +373,29 @@ Firmas:
 .ThenWith<T1, T2, T3>(Func<T1, T2, T3, CancellationToken, Task> step)
 ```
 
-Reglas:
+Rules:
 
-- Los tipos solicitados deben existir en el historial.
-- Exact match gana sobre assignable match.
-- Si hay multiples candidatos, es ambiguo.
-- Si regresa valor, actualiza firma activa.
-- Si no regresa valor, conserva firma activa.
+- Requested types must exist in the history.
+- Exact match wins over assignable match.
+- If there are multiple candidates, the request is ambiguous.
+- If the step returns a value, it updates the active signature.
+- If the step does not return a value, the active signature is preserved.
 
 ## ContinueIf
 
-`ContinueIf` es un guard de continuidad. Solo aplica a predicados booleanos.
+`ContinueIf` is a continuity guard. It only applies to boolean predicates.
 
-No debe existir overload con `Action` o `Task`, porque eso ya es `Then(Validate)`.
+There must not be an overload with `Action` or `Task`, because that is already `Then(Validate)`.
 
-Regla:
+Rule:
 
 ```txt
-true  -> continua
-false -> aplica otherwise
+true  -> continue
+false -> apply otherwise
 throw -> fault
 ```
 
-Para flows con respuesta:
+For flows with a response:
 
 ```csharp
 return spider
@@ -410,7 +410,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-Tambien puede fallar con excepcion:
+It can also fail with an exception:
 
 ```csharp
 .ContinueIf(
@@ -418,7 +418,7 @@ Tambien puede fallar con excepcion:
     otherwise: Flow.Throw(() => new ValidationException("Email is required")))
 ```
 
-Para flows sin respuesta:
+For flows without a response:
 
 ```csharp
 await spider
@@ -430,36 +430,36 @@ await spider
     .RunAsync(command, cancellationToken);
 ```
 
-Outcomes permitidos:
+Allowed outcomes:
 
 ```txt
-Flow.Return(...)  -> solo flows con TResponse
-Flow.Throw(...)   -> flows con o sin TResponse
-Flow.Stop()       -> solo flows sin TResponse
+Flow.Return(...)  -> only flows with TResponse
+Flow.Throw(...)   -> flows with or without TResponse
+Flow.Stop()       -> only flows without TResponse
 ```
 
-No incluir `Flow.Reject` en v1.
+Do not include `Flow.Reject` in v1.
 
-Razon:
+Reason:
 
 ```txt
-Reject sin TResponse rompe el contrato de ComposeFlow<TRequest, TResponse>.
-Si el consumidor quiere un resultado semantico tipo rejected, debe modelarlo en TResponse.
+Reject without TResponse breaks the ComposeFlow<TRequest, TResponse> contract.
+If the consumer wants a semantic rejected result, it must be modeled in TResponse.
 ```
 
-Ejemplo:
+Example:
 
 ```csharp
 ComposeFlow<CreateCustomerRequest, CreateCustomerResult>
 ```
 
-donde `CreateCustomerResult` puede representar success, validation failure o cualquier outcome de dominio.
+where `CreateCustomerResult` can represent success, validation failure, or any other domain outcome.
 
 ## Branch
 
-`Branch` divide el flow en ramas.
+`Branch` splits the flow into routes.
 
-Ejemplo que converge:
+Example that converges:
 
 ```csharp
 return spider
@@ -477,16 +477,16 @@ return spider
     .RunAsync(application, cancellationToken);
 ```
 
-Reglas:
+Rules:
 
-- Cada branch recibe la firma activa actual.
-- Cada rama puede usar `Then`, `ThenWith`, `ContinueIf` y `Branch`.
-- Si hay steps despues de `Branch`, todas las ramas deben converger al mismo tipo activo.
-- Si `Branch` es el ultimo elemento del flow sin respuesta, puede terminar con steps sin valor.
-- Si `Branch` es el ultimo elemento del flow con respuesta, cada rama debe producir `TResponse` o lanzar excepcion.
-- `Otherwise` debe ser obligatorio en v1 para evitar ramas no cubiertas.
+- Each branch receives the current active signature.
+- Each route can use `Then`, `ThenWith`, `ContinueIf`, and `Branch`.
+- If there are steps after `Branch`, all routes must converge to the same active type.
+- If `Branch` is the final element of a flow without a response, it may end with steps that return no value.
+- If `Branch` is the final element of a flow with a response, each route must produce `TResponse` or throw an exception.
+- `Otherwise` must be mandatory in v1 to avoid uncovered routes.
 
-Branch terminal sin respuesta:
+Terminal branch without response:
 
 ```csharp
 await spider
@@ -499,7 +499,7 @@ await spider
     .RunAsync(command, cancellationToken);
 ```
 
-Branch terminal con respuesta:
+Terminal branch with response:
 
 ```csharp
 return spider
@@ -513,13 +513,13 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-No hacen falta `Return` ni `End`. El contrato lo determina el tipo final esperado por el flow y la posicion del branch.
+`Return` and `End` are not needed. The contract is determined by the flow's expected final type and the branch position.
 
-## Tipos Duplicados
+## Duplicate Types
 
-Si dos steps producen el mismo tipo, `ThenWith<T>` puede ser ambiguo.
+If two steps produce the same type, `ThenWith<T>` can be ambiguous.
 
-Ejemplo:
+Example:
 
 ```csharp
 .Then(LoadPrimaryCustomer)
@@ -527,12 +527,12 @@ Ejemplo:
 .ThenWith<Customer>(ValidateCustomer)
 ```
 
-Opciones:
+Options:
 
-1. Evitar duplicados del mismo tipo.
-2. Crear tipos de dominio distintos.
-3. Crear un record de estado.
-4. Usar nombre como escape hatch.
+1. Avoid duplicate values of the same type.
+2. Create distinct domain types.
+3. Create an explicit state record.
+4. Use a name as an escape hatch.
 
 Escape hatch:
 
@@ -542,11 +542,11 @@ Escape hatch:
 .ThenWith<Customer>("primaryCustomer", ValidateCustomer)
 ```
 
-No debe ser el happy path.
+This must not be the happy path.
 
-## Estado Explicito De Operacion
+## Explicit Operation State
 
-Cuando el flow necesita demasiados valores vivos, se debe crear un record de estado.
+When the flow needs too many live values, create a domain state record.
 
 ```csharp
 public sealed record CreateCustomerState(
@@ -555,7 +555,7 @@ public sealed record CreateCustomerState(
     CustomerPolicy Policy);
 ```
 
-Uso:
+Usage:
 
 ```csharp
 return spider
@@ -568,31 +568,31 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-Esto no es `Context` de Spider. Es estado de dominio controlado por la aplicacion.
+This is not a Spider `Context`. It is domain state controlled by the application.
 
-## Aridad Soportada
+## Supported Arity
 
-Limite recomendado para v1:
-
-```txt
-ThenWith hasta 3 valores.
-ComposeFlow hasta 3 inputs iniciales.
-```
-
-Si se requieren mas de 3 valores, usar estado explicito.
-
-Razon:
+Recommended v1 limit:
 
 ```txt
-La legibilidad cae rapido con aridad alta.
-El objetivo es pseudocodigo simple, no un lenguaje de programacion alterno.
+ThenWith up to 3 values.
+ComposeFlow up to 3 initial inputs.
 ```
 
-## Perfiles
+If more than 3 values are required, use explicit state.
 
-Los perfiles son configuracion runtime reusable.
+Reason:
 
-Ejemplo:
+```txt
+Readability drops quickly with high arity.
+The goal is simple pseudocode, not an alternate programming language.
+```
+
+## Profiles
+
+Profiles are reusable runtime configuration.
+
+Example:
 
 ```csharp
 services.AddSpider(spider =>
@@ -612,7 +612,7 @@ services.AddSpider(spider =>
 });
 ```
 
-Uso:
+Usage:
 
 ```csharp
 spider
@@ -624,7 +624,7 @@ spider
     .RunAsync(request, cancellationToken);
 ```
 
-Responsabilidades de profile:
+Profile responsibilities:
 
 - telemetry on/off;
 - metrics on/off;
@@ -632,14 +632,14 @@ Responsabilidades de profile:
 - redaction policy;
 - boundaries;
 - event enrichment;
-- environment based behavior;
+- environment-based behavior;
 - feature flags.
 
-Profiles no deben cambiar semantica de negocio por default.
+Profiles must not change business semantics by default.
 
-## Arquitectura Runtime En Spider
+## Runtime Architecture In Spider
 
-Componentes propuestos dentro de Spider:
+Proposed components inside Spider:
 
 ```txt
 Spider.Pipelines.Core
@@ -670,7 +670,7 @@ Spider.Pipelines.Flows.Internals
 
 ### ISpider
 
-Agregar:
+Add:
 
 ```csharp
 ISpiderFlow<TRequest> ComposeFlow<TRequest>(
@@ -686,11 +686,11 @@ ISpiderFlow<TRequest1, TRequest2, TResponse> ComposeFlow<TRequest1, TRequest2, T
     string name);
 ```
 
-Los overloads de multiples inputs deben cuidarse para no explotar generics. V1 puede iniciar con 1 y 2 inputs.
+Multiple-input overloads must be handled carefully so the API does not explode with generic combinations. V1 can start with one and two inputs.
 
 ### Flow Definition
 
-Representa la estructura runtime:
+Represents the runtime structure:
 
 ```txt
 Name
@@ -719,7 +719,7 @@ Metadata
 
 ### Flow History
 
-Runtime bag interno:
+Internal runtime bag:
 
 ```txt
 entries:
@@ -729,62 +729,62 @@ entries:
   source step id
 ```
 
-No es publico.
+It is not public.
 
 ### Step Invoker
 
-Responsabilidades:
+Responsibilities:
 
-- resolver parametros desde active value o explicit history;
-- inyectar `CancellationToken`;
-- invocar delegates sync/async;
-- clasificar retorno;
-- actualizar active/history;
-- preservar exception original.
+- resolve parameters from the active value or explicit history;
+- inject `CancellationToken`;
+- invoke sync/async delegates;
+- classify return values;
+- update active value/history;
+- preserve the original exception.
 
-## Analyzer Y Source Generator
+## Analyzer And Source Generator
 
-Debe existir un proyecto de analyzer/source generator dentro de la solucion de Spider.
+There must be an analyzer/source generator project inside the Spider solution.
 
-No debe ser necesario para ejecutar en runtime, pero si para generar metadata estatica y diagnosticos tempranos.
+It is not required for runtime execution, but it is required to generate static metadata and early diagnostics.
 
-Paquete candidato:
+Candidate package:
 
 ```txt
 Spider.Pipelines.Analyzers
 ```
 
-Nota:
+Note:
 
 ```txt
-ComposeFlow vive en Spider.
-El analyzer puede empacarse como analyzer del mismo paquete NuGet o como paquete complementario si se decide despues.
-La API runtime no debe depender del analyzer.
+ComposeFlow lives in Spider.
+The analyzer can be packaged as an analyzer in the same NuGet package or as a companion package if that decision changes later.
+The runtime API must not depend on the analyzer.
 ```
 
-### Responsabilidades Del Analyzer
+### Analyzer Responsibilities
 
-Validar:
+Validate:
 
-- flow sin nombre;
-- profile desconocido si es resoluble;
-- `Then` incompatible con firma activa;
-- `ThenWith` pide tipo no disponible;
-- `ThenWith` ambiguo;
-- final de flow con respuesta no produce `TResponse`;
-- `ContinueIf` sin otherwise valido;
-- `Flow.Stop()` usado en flow con `TResponse`;
-- `Flow.Return(...)` incompatible con `TResponse`;
-- branch sin `Otherwise`;
-- branches que no convergen;
-- lambda anonima con metadata limitada;
-- aridad mayor al limite recomendado.
+- flow without a name;
+- unknown profile when resolvable;
+- `Then` incompatible with the active signature;
+- `ThenWith` requesting a type that is not available in history;
+- ambiguous `ThenWith`;
+- response flow final output does not produce `TResponse`;
+- `ContinueIf` without a valid otherwise outcome;
+- `Flow.Stop()` used in a flow with `TResponse`;
+- `Flow.Return(...)` incompatible with `TResponse`;
+- branch without `Otherwise`;
+- branches that do not converge;
+- anonymous lambda with limited metadata;
+- arity above the recommended limit.
 
-### Responsabilidades Del Source Generator
+### Source Generator Responsibilities
 
-Generar descriptors estaticos de arquitectura.
+Generate static architecture descriptors.
 
-Salida conceptual:
+Conceptual output:
 
 ```csharp
 internal static partial class SpiderGeneratedArchitecture
@@ -796,9 +796,9 @@ internal static partial class SpiderGeneratedArchitecture
 }
 ```
 
-El generator no debe ejecutar codigo de usuario.
+The generator must not execute user code.
 
-Debe usar:
+It must use:
 
 - syntax tree;
 - semantic model;
@@ -807,9 +807,9 @@ Debe usar:
 - attributes;
 - source location.
 
-## Metadata Estatica
+## Static Metadata
 
-Spider debe publicar manifests usando modelos tipados propios.
+Spider must publish manifests using its own typed models.
 
 ### Component Kinds
 
@@ -850,7 +850,7 @@ observes
 
 ### Evidence
 
-Cada step debe tener evidence cuando sea posible:
+Each step must include evidence when possible:
 
 ```txt
 SourceKind: source-generator
@@ -861,7 +861,7 @@ LineNumber
 DiscoveryMethod: source-generator
 ```
 
-### Descriptor Ejemplo
+### Descriptor Example
 
 ```json
 {
@@ -904,11 +904,11 @@ DiscoveryMethod: source-generator
 }
 ```
 
-## Telemetria Para RavenTracer
+## Telemetry For RavenTracer
 
-Spider debe emitir runtime events si el profile lo habilita.
+Spider must emit runtime events if the profile enables them.
 
-Eventos:
+Events:
 
 ```txt
 spider.flow.started
@@ -923,10 +923,10 @@ spider.branch.evaluated
 spider.branch.selected
 ```
 
-Campos:
+Fields:
 
 ```txt
-ComponentId = spider.flow:<flow-id> o spider.flow-step:<step-id>
+ComponentId = spider.flow:<flow-id> or spider.flow-step:<step-id>
 OperationId = spider.execute-flow / spider.execute-step
 DefinitionVersion
 DeploymentId
@@ -940,13 +940,13 @@ Exception
 Properties
 ```
 
-Los payloads deben estar apagados por default.
+Payloads must be disabled by default.
 
-Payloads, inputs y outputs deben exponerse solo via redaction policy/profile.
+Payloads, inputs, and outputs must be exposed only through a redaction policy/profile.
 
-## Fluent API Recomendada
+## Recommended Fluent API
 
-### Caso Simple Con Respuesta
+### Simple Case With Response
 
 ```csharp
 return spider
@@ -959,7 +959,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-### Usando Valores Previos
+### Using Previous Values
 
 ```csharp
 return spider
@@ -972,7 +972,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-### Sin Respuesta
+### Without Response
 
 ```csharp
 await spider
@@ -984,7 +984,7 @@ await spider
     .RunAsync(request, cancellationToken);
 ```
 
-### ContinueIf Con Response Temprano
+### ContinueIf With Early Response
 
 ```csharp
 return spider
@@ -999,7 +999,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-### ContinueIf Con Excepcion
+### ContinueIf With Exception
 
 ```csharp
 return spider
@@ -1014,7 +1014,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-### ContinueIf En Flow Sin Respuesta
+### ContinueIf In A Flow Without Response
 
 ```csharp
 await spider
@@ -1026,7 +1026,7 @@ await spider
     .RunAsync(command, cancellationToken);
 ```
 
-### Branch Que Converge
+### Converging Branch
 
 ```csharp
 return spider
@@ -1041,7 +1041,7 @@ return spider
     .RunAsync(application, cancellationToken);
 ```
 
-### Branch Terminal Con Respuesta
+### Terminal Branch With Response
 
 ```csharp
 return spider
@@ -1055,7 +1055,7 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-### Branch Terminal Sin Respuesta
+### Terminal Branch Without Response
 
 ```csharp
 await spider
@@ -1068,7 +1068,7 @@ await spider
     .RunAsync(command, cancellationToken);
 ```
 
-### Estado Explicito
+### Explicit State
 
 ```csharp
 return spider
@@ -1081,74 +1081,74 @@ return spider
     .RunAsync(request, cancellationToken);
 ```
 
-## Plan Para Generar Metadata
+## Metadata Generation Plan
 
-La metadata completa para documentacion debe generarse en build time. Runtime queda reservado para telemetria.
+Full documentation metadata must be generated at build time. Runtime remains reserved for telemetry.
 
-### Estado Implementado
+### Implemented State
 
-Spider ya publica un manifest de arquitectura desde compilation time:
+Spider already publishes an architecture manifest at compile time:
 
-- `spider.pipeline` para pipelines configurados con `Attach`;
-- `spider.pipeline-stage` para preprocess, middleware, target, parallel, success postprocess y failure postprocess;
-- `spider.flow` para flows compuestos con `ComposeFlow`;
-- `spider.flow-step`, `spider.flow-condition` y `spider.flow-branch` para pasos de flow;
-- `spider.flow-profile` para perfiles usados con `UsingProfile`;
-- relaciones `contains`, `next` y `uses-profile`;
-- evidence de archivo, linea, tipo y miembro cuando el compilador puede resolverlo;
-- `SpiderGeneratedArchitecture.BuildManifest()` como API generada de lectura.
+- `spider.pipeline` for pipelines configured with `Attach`;
+- `spider.pipeline-stage` for preprocess, middleware, target, parallel, success postprocess, and failure postprocess stages;
+- `spider.flow` for flows composed with `ComposeFlow`;
+- `spider.flow-step`, `spider.flow-condition`, and `spider.flow-branch` for flow steps;
+- `spider.flow-profile` for profiles used with `UsingProfile`;
+- `contains`, `next`, and `uses-profile` relations;
+- file, line, type, and member evidence when the compiler can resolve it;
+- `SpiderGeneratedArchitecture.BuildManifest()` as the generated read API.
 
-No existe discovery runtime para documentacion. Si un flow existe en codigo fuente, el generator debe poder verlo aunque no se ejecute.
+There is no runtime discovery for documentation. If a flow exists in source code, the generator must be able to see it even when the flow is not executed.
 
-### Objetivo Del Primer Corte
+### First Cut Goal
 
-Generar un manifest estatico con:
+Generate a static manifest with:
 
-- flows declarados con `ComposeFlow`;
-- steps agregados con `Then`;
-- steps agregados con `ThenWith`;
-- conditions agregadas con `ContinueIf`;
-- branches agregados con `Branch`, `When` y `Otherwise`;
-- profiles usados con `UsingProfile`;
-- evidence de archivo, linea, tipo CLR y metodo;
-- diagnostics cuando el flow no puede documentarse bien.
+- flows declared with `ComposeFlow`;
+- steps added with `Then`;
+- steps added with `ThenWith`;
+- conditions added with `ContinueIf`;
+- branches added with `Branch`, `When`, and `Otherwise`;
+- profiles used with `UsingProfile`;
+- file, line, CLR type, and method evidence;
+- diagnostics when the flow cannot be documented well.
 
-No intentar generar telemetria desde el source generator. Eso pertenece a RavenTracer/runtime.
+Do not try to generate telemetry from the source generator. That belongs to RavenTracer/runtime.
 
-### Proyecto Sugerido
+### Suggested Project
 
-Crear un proyecto analyzer/source generator:
+Create an analyzer/source generator project:
 
 ```txt
 src/Spider.Pipelines.Analyzers
 ```
 
-Este proyecto debe empacarse como analyzer del paquete `Spider.Pipelines` o como paquete complementario. Decision recomendada para v1:
+This project should be packaged as an analyzer inside `Spider.Pipelines` or as a companion package. Recommended v1 decision:
 
 ```txt
-Empacarlo dentro de Spider.Pipelines como analyzer incluido.
+Package it inside Spider.Pipelines as an included analyzer.
 ```
 
-Razon:
+Reason:
 
-- el usuario obtiene diagnostics sin instalar otro paquete;
-- el manifest se genera automaticamente;
-- la funcionalidad se siente parte de Spider;
-- no agrega dependencias runtime al paquete principal.
+- users get diagnostics without installing another package;
+- the manifest is generated automatically;
+- the feature feels like part of Spider;
+- it adds no runtime dependencies to the main package.
 
-El runtime de Spider no debe depender del analyzer.
+The Spider runtime must not depend on the analyzer.
 
-### Contratos De Metadata
+### Metadata Contracts
 
-Spider publica contratos propios estables para no acoplar la metadata a ningun consumidor externo.
+Spider publishes stable contracts so the metadata is not coupled to any external consumer.
 
-Namespace sugerido:
+Suggested namespace:
 
 ```txt
 Spider.Pipelines.Architecture
 ```
 
-Tipos internos o publicos iniciales:
+Initial internal or public types:
 
 ```csharp
 SpiderArchitectureManifest
@@ -1160,13 +1160,13 @@ SpiderDiagnosticDescriptor
 SpiderMetadataBag
 ```
 
-No acoplar el runtime a estos contratos mas alla de los modelos publicos necesarios para leer el manifest generado.
+Do not couple runtime to these contracts beyond the public models required to read the generated manifest.
 
-### IDs Estables
+### Stable IDs
 
-El source generator debe crear IDs logicos. El CLR es evidencia, no identidad primaria.
+The source generator must create logical IDs. CLR identity is evidence, not the primary identity.
 
-Formato recomendado:
+Recommended format:
 
 ```txt
 spider.flow:{normalized-flow-name}
@@ -1176,7 +1176,7 @@ spider.flow-condition:{normalized-flow-name}.{condition-name-or-index}
 spider.flow-profile:{profile-name}
 ```
 
-Ejemplo:
+Example:
 
 ```txt
 spider.flow:create-customer
@@ -1187,17 +1187,17 @@ spider.flow-step:create-customer.return-response
 spider.flow-profile:business
 ```
 
-Si el mismo nombre aparece mas de una vez en el mismo scope, agregar sufijo estable por posicion:
+If the same name appears more than once in the same scope, add a stable position suffix:
 
 ```txt
 spider.flow-step:create-customer.validate-2
 ```
 
-No usar line number como parte del ID, porque rompe estabilidad con cambios de formato. Line number solo va en evidence.
+Do not use line number as part of the ID because that breaks stability when formatting changes. Line number belongs only in evidence.
 
 ### Evidence
 
-Cada descriptor debe incluir evidence cuando sea posible:
+Each descriptor must include evidence when possible:
 
 ```txt
 SourceKind: source-generator
@@ -1211,7 +1211,7 @@ LineNumber
 DiscoveryMethod: source-generator
 ```
 
-Para method groups:
+For method groups:
 
 ```csharp
 .Then(Validate)
@@ -1226,7 +1226,7 @@ FilePath: ...
 LineNumber: ...
 ```
 
-Para lambdas:
+For lambdas:
 
 ```csharp
 .Then(request => ...)
@@ -1276,7 +1276,7 @@ calls-flow
 
 ### Descriptor Shape
 
-Ejemplo conceptual:
+Conceptual example:
 
 ```json
 {
@@ -1320,7 +1320,7 @@ Ejemplo conceptual:
 
 ### Source Generator Output
 
-El generator debe emitir un archivo parecido a:
+The generator must emit a file like:
 
 ```csharp
 // <auto-generated />
@@ -1336,13 +1336,13 @@ namespace Spider.Pipelines.Generated
 }
 ```
 
-Tambien puede emitir descriptors por assembly:
+It may also emit descriptors per assembly:
 
 ```csharp
 internal static partial class SpiderGeneratedArchitecture_AssemblyName
 ```
 
-El proyecto consumidor puede leer el manifest generado directamente:
+The consuming project can read the generated manifest directly:
 
 ```csharp
 var manifest = SpiderGeneratedArchitecture.BuildManifest();
@@ -1350,7 +1350,7 @@ var manifest = SpiderGeneratedArchitecture.BuildManifest();
 
 ### Analyzer Diagnostics
 
-Diagnostics recomendados:
+Recommended diagnostics:
 
 ```txt
 SPF001 Flow name is required.
@@ -1367,21 +1367,21 @@ SPF011 Flow profile is not known.
 SPF012 Unsupported ComposeFlow shape.
 ```
 
-Severity inicial:
+Initial severity:
 
-- errores de contrato: error;
-- metadata incompleta: warning;
-- perfil desconocido: warning al principio, error si se habilita politica estricta.
+- contract errors: error;
+- incomplete metadata: warning;
+- unknown profile: warning at first, error if strict policy is enabled.
 
-### Como Analizar La Fluent API
+### How To Analyze The Fluent API
 
-El analyzer debe encontrar invocations a:
+The analyzer must find invocations to:
 
 ```csharp
 ComposeFlow(...)
 ```
 
-Despues debe caminar la cadena fluent:
+Then it must walk the fluent chain:
 
 ```txt
 ComposeFlow
@@ -1393,23 +1393,23 @@ ComposeFlow
   -> RunAsync
 ```
 
-Debe resolver semanticamente:
+It must resolve semantically:
 
 - generic arguments;
-- receiver type despues de cada metodo;
+- receiver type after each method;
 - method group symbol;
 - lambda syntax;
 - return type;
-- CancellationToken parameter;
+- `CancellationToken` parameter;
 - branch route chains.
 
-No debe ejecutar codigo.
+It must not execute code.
 
-### Estrategia Por Fases
+### Phase Strategy
 
-#### Metadata Fase 1: Lineal
+#### Metadata Phase 1: Linear
 
-Soportar:
+Support:
 
 - `ComposeFlow<TRequest>`;
 - `ComposeFlow<TRequest, TResponse>`;
@@ -1418,7 +1418,7 @@ Soportar:
 - `ThenWith`;
 - `RunAsync`.
 
-Generar:
+Generate:
 
 - flow component;
 - step components;
@@ -1427,31 +1427,31 @@ Generar:
 - uses-profile relation;
 - input/output metadata.
 
-#### Metadata Fase 2: ContinueIf
+#### Metadata Phase 2: ContinueIf
 
-Soportar:
+Support:
 
 - `ContinueIf(..., Flow.Return(...))`;
 - `ContinueIf(..., Flow.Throw(...))`;
 - `ContinueIf(..., Flow.Stop())`.
 
-Generar:
+Generate:
 
 - condition component;
-- relation `next` hacia condition;
-- relation `returns` o `throws`;
-- metadata de early exit.
+- `next` relation to the condition;
+- `returns` or `throws` relation;
+- early-exit metadata.
 
-#### Metadata Fase 3: Branch
+#### Metadata Phase 3: Branch
 
-Soportar:
+Support:
 
 - `Branch`;
 - `When`;
 - `Otherwise`;
-- nested route chains lineales.
+- nested linear route chains.
 
-Generar:
+Generate:
 
 - branch component;
 - condition components;
@@ -1459,29 +1459,29 @@ Generar:
 - `otherwise`;
 - convergence metadata.
 
-#### Metadata Fase 4: Nested Flows
+#### Metadata Phase 4: Nested Flows
 
-Detectar si un step llama otro metodo que contiene `ComposeFlow`.
+Detect when a step calls another method that contains `ComposeFlow`.
 
-Primera version:
+First version:
 
-- solo cuando el source generator puede ver el metodo llamado en el mismo compilation.
+- only when the source generator can see the called method in the same compilation.
 
-Generar:
+Generate:
 
 ```txt
 calls-flow
 ```
 
-Si no puede resolver:
+If it cannot resolve the target:
 
 ```txt
 unresolved reference warning
 ```
 
-#### Metadata Fase 5: Elysium Protocol Adapter
+#### Metadata Phase 5: Elysium Protocol Adapter
 
-Mapear:
+Map:
 
 ```txt
 SpiderArchitectureManifest -> ArchitectureManifest
@@ -1490,95 +1490,95 @@ SpiderRelationDescriptor -> RelationDescriptor
 SpiderEvidenceDescriptor -> EvidenceDescriptor
 ```
 
-Exponer modelos que puedan ser adaptados por consumidores externos.
+Expose models that can be adapted by external consumers.
 
-### Criterios De Aceptacion
+### Acceptance Criteria
 
-Primer corte listo cuando:
+The first cut is ready when:
 
-- un proyecto consumidor que usa `ComposeFlow` genera manifest en build;
-- el manifest contiene flow, steps y relations;
-- los method groups tienen evidence CLR/source;
-- lambdas generan warning de metadata limitada;
-- `ThenWith` invalido produce diagnostic;
-- flow con `TResponse` insatisfecho produce diagnostic;
-- se puede leer el manifest desde tests sin ejecutar el flow;
-- el runtime sigue funcionando sin el analyzer.
+- a consuming project that uses `ComposeFlow` generates a manifest during build;
+- the manifest contains flow, steps, and relations;
+- method groups include CLR/source evidence;
+- lambdas generate a limited metadata warning;
+- invalid `ThenWith` produces a diagnostic;
+- a flow with an unsatisfied `TResponse` produces a diagnostic;
+- tests can read the manifest without executing the flow;
+- runtime still works without the analyzer.
 
-### Pruebas Necesarias
+### Required Tests
 
-Crear tests de analyzer/source generator con `Microsoft.CodeAnalysis.CSharp.Testing`.
+Create analyzer/source generator tests with `Microsoft.CodeAnalysis.CSharp.Testing`.
 
-Casos:
+Cases:
 
-- flow lineal con respuesta genera manifest correcto;
-- flow sin respuesta genera manifest correcto;
-- `ThenWith` genera uses metadata;
-- `UsingProfile` genera relation `uses-profile`;
-- lambda genera warning;
-- branch genera branch descriptors;
-- flow invalido genera diagnostic;
-- generated manifest compila.
+- linear flow with response generates the correct manifest;
+- flow without response generates the correct manifest;
+- `ThenWith` generates uses metadata;
+- `UsingProfile` generates a `uses-profile` relation;
+- lambda generates warning;
+- branch generates branch descriptors;
+- invalid flow generates diagnostic;
+- generated manifest compiles.
 
-## Orden De Implementacion
+## Implementation Order
 
-### Fase 1: API Y Runtime Basico
+### Phase 1: Basic API And Runtime
 
-- Agregar `ComposeFlow<TRequest>` y `ComposeFlow<TRequest, TResponse>` a `ISpider`.
-- Implementar `Then`.
-- Implementar `ThenWith` hasta aridad 2.
-- Implementar flows con y sin respuesta.
-- Implementar `RunAsync`.
-- Validar output final en flows con respuesta.
-- Agregar tests de sync/async/value/no-value.
+- Add `ComposeFlow<TRequest>` and `ComposeFlow<TRequest, TResponse>` to `ISpider`.
+- Implement `Then`.
+- Implement `ThenWith` up to arity 2.
+- Implement flows with and without response.
+- Implement `RunAsync`.
+- Validate final output in flows with response.
+- Add tests for sync/async/value/no-value steps.
 
-### Fase 2: Guards De Continuidad
+### Phase 2: Continuity Guards
 
-- Implementar `ContinueIf`.
-- Implementar `Flow.Return`.
-- Implementar `Flow.Throw`.
-- Implementar `Flow.Stop` solo para flows sin respuesta.
-- Validar errores de contrato.
+- Implement `ContinueIf`.
+- Implement `Flow.Return`.
+- Implement `Flow.Throw`.
+- Implement `Flow.Stop` only for flows without response.
+- Validate contract errors.
 
-### Fase 3: Branches
+### Phase 3: Branches
 
-- Implementar `Branch`, `When`, `Otherwise`.
-- Validar convergencia.
-- Validar branch terminal con/sin respuesta.
-- Agregar tests de branch nested basicos.
+- Implement `Branch`, `When`, and `Otherwise`.
+- Validate convergence.
+- Validate terminal branches with and without response.
+- Add basic nested branch tests.
 
-### Fase 4: Profiles
+### Phase 4: Profiles
 
-- Agregar `AddFlowProfile`.
-- Agregar `UsingProfile`.
-- Agregar options de telemetry/metrics/logging/redaction/boundaries.
-- Mantener semantica de negocio sin cambios.
+- Add `AddFlowProfile`.
+- Add `UsingProfile`.
+- Add telemetry, metrics, logging, redaction, and boundary options.
+- Preserve business semantics.
 
-### Fase 5: Metadata Estatica
+### Phase 5: Static Metadata
 
-- Crear descriptors de flow/step/branch/condition.
-- Crear ids estables.
-- Agregar evidence de compilacion.
-- Preparar shape compatible con consumidores externos.
+- Create flow, step, branch, and condition descriptors.
+- Create stable IDs.
+- Add compilation evidence.
+- Prepare a shape compatible with external consumers.
 
-### Fase 6: Analyzer/Source Generator
+### Phase 6: Analyzer/Source Generator
 
-- Implementar diagnostics.
-- Generar manifest estatico.
-- Generar ids/relations/evidence.
-- Exponer manifest generado desde `SpiderGeneratedArchitecture.BuildManifest()`.
+- Implement diagnostics.
+- Generate the static manifest.
+- Generate IDs, relations, and evidence.
+- Expose the generated manifest through `SpiderGeneratedArchitecture.BuildManifest()`.
 
-### Fase 7: Telemetry Adapter
+### Phase 7: Telemetry Adapter
 
-- Emitir runtime events.
-- Correlacionar flows anidados.
-- Correlacionar flow dentro de pipeline.
-- Exponer adapter para RavenTracer.
+- Emit runtime events.
+- Correlate nested flows.
+- Correlate flows inside pipelines.
+- Expose an adapter for RavenTracer.
 
-### Fase 8: Integracion Externa
+### Phase 8: External Integration
 
-- Crear `SpiderTelemetryAdapter`.
-- Probar primer vertical:
+- Create `SpiderTelemetryAdapter`.
+- Test the first vertical:
 
 ```txt
 Pigeon Consumer
@@ -1588,67 +1588,67 @@ Pigeon Consumer
   -> Validator/Mapper/Outbox
 ```
 
-## Decisiones Cerradas Para V1
+## V1 Decisions
 
-- `ComposeFlow` vive dentro de Spider.
-- `Then` es el step normal.
-- `ThenWith` usa valores previos declarados.
-- `ContinueIf` solo acepta predicados booleanos.
-- Validaciones exception-based se modelan con `Then`.
-- No existe `Reject` como outcome core.
-- Flow con respuesta solo puede terminar con `TResponse` o exception.
-- Flow sin respuesta puede terminar con `Flow.Stop`.
-- Branch debe tener `Otherwise` en v1.
-- Branch debe converger o ser terminal.
-- Runtime no genera documentacion.
-- Source generator/analyzer genera metadata estatica.
-- Runtime events alimentan RavenTracer.
+- `ComposeFlow` lives inside Spider.
+- `Then` is the normal step.
+- `ThenWith` uses explicitly declared previous values.
+- `ContinueIf` accepts only boolean predicates.
+- Exception-based validation is modeled with `Then`.
+- There is no core `Reject` outcome.
+- A flow with response can end only with `TResponse` or an exception.
+- A flow without response can end with `Flow.Stop`.
+- Branches must include `Otherwise` in v1.
+- Branches must converge or be terminal.
+- Runtime does not generate documentation.
+- The source generator/analyzer generates static metadata.
+- Runtime events feed RavenTracer.
 
-## Riesgos
+## Risks
 
-### Inference De C#
+### C# Inference
 
-Algunas combinaciones de method groups y generics pueden requerir overloads especificos.
+Some combinations of method groups and generics may require specific overloads.
 
-Mitigacion:
+Mitigation:
 
-- empezar con aridad 1 y 2;
-- agregar helpers solo cuando haya casos reales;
-- preferir errores claros sobre magia.
+- start with arity 1 and 2;
+- add helpers only when real cases require them;
+- prefer clear errors over magic.
 
-### Ambiguedad De Historial
+### History Ambiguity
 
-Mismo tipo producido mas de una vez.
+The same type can be produced more than once.
 
-Mitigacion:
+Mitigation:
 
-- error por default;
-- recomendar records de estado;
-- `NameOutput` como escape hatch.
+- fail by default;
+- recommend state records;
+- use `NameOutput` as an escape hatch.
 
-### Source Generator Complejo
+### Source Generator Complexity
 
-Analizar cadenas fluent con branches puede crecer rapido.
+Analyzing fluent chains with branches can grow quickly.
 
-Mitigacion:
+Mitigation:
 
-- fasear generator despues del runtime;
-- soportar primero shape lineal;
-- agregar branches despues.
+- phase the generator after runtime;
+- support the linear shape first;
+- add branches later.
 
-### Demasiado Poder En Branch
+### Too Much Power In Branch
 
-Puede convertirse en lenguaje alterno.
+It can become an alternate language.
 
-Mitigacion:
+Mitigation:
 
-- no joins complejos en v1;
-- no grafo arbitrario;
-- branch converge o termina.
+- no complex joins in v1;
+- no arbitrary graph;
+- branches either converge or terminate.
 
-## Resultado Esperado
+## Expected Result
 
-Con `ComposeFlow`, Spider podra publicar un manifest como:
+With `ComposeFlow`, Spider can publish a manifest like:
 
 ```txt
 spider.flow:create-customer
@@ -1659,7 +1659,7 @@ spider.flow:create-customer
   uses-profile Business
 ```
 
-Y RavenTracer podra mostrar:
+And RavenTracer can show:
 
 ```txt
 Create customer started
@@ -1669,7 +1669,7 @@ Create customer started
 Create customer faulted
 ```
 
-Con correlacion:
+With correlation:
 
 ```txt
 Definition: spider.flow:create-customer
@@ -1678,4 +1678,4 @@ Failure: spider.flow-step:create-customer.save
 Evidence: CreateCustomerService.Save, file/line
 ```
 
-Ese es el punto real: no solo encadenar lambdas, sino convertir procesos de negocio locales en arquitectura consultable y ejecucion observable.
+That is the real point: not just chaining lambdas, but turning local business processes into queryable architecture and observable execution.
