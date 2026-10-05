@@ -83,6 +83,145 @@ namespace Spider.Pipelines.Tests.Flows
         }
 
         [Fact]
+        public async Task RunAsync_WhenNoResponseFlowUsesDslOverloads_ShouldComplete()
+        {
+            var spider = CreateSpider();
+            var log = new List<string>();
+
+            await spider
+                .ComposeFlow<NumberRequest>("Calculate")
+                .UsingProfile("Business")
+                .Describe("Exercises the no-response builder overloads.")
+                .Tags(" math ", "", "no-response")
+                .Metadata("owner", "tests")
+                .Then(request => new NumberStage(request.Value + 1), step => step.Named("Map request"))
+                .Then((NumberStage stage, CancellationToken token) => Task.FromResult(new NumberDecision(stage.Value + 1)), step => step.Tags("async-map"))
+                .Then(decision => log.Add($"active:{decision.Value}"))
+                .Then((NumberDecision decision, CancellationToken token) => log.Add($"token:{token.CanBeCanceled}"))
+                .Then((NumberDecision decision, CancellationToken token) =>
+                {
+                    log.Add($"task:{decision.Value}");
+                    return Task.CompletedTask;
+                }, step => step.Describe("Records the active decision."))
+                .ThenWith<NumberRequest, NumberHistoryStage>(request => new NumberHistoryStage(request.Value + 10), step => step.Named("Resolve original request"))
+                .ThenWith<NumberRequest>((request, token) =>
+                {
+                    log.Add($"history:{request.Value}");
+                    return Task.CompletedTask;
+                }, step => step.Tags("history"))
+                .ThenWith<NumberRequest, NumberStage, NumberDecision>((request, stage) => new NumberDecision(request.Value + stage.Value), step => step.Metadata("uses", "two-values"))
+                .ThenWith<NumberRequest, NumberStage>((request, stage, token) =>
+                {
+                    log.Add($"pair:{request.Value + stage.Value}");
+                    return Task.CompletedTask;
+                }, step => step.Named("Pair effect"))
+                .ContinueIf(decision => decision.Value > 0, Flow.Stop(), step => step.Named("Continue positive"))
+                .ContinueIf(decision => decision.Value > 0, Flow.Throw(() => new InvalidOperationException("negative")), step => step.Named("Throw guard"))
+                .Branch<NumberResult>(branch => branch
+                    .Named("Decision route")
+                    .Describe("Chooses a positive route.")
+                    .Tags("branch")
+                    .Metadata("kind", "number")
+                    .When(
+                        decision => decision.Value > 0,
+                        route => route
+                            .Named("Positive")
+                            .Describe("Positive path")
+                            .Tags("positive")
+                            .Metadata("route", "positive")
+                            .Then(decision => new NumberResult(decision.Value), step => step.Named("Create result"))
+                            .Then(result => log.Add($"route:{result.Value}")))
+                    .Otherwise(route => route
+                        .Then(decision => new NumberResult(-1))))
+                .Then(result => log.Add($"result:{result.Value}"))
+                .RunAsync(new NumberRequest(2), CancellationToken.None);
+
+            Assert.Contains("active:4", log);
+            Assert.Contains("history:2", log);
+            Assert.Contains("pair:5", log);
+            Assert.Contains("route:5", log);
+            Assert.Contains("result:5", log);
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenResponseFlowUsesDslOverloads_ShouldReturnResponse()
+        {
+            var spider = CreateSpider();
+            var log = new List<string>();
+
+            var response = await spider
+                .ComposeFlow<NumberRequest, NumberResult>("Calculate result")
+                .UsingProfile("Business")
+                .Describe("Exercises the response builder overloads.")
+                .Tags("math", "response")
+                .Metadata("owner", "tests")
+                .ContinueIf(
+                    request => request.Value > 0,
+                    Flow.Return<NumberRequest, NumberResult>((request, token) => Task.FromResult(new NumberResult(-1))),
+                    step => step.Named("Positive input"))
+                .ContinueIf(
+                    request => request.Value > 0,
+                    Flow.Throw(() => new InvalidOperationException("invalid")),
+                    step => step.Named("Throwing input guard"))
+                .Then(request => new NumberStage(request.Value + 1), step => step.Named("Map"))
+                .Then((NumberStage stage, CancellationToken token) => Task.FromResult(new NumberDecision(stage.Value + 1)), step => step.Named("Async map"))
+                .Then(decision => log.Add($"decision:{decision.Value}"))
+                .Then((NumberDecision decision, CancellationToken token) => log.Add($"token:{token.CanBeCanceled}"), step => step.Named("Token effect"))
+                .Then((NumberDecision decision, CancellationToken token) =>
+                {
+                    log.Add($"task:{decision.Value}");
+                    return Task.CompletedTask;
+                })
+                .ThenWith<NumberRequest, NumberHistoryStage>(request => new NumberHistoryStage(request.Value + 10), step => step.Named("History map"))
+                .ThenWith<NumberRequest>((request, token) =>
+                {
+                    log.Add($"history:{request.Value}");
+                    return Task.CompletedTask;
+                }, step => step.Named("History effect"))
+                .ThenWith<NumberRequest, NumberStage, NumberDecision>((request, stage) => new NumberDecision(request.Value + stage.Value), step => step.Named("Two-value map"))
+                .ThenWith<NumberRequest, NumberStage>((request, stage, token) =>
+                {
+                    log.Add($"pair:{request.Value + stage.Value}");
+                    return Task.CompletedTask;
+                }, step => step.Named("Two-value effect"))
+                .Branch<NumberResult>(branch => branch
+                    .When(
+                        decision => decision.Value > 0,
+                        route => route
+                            .Then(decision => new NumberResult(decision.Value), step => step.Named("Result"))
+                            .ThenWith<NumberRequest, NumberResult>(request => new NumberResult(request.Value + 100), step => step.Named("Route history map"))
+                            .ThenWith<NumberRequest, NumberStage>((request, stage, token) =>
+                            {
+                                log.Add($"route-history:{request.Value + stage.Value}");
+                                return Task.CompletedTask;
+                            }, step => step.Named("Route pair effect")))
+                    .Otherwise(route => route.Then(decision => new NumberResult(-1))))
+                .RunAsync(new NumberRequest(3), CancellationToken.None);
+
+            Assert.Equal(103, response.Value);
+            Assert.Contains("decision:5", log);
+            Assert.Contains("history:3", log);
+            Assert.Contains("pair:7", log);
+            Assert.Contains("route-history:7", log);
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenResponseFlowReturnsNullReferenceResponse_ShouldReturnDefault()
+        {
+            var spider = CreateSpider();
+
+            var response = await spider
+                .ComposeFlow<CreateCustomerRequest, CustomerResponse>("Create customer")
+                .ContinueIf(
+                    request => false,
+                    Flow.Return<CreateCustomerRequest, CustomerResponse>((request, token) => Task.FromResult<CustomerResponse>(null)))
+                .Then(request => throw new InvalidOperationException("Should not run."))
+                .RunAsync(new CreateCustomerRequest("ada@example.com"), CancellationToken.None);
+
+            Assert.Null(response);
+        }
+
+        [Fact]
         public async Task RunAsync_WhenContinueIfReturnsEarly_ShouldSkipRemainingSteps()
         {
             var spider = CreateSpider();
@@ -206,6 +345,32 @@ namespace Spider.Pipelines.Tests.Flows
                     .When(IsLowRisk, low => low.Then(AutoApprove))));
         }
 
+        [Fact]
+        public void BuilderMethods_WhenArgumentsAreInvalid_ShouldThrow()
+        {
+            var spider = CreateSpider();
+
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest>("Risk").Tags(null));
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest, RiskResponse>("Risk").Tags(null));
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest>("Risk").Then(request => request, null));
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest, RiskResponse>("Risk").Then(request => request, null));
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest>("Risk").ContinueIf(request => true, (FlowStop)null));
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest>("Risk").Branch<RiskDecision>(null));
+            Assert.Throws<ArgumentNullException>(() => spider.ComposeFlow<RiskRequest, RiskResponse>("Risk").Branch<RiskDecision>(null));
+            Assert.Throws<ArgumentNullException>(() => spider
+                .ComposeFlow<RiskRequest, RiskResponse>("Risk")
+                .Then(BuildRiskProfile)
+                .Branch<RiskDecision>(branch => branch.When(null, route => route.Then(AutoApprove))));
+            Assert.Throws<ArgumentNullException>(() => spider
+                .ComposeFlow<RiskRequest, RiskResponse>("Risk")
+                .Then(BuildRiskProfile)
+                .Branch<RiskDecision>(branch => branch.When(IsLowRisk, null)));
+            Assert.Throws<ArgumentNullException>(() => spider
+                .ComposeFlow<RiskRequest, RiskResponse>("Risk")
+                .Then(BuildRiskProfile)
+                .Branch<RiskDecision>(branch => branch.Otherwise(null)));
+        }
+
         private static ISpider CreateSpider()
         {
             var services = new ServiceCollection();
@@ -283,5 +448,15 @@ namespace Spider.Pipelines.Tests.Flows
         private sealed record RiskDecision(string Value);
 
         private sealed record RiskResponse(string Decision);
+
+        private sealed record NumberRequest(int Value);
+
+        private sealed record NumberStage(int Value);
+
+        private sealed record NumberHistoryStage(int Value);
+
+        private sealed record NumberDecision(int Value);
+
+        private sealed record NumberResult(int Value);
     }
 }
