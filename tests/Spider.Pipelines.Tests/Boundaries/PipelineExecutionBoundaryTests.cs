@@ -1,6 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
+using Spider.Pipelines.Boundaries;
+using Spider.Pipelines.Boundaries.Internals;
 using Spider.Pipelines.Core;
 using Spider.Pipelines.Extensions;
+using Spider.Pipelines.RuntimeTracing;
 
 namespace Spider.Pipelines.Tests.Boundaries
 {
@@ -371,6 +374,120 @@ namespace Spider.Pipelines.Tests.Boundaries
         }
 
         /// <summary>
+        /// Verifies that fault failures during begin cleanup preserve the original begin exception.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenBeginCleanupFaultAlsoFails_ShouldSurfaceBeginException()
+        {
+            var log = new BoundaryEventLog();
+            var bridge = CreateBridge(services =>
+            {
+                services.AddSingleton(log);
+                services.AddSpider()
+                    .AddExecutionBoundary<ThrowingFaultBoundary>()
+                    .AddExecutionBoundary<ThrowingBeginBoundary>();
+            });
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => bridge
+                .Attach<string, int>(builder => { })
+                .ExecuteAsync(service => (request, token) => service.HandleAsync(request, token), "spider"));
+
+            Assert.Equal("Begin failed.", exception.Message);
+            Assert.Equal(new[] { "throw-fault:begin", "throw-begin:begin", "throw-fault:fault:InvalidOperationException" }, log.Events);
+        }
+
+        /// <summary>
+        /// Verifies direct boundary runner argument validation.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task RunAsync_WhenArgumentsAreNull_ShouldThrow()
+        {
+            using var provider = new ServiceCollection().BuildServiceProvider();
+            var runner = new PipelineExecutionBoundaryRunner(provider);
+            var requestContext = new RequestBoundaryContext(provider);
+            var responseContext = new ResponseBoundaryContext(provider);
+
+            await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync<string>(
+                null,
+                () => Task.CompletedTask,
+                Array.Empty<IPipelineExecutionBoundary>(),
+                CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(
+                requestContext,
+                null,
+                Array.Empty<IPipelineExecutionBoundary>(),
+                CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(
+                requestContext,
+                () => Task.CompletedTask,
+                null,
+                CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync<string, int>(
+                null,
+                () => Task.FromResult(42),
+                Array.Empty<IPipelineExecutionBoundary>(),
+                CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(
+                responseContext,
+                null,
+                Array.Empty<IPipelineExecutionBoundary>(),
+                CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => runner.RunAsync(
+                responseContext,
+                () => Task.FromResult(42),
+                null,
+                CancellationToken.None));
+        }
+
+        /// <summary>
+        /// Verifies traced boundary cancellation stays observable while preserving cancellation behavior.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task RunAsync_WhenTracedBoundaryBeginCancels_ShouldEmitCancelledBoundaryEvent()
+        {
+            var services = new ServiceCollection();
+            services.AddSpiderRuntimeTracing();
+            using var provider = services.BuildServiceProvider();
+            var runner = new PipelineExecutionBoundaryRunner(provider);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => runner.RunAsync(
+                new RequestBoundaryContext(provider),
+                () => Task.CompletedTask,
+                new IPipelineExecutionBoundary[] { new CancellingBeginBoundary() },
+                CancellationToken.None));
+
+            var trace = await GetOnlyTraceAsync(provider);
+
+            Assert.Contains(trace.Events, item => item.ComponentKind == "spider.boundary" && item.Status == SpiderTraceStatus.Cancelled);
+        }
+
+        /// <summary>
+        /// Verifies traced boundary failures stay observable while preserving exception behavior.
+        /// </summary>
+        /// <returns>A task representing the asynchronous test.</returns>
+        [Fact]
+        public async Task RunAsync_WhenTracedBoundaryBeginFaults_ShouldEmitFaultedBoundaryEvent()
+        {
+            var services = new ServiceCollection();
+            services.AddSpiderRuntimeTracing();
+            using var provider = services.BuildServiceProvider();
+            var runner = new PipelineExecutionBoundaryRunner(provider);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(
+                new RequestBoundaryContext(provider),
+                () => Task.CompletedTask,
+                new IPipelineExecutionBoundary[] { new DirectThrowingBeginBoundary() },
+                CancellationToken.None));
+
+            var trace = await GetOnlyTraceAsync(provider);
+
+            Assert.Contains(trace.Events, item => item.ComponentKind == "spider.boundary" && item.Status == SpiderTraceStatus.Faulted);
+        }
+
+        /// <summary>
         /// Verifies that complete failures surface when the pipeline succeeded.
         /// </summary>
         /// <returns>A task representing the asynchronous test.</returns>
@@ -433,6 +550,78 @@ namespace Spider.Pipelines.Tests.Boundaries
 
             var provider = services.BuildServiceProvider();
             return provider.GetRequiredService<ISpider>().InitBridge<BoundaryTestService>();
+        }
+
+        private static async Task<SpiderTrace> GetOnlyTraceAsync(IServiceProvider provider)
+        {
+            await provider.GetRequiredService<ISpiderTraceDispatcher>().FlushAsync(CancellationToken.None);
+            var reader = provider.GetRequiredService<ISpiderTraceReader>();
+            var summaries = new List<SpiderTraceSummary>();
+            await foreach (var summary in reader.QueryAsync(new SpiderTraceQuery { Limit = 10 }, CancellationToken.None))
+                summaries.Add(summary);
+
+            var only = Assert.Single(summaries);
+            return await reader.GetAsync(only.TraceId, CancellationToken.None);
+        }
+
+        private sealed class RequestBoundaryContext : IReadOnlyContext<string>
+        {
+            public RequestBoundaryContext(IServiceProvider services, bool cancelled = false)
+            {
+                Services = services;
+                Cancelled = cancelled;
+            }
+
+            public string Request => "spider";
+
+            public IServiceProvider Services { get; }
+
+            public bool Cancelled { get; }
+
+            public PipelineState PipelineState => PipelineState.OnTargeting;
+
+            public CancellationToken CancellationToken => CancellationToken.None;
+
+            public ResultState ResultState => ResultState.Pending;
+
+            public Exception Exception => null;
+        }
+
+        private sealed class ResponseBoundaryContext : IReadOnlyContext<string, int>
+        {
+            public ResponseBoundaryContext(IServiceProvider services, bool cancelled = false)
+            {
+                Services = services;
+                Cancelled = cancelled;
+            }
+
+            public string Request => "spider";
+
+            public int Response => 6;
+
+            public IServiceProvider Services { get; }
+
+            public bool Cancelled { get; }
+
+            public PipelineState PipelineState => PipelineState.OnTargeting;
+
+            public CancellationToken CancellationToken => CancellationToken.None;
+
+            public ResultState ResultState => ResultState.Pending;
+
+            public Exception Exception => null;
+        }
+
+        private sealed class CancellingBeginBoundary : PipelineExecutionBoundary
+        {
+            public override ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+                => throw new OperationCanceledException("Boundary cancelled.");
+        }
+
+        private sealed class DirectThrowingBeginBoundary : PipelineExecutionBoundary
+        {
+            public override ValueTask BeginAsync(PipelineExecutionContext context, CancellationToken cancellationToken)
+                => throw new InvalidOperationException("Direct begin failed.");
         }
     }
 }

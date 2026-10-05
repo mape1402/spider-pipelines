@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Spider.Pipelines.Core;
 using Spider.Pipelines.Flows;
+using Spider.Pipelines.RuntimeTracing;
 
 namespace Spider.Pipelines.Tests.Flows
 {
@@ -144,6 +145,37 @@ namespace Spider.Pipelines.Tests.Flows
         }
 
         [Fact]
+        public async Task RunAsync_WhenNoResponseFlowUsesPlainHistoryOverloads_ShouldComplete()
+        {
+            var spider = CreateSpider();
+            var log = new List<string>();
+
+            await spider
+                .ComposeFlow<NumberRequest>("Plain no-response overloads")
+                .Then(request => new NumberStage(request.Value + 1))
+                .Then(stage => log.Add($"active-meta:{stage.Value}"), step => step.Named("Active metadata effect"))
+                .Then((NumberStage stage, CancellationToken token) => log.Add($"token-meta:{stage.Value}:{token.CanBeCanceled}"), step => step.Tags("token"))
+                .ThenWith<NumberRequest, NumberHistoryStage>(request => new NumberHistoryStage(request.Value + 10))
+                .ThenWith<NumberHistoryStage>((history, token) =>
+                {
+                    log.Add($"history:{history.Value}");
+                    return Task.CompletedTask;
+                })
+                .ThenWith<NumberRequest, NumberStage, NumberPairStage>((request, stage) => new NumberPairStage(request.Value + stage.Value))
+                .ThenWith<NumberRequest, NumberPairStage>((request, pair, token) =>
+                {
+                    log.Add($"pair:{request.Value + pair.Value}");
+                    return Task.CompletedTask;
+                })
+                .RunAsync(new NumberRequest(4), CancellationToken.None);
+
+            Assert.Contains("active-meta:5", log);
+            Assert.Contains("token-meta:5:False", log);
+            Assert.Contains("history:14", log);
+            Assert.Contains("pair:13", log);
+        }
+
+        [Fact]
         public async Task RunAsync_WhenResponseFlowUsesDslOverloads_ShouldReturnResponse()
         {
             var spider = CreateSpider();
@@ -203,6 +235,39 @@ namespace Spider.Pipelines.Tests.Flows
             Assert.Contains("history:3", log);
             Assert.Contains("pair:7", log);
             Assert.Contains("route-history:7", log);
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenResponseFlowUsesPlainHistoryOverloads_ShouldReturnResponse()
+        {
+            var spider = CreateSpider();
+            var log = new List<string>();
+
+            var response = await spider
+                .ComposeFlow<NumberRequest, NumberResult>("Plain response overloads")
+                .Then(request => new NumberStage(request.Value + 2))
+                .Then(stage => log.Add($"active-meta:{stage.Value}"), step => step.Named("Active metadata effect"))
+                .Then((NumberStage stage, CancellationToken token) => log.Add($"token:{stage.Value}:{token.CanBeCanceled}"))
+                .ThenWith<NumberRequest, NumberHistoryStage>(request => new NumberHistoryStage(request.Value + 20))
+                .ThenWith<NumberHistoryStage>((history, token) =>
+                {
+                    log.Add($"history:{history.Value}");
+                    return Task.CompletedTask;
+                })
+                .ThenWith<NumberRequest, NumberStage, NumberPairStage>((request, stage) => new NumberPairStage(request.Value + stage.Value))
+                .ThenWith<NumberRequest, NumberPairStage>((request, pair, token) =>
+                {
+                    log.Add($"pair:{request.Value + pair.Value}");
+                    return Task.CompletedTask;
+                })
+                .Then(pair => new NumberResult(pair.Value))
+                .RunAsync(new NumberRequest(4), CancellationToken.None);
+
+            Assert.Equal(10, response.Value);
+            Assert.Contains("active-meta:6", log);
+            Assert.Contains("token:6:False", log);
+            Assert.Contains("history:24", log);
+            Assert.Contains("pair:14", log);
         }
 
         [Fact]
@@ -323,6 +388,122 @@ namespace Spider.Pipelines.Tests.Flows
         }
 
         [Fact]
+        public async Task RunAsync_WhenBranchRouteUsesDslOverloads_ShouldComplete()
+        {
+            var spider = CreateSpider();
+            var log = new List<string>();
+
+            var response = await spider
+                .ComposeFlow<NumberRequest, NumberResult>("Route overloads")
+                .Then(request => new NumberDecision(request.Value))
+                .Branch<NumberResult>(branch => branch
+                    .When(
+                        decision => decision.Value > 0,
+                        route => route
+                            .Then((NumberDecision decision, CancellationToken token) => Task.FromResult(new NumberStage(decision.Value + 1)))
+                            .Then((NumberStage stage, CancellationToken token) => Task.FromResult(new NumberResult(stage.Value)), step => step.Named("Async route result"))
+                            .Then((NumberResult result, CancellationToken token) =>
+                            {
+                                log.Add($"effect:{result.Value}");
+                                return Task.CompletedTask;
+                            })
+                            .Then((NumberResult result, CancellationToken token) =>
+                            {
+                                log.Add($"effect-meta:{result.Value}");
+                                return Task.CompletedTask;
+                            }, step => step.Tags("effect"))
+                            .Then(result => log.Add($"action:{result.Value}"))
+                            .Then(result => log.Add($"action-meta:{result.Value}"), step => step.Named("Action metadata"))
+                            .ThenWith<NumberRequest, NumberRouteStage>(request => new NumberRouteStage(request.Value + 10))
+                            .ThenWith<NumberRequest, NumberRouteStage>((request, stage, token) =>
+                            {
+                                log.Add($"pair:{request.Value + stage.Value}");
+                                return Task.CompletedTask;
+                            })
+                            .Then(stage => new NumberResult(stage.Value)))
+                    .Otherwise(route => route.Then(decision => new NumberResult(-1))))
+                .RunAsync(new NumberRequest(4), CancellationToken.None);
+
+            Assert.Equal(14, response.Value);
+            Assert.Contains("effect:5", log);
+            Assert.Contains("effect-meta:5", log);
+            Assert.Contains("action:5", log);
+            Assert.Contains("action-meta:5", log);
+            Assert.Contains("pair:18", log);
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedFlowFaults_ShouldEmitFaultedFlowAndStep()
+        {
+            using var provider = CreateProvider(runtimeTracing: true);
+            var spider = provider.GetRequiredService<ISpider>();
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => spider
+                .ComposeFlow<NumberRequest, NumberResult>("Faulted traced flow")
+                .Describe("Exercises flow fault tracing.")
+                .Tags("fault")
+                .Then<NumberResult>(_ => throw new InvalidOperationException("Flow step failed."))
+                .RunAsync(new NumberRequest(1), CancellationToken.None));
+
+            var trace = await GetOnlyTraceAsync(provider);
+
+            Assert.Equal("Flow step failed.", exception.Message);
+            Assert.Equal(SpiderTraceStatus.Faulted, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowFaulted);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowStepFaulted);
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedFlowIsCancelled_ShouldEmitCancelledFlowAndStep()
+        {
+            using var provider = CreateProvider(runtimeTracing: true);
+            var spider = provider.GetRequiredService<ISpider>();
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => spider
+                .ComposeFlow<NumberRequest, NumberResult>("Cancelled traced flow")
+                .Then<NumberResult>((request, token) => throw new OperationCanceledException("Flow step cancelled."))
+                .RunAsync(new NumberRequest(1), CancellationToken.None));
+
+            var trace = await GetOnlyTraceAsync(provider);
+
+            Assert.Equal(SpiderTraceStatus.Cancelled, trace.Status);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowCancelled);
+            Assert.Contains(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowCancelled && item.ComponentKind == "spider.flow-step");
+        }
+
+        [Fact]
+        public async Task RunAsync_WhenRuntimeTracedBranchSelectsRoute_ShouldEmitSelectedRouteMetadata()
+        {
+            using var provider = CreateProvider(runtimeTracing: true);
+            var spider = provider.GetRequiredService<ISpider>();
+
+            var response = await spider
+                .ComposeFlow<NumberRequest, NumberResult>("Traced branch flow")
+                .Then(request => new NumberDecision(request.Value))
+                .Branch<NumberResult>(branch => branch
+                    .Named("Select number route")
+                    .When(
+                        decision => decision.Value > 0,
+                        route => route
+                            .Named("Positive route")
+                            .Tags("positive")
+                            .Metadata("lane", "positive")
+                            .Then(decision => new NumberResult(decision.Value)))
+                    .Otherwise(route => route
+                        .Named("Fallback route")
+                        .Then(decision => new NumberResult(-1))))
+                .RunAsync(new NumberRequest(5), CancellationToken.None);
+
+            var trace = await GetOnlyTraceAsync(provider);
+            var routeEvent = Assert.Single(trace.Events, item => item.Kind == SpiderTraceEventKind.FlowBranchSelected);
+
+            Assert.Equal(5, response.Value);
+            Assert.Equal("Positive route", routeEvent.DisplayName);
+            Assert.Equal("positive", routeEvent.Metadata["lane"]);
+            Assert.Equal("Positive route", routeEvent.Metadata["route"]);
+        }
+
+        [Fact]
         public async Task RunAsync_WhenResponseFlowEndsWithWrongActiveType_ShouldThrow()
         {
             var spider = CreateSpider();
@@ -372,6 +553,9 @@ namespace Spider.Pipelines.Tests.Flows
         }
 
         private static ISpider CreateSpider()
+            => CreateProvider().GetRequiredService<ISpider>();
+
+        private static ServiceProvider CreateProvider(bool runtimeTracing = false)
         {
             var services = new ServiceCollection();
             services.AddSpider(builder =>
@@ -383,7 +567,22 @@ namespace Spider.Pipelines.Tests.Flows
                 });
             });
 
-            return services.BuildServiceProvider().GetRequiredService<ISpider>();
+            if (runtimeTracing)
+                services.AddSpiderRuntimeTracing();
+
+            return services.BuildServiceProvider();
+        }
+
+        private static async Task<SpiderTrace> GetOnlyTraceAsync(IServiceProvider provider)
+        {
+            await provider.GetRequiredService<ISpiderTraceDispatcher>().FlushAsync(CancellationToken.None);
+            var reader = provider.GetRequiredService<ISpiderTraceReader>();
+            var summaries = new List<SpiderTraceSummary>();
+            await foreach (var summary in reader.QueryAsync(new SpiderTraceQuery { Limit = 10 }, CancellationToken.None))
+                summaries.Add(summary);
+
+            var only = Assert.Single(summaries);
+            return await reader.GetAsync(only.TraceId, CancellationToken.None);
         }
 
         private static Task ValidateAsync(CreateCustomerRequest request, CancellationToken cancellationToken)
@@ -453,7 +652,11 @@ namespace Spider.Pipelines.Tests.Flows
 
         private sealed record NumberStage(int Value);
 
+        private sealed record NumberRouteStage(int Value);
+
         private sealed record NumberHistoryStage(int Value);
+
+        private sealed record NumberPairStage(int Value);
 
         private sealed record NumberDecision(int Value);
 
