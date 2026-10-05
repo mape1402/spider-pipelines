@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v2.2.0] - 2026-10-04
+## [v2.2.1] - 2026-10-04
 
 ### Added
 
@@ -20,12 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Spider.Pipelines.Web` package for graphical architecture documentation from generated manifests.
 - Web runtime trace views with execution story lines, flow graphs, raw event inspection, trace import, and trace export.
 - Web sample project that serves the graphical Spider architecture documentation UI and runtime trace examples.
-
-### Changed
-
-- Web architecture documentation now highlights related flows, pipelines, boundaries, and parent relationships with clearer navigation.
-- Flow and pipeline diagrams now use distinct visual shapes for decisions, routes, parallel work, batches, linked flows, stages, and boundaries.
-- The documentation shell now supports light and dark modes, a collapsible sidebar, maximized graph views, and refined navigation iconography.
+- Related flow, pipeline, boundary, and parent navigation in the web architecture documentation.
+- Distinct flow and pipeline diagram visuals for decisions, routes, parallel work, batches, linked flows, stages, and boundaries.
+- Light and dark modes, collapsible navigation, maximized graph views, and refined navigation iconography in the documentation shell.
 
 ## [v2.1.0] - 2026-08-07
 
